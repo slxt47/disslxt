@@ -32,6 +32,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['**/test/**/*.ts', '**/*.test.{ts,tsx}', 'e2e/**/*.ts', 'scripts/**'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['frontend/**/*.{ts,tsx}'],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
