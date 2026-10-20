@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:docker": "E2E_BASE_URL=${E2E_BASE_URL:-https://localhost:8443} playwright test tests/realtime-chat.spec.ts --grep \"two users chat\""
   },
   "devDependencies": {
-    "@playwright/test": "~1.56.1"
+    "@playwright/test": "~1.56.1",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
   }
 }
