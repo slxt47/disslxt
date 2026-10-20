@@ -382,6 +382,52 @@ describe('presence', () => {
     expect(d.ofType('presence.update').filter((e) => e.data.userId === bob.user.id)).toEqual([]);
   });
 
+  it('D2: a socket closed while its early subscribe is drained does not stay online', async () => {
+    // Hold the queued subscribe inside assertAccess until the client has terminated.
+    const channels = app.services.channels;
+    const original = channels.assertAccess.bind(channels);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let entered!: () => void;
+    const inAssert = new Promise<void>((r) => (entered = r));
+    channels.assertAccess = async (...args: Parameters<typeof original>) => {
+      entered();
+      await gate;
+      return original(...args);
+    };
+    try {
+      const b = wsConnect(host, { cookie: bob.cookie });
+      await b.opened;
+      b.send({ type: 'subscribe', data: { channelId: generalId } });
+      await inAssert;
+      expect(app.hub.isOnline(bob.user.id)).toBe(true);
+      b.ws.terminate();
+      await b.closed;
+      await sleep(50); // let the server see the close while the subscribe is still pending
+      release();
+      await sleep(50);
+    } finally {
+      channels.assertAccess = original;
+    }
+    expect(app.hub.isOnline(bob.user.id)).toBe(false);
+    expect(app.hub.clientCount).toBe(0);
+    expect(await onlineOf(alice, bob.user.id)).toBe(false);
+  });
+
+  it('D2: 30× connect, subscribe before ready, terminate → no ghost presence', async () => {
+    for (let i = 0; i < 30; i++) {
+      const b = wsConnect(host, { cookie: bob.cookie });
+      await b.opened;
+      b.send({ type: 'subscribe', data: { channelId: generalId } });
+      await sleep(i % 5);
+      b.ws.terminate();
+      await b.closed;
+    }
+    await sleep(300);
+    expect(app.hub.clientCount).toBe(0);
+    expect(await onlineOf(alice, bob.user.id)).toBe(false);
+  });
+
   it('presence is broadcast to each of the user’s guilds', async () => {
     const other = await createGuild(app, alice, 'Other');
     await joinGuild(app, bob, other.guild.inviteCode);

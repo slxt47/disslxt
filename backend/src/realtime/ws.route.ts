@@ -22,31 +22,41 @@ export async function wsRoutes(
 ): Promise<void> {
   const { hub, services, config } = opts;
 
+  /** Terminates a socket and drops it from the hub right away (removeClient is idempotent, the
+   *  later `close` event is a no-op then). */
+  const drop = (client: Client): void => {
+    client.socket.terminate();
+    hub.removeClient(client);
+  };
+
   // Heartbeat: ping every interval, terminate sockets that missed the previous pong.
   const heartbeat = setInterval(() => {
     for (const client of hub.allClients()) {
-      if (!client.isAlive) {
-        client.socket.terminate();
+      if (!client.isAlive || client.socket.readyState !== client.socket.OPEN) {
+        drop(client);
         continue;
       }
       client.isAlive = false;
       try {
         client.socket.ping();
       } catch {
-        client.socket.terminate();
+        drop(client);
       }
     }
   }, config.wsHeartbeatMs);
   heartbeat.unref();
   app.addHook('onClose', async () => {
     clearInterval(heartbeat);
-    for (const client of hub.allClients()) client.socket.terminate();
+    for (const client of hub.allClients()) drop(client);
   });
 
   app.get('/ws', { websocket: true }, (socket: WebSocket, req: FastifyRequest) => {
     // Buffer frames that arrive while the connection is still being authenticated.
     const queue: WsClientMessage[] = [];
+    /** Set once queued frames are drained; from then on frames are handled directly. */
     let client: Client | null = null;
+    /** Set as soon as the socket is in the hub, so `close` always removes it again. */
+    let registered: Client | null = null;
     let closed = false;
 
     socket.on('message', (raw, isBinary) => {
@@ -60,7 +70,7 @@ export async function wsRoutes(
     });
     socket.on('close', () => {
       closed = true;
-      if (client) hub.removeClient(client);
+      if (registered) hub.removeClient(registered);
     });
     socket.on('error', (err) => req.log.warn({ err }, 'ws error'));
 
@@ -90,9 +100,15 @@ export async function wsRoutes(
       });
       sendTo(c, { type: 'ready', data: { userId: user.id } });
       hub.addClient(c);
+      registered = c;
       while (queue.length > 0) {
         const next = queue.shift();
         if (next) await handle(c, next);
+      }
+      if (closed) {
+        // Closed while draining: the close handler already removed it; removal is idempotent.
+        hub.removeClient(c);
+        return;
       }
       client = c;
     })().catch((err: unknown) => {
