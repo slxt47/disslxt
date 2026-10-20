@@ -1,3 +1,7 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
 import { z } from 'zod';
 
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
@@ -72,4 +76,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     wsHeartbeatMs: e.WS_HEARTBEAT_MS,
   };
+}
+
+/**
+ * Loads `.env` from the current directory or the repo root (dev convenience) without
+ * overriding variables that are already set. Missing files are ignored.
+ */
+export function loadDotEnv(): void {
+  const candidates = [
+    resolve(process.cwd(), '.env'),
+    fileURLToPath(new URL('../../.env', import.meta.url)),
+  ];
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    const parsed = parseEnv(readFileSync(file, 'utf8'));
+    for (const [k, v] of Object.entries(parsed)) {
+      if (process.env[k] === undefined) process.env[k] = v;
+    }
+    return;
+  }
 }
