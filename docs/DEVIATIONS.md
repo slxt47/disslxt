@@ -77,3 +77,30 @@ Steps 1–15 plus the backend parts of steps 22–24.
     to change for this.
 19. **React Router v7 future flags** (`v7_startTransition`, `v7_relativeSplatPath`) are enabled to
     silence the v6 deprecation warnings.
+
+## Third run: tester defects D1–D5
+
+20. **D1 – newest page vs. cached history.** `applyLatestPage` keeps cached older messages only
+    when the cache already holds the page's oldest message (cache and page are contiguous) and the
+    page has `hasMore`; otherwise it drops them and takes the page's `hasMore`, so "Ältere laden"
+    fetches the rest without a gap. Without `hasMore` the page reaches back to the channel start,
+    so older cached messages are dropped as deleted. Re-opening a channel (ChatView mount) always
+    replaces cached older messages (`{ replace: true }`), so edits/deletes made while the channel
+    was not open do not survive either; already paged-in history of that channel is paged in again
+    on demand. Remaining limit: after a short disconnect *without* a gap, edits/deletes of cached
+    messages older than the newest page stay stale until the channel is opened again.
+21. **D2 – WS hub cleanup.** A socket is removed from the hub by the `close` handler as soon as it
+    is registered (not only after queued frames are drained); the heartbeat and the `onClose` hook
+    remove clients right after `terminate()` (`removeClient` is idempotent).
+22. **D3 – control characters.** Message content rejects C0 control characters except tab, LF and
+    CR, and DEL (CR is allowed because API clients may send CRLF). Guild names reject all control
+    characters (C0, DEL, C1), including newlines. Usernames, channel names and emails already
+    rejected them through their regexes / email check (now covered by tests).
+23. **D5 – one length definition.** `textLength()` in `@chat-mvp/shared` counts Unicode code points
+    (`[...s].length`, like PostgreSQL's `char_length`). The message and guild-name schemas, the
+    composer counter and the edit field use it. The guild-name input lost its HTML `maxLength`
+    (which counts UTF-16 units); the schema check on submit enforces 100 characters instead.
+24. **D4 – E2E ports.** Playwright starts its own backend on 3100 and Vite on 5174 (`vite.config.ts`
+    takes the proxy target from `API_PROXY_TARGET`) with `reuseExistingServer: false`; ports can be
+    overridden with `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`. This supersedes the `127.0.0.1:3000`
+    detail of item 16.

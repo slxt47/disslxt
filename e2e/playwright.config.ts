@@ -1,17 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Default: starts the backend (against the E2E database, relaxed rate limits) and the Vite dev
- * server, then runs all specs against http://localhost:5173.
+ * Default: starts its own backend (against the E2E database, relaxed rate limits) on port 3100 and
+ * its own Vite dev server on port 5174 (proxying to that backend), then runs all specs against
+ * http://localhost:5174. The ports differ from `pnpm dev` (3000/5173) and running servers are never
+ * reused, so E2E never hits the dev database or the real rate limits. Override the ports with
+ * E2E_BACKEND_PORT / E2E_FRONTEND_PORT.
  *
  * Docker smoke run: `E2E_BASE_URL=https://localhost:8443 pnpm e2e:docker` uses the running
  * `docker compose` stack instead (no web servers, self-signed certificate accepted).
  */
 const externalBaseUrl = process.env.E2E_BASE_URL;
-const baseURL = externalBaseUrl ?? 'http://localhost:5173';
+const backendPort = process.env.E2E_BACKEND_PORT ?? '3100';
+const frontendPort = process.env.E2E_FRONTEND_PORT ?? '5174';
+const frontendOrigin = `http://localhost:${frontendPort}`;
+const baseURL = externalBaseUrl ?? frontendOrigin;
 const e2eDatabaseUrl =
   process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_e2e';
-const reuse = !process.env.CI;
 
 export default defineConfig({
   testDir: './tests',
@@ -41,30 +46,32 @@ export default defineConfig({
           name: 'backend',
           command: 'pnpm --filter @chat-mvp/backend exec tsx src/server.ts',
           cwd: '..',
-          url: 'http://127.0.0.1:3000/api/health',
-          reuseExistingServer: reuse,
+          url: `http://127.0.0.1:${backendPort}/api/health`,
+          // Fail if the port is taken instead of silently testing against another server.
+          reuseExistingServer: false,
           timeout: 60_000,
           stdout: 'pipe',
           stderr: 'pipe',
           env: {
             NODE_ENV: 'test',
             DATABASE_URL: e2eDatabaseUrl,
-            PORT: '3000',
+            PORT: backendPort,
             HOST: '127.0.0.1',
             LOG_LEVEL: 'warn',
             COOKIE_SECURE: 'false',
             TRUST_PROXY: 'false',
-            ALLOWED_ORIGINS: 'http://localhost:5173',
+            ALLOWED_ORIGINS: frontendOrigin,
             RATE_LIMIT_LOGIN_MAX: '1000',
             RATE_LIMIT_MESSAGE_MAX: '1000',
           },
         },
         {
           name: 'frontend',
-          command: 'pnpm --filter @chat-mvp/frontend exec vite --port 5173 --strictPort',
+          command: `pnpm --filter @chat-mvp/frontend exec vite --port ${frontendPort} --strictPort`,
           cwd: '..',
-          url: 'http://localhost:5173',
-          reuseExistingServer: reuse,
+          url: frontendOrigin,
+          reuseExistingServer: false,
+          env: { API_PROXY_TARGET: `http://127.0.0.1:${backendPort}` },
           timeout: 60_000,
           // Vite logs harmless ws-proxy resets whenever a test closes a browser context.
           stdout: 'ignore',

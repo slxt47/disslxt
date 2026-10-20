@@ -63,9 +63,13 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers pnpm e2e   # Playwright (E2E_DATABASE_
   (inkl. p95-Latenz < 300 ms und 100 gleichzeitigen WS-Clients), Rate-Limits und Security ab.
 - **Frontend** (vitest + jsdom + Testing Library): Composer, MessageItem, MessageList
   (Auto-Scroll, „Ältere laden“), Backoff, Store-Reducer, Realtime-Client.
-- **E2E** (Playwright, Chromium): startet Backend (gegen `chat_mvp_e2e`, gelockerte Rate-Limits)
-  und Vite-Dev-Server selbst und leert die E2E-Datenbank vorab. Specs: `realtime-chat`,
-  `invite-join`, `history-reload`, `auth`, `composer`, `reconnect`, `presence`, `mobile`.
+- **E2E** (Playwright, Chromium): startet ein eigenes Backend (gegen `chat_mvp_e2e`, gelockerte
+  Rate-Limits) auf Port **3100** und einen eigenen Vite-Dev-Server auf Port **5174** (mit Proxy
+  auf Port 3100) und leert die E2E-Datenbank vorab. Laufende Server werden nie wiederverwendet
+  (`reuseExistingServer: false`); ein parallel laufendes `pnpm dev` (3000/5173) stört also nicht,
+  belegte E2E-Ports lassen den Lauf dagegen sofort scheitern. Specs: `realtime-chat`,
+  `invite-join`, `history-reload`, `auth`, `composer`, `reconnect`, `presence`, `mobile`,
+  `missed-messages`.
   `@playwright/test` ist auf 1.56 gepinnt (Chromium 1194); vorhandene Browser über
   `PLAYWRIGHT_BROWSERS_PATH` nutzen, sonst einmalig `pnpm --filter @chat-mvp/e2e exec playwright
 install chromium`.
@@ -120,6 +124,8 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers E2E_BASE_URL=https://localhost:8443 pn
 | `TEST_DATABASE_URL`                                   | `postgres://chat:chat@localhost:5432/chat_mvp_test` | DB für Backend-Tests                                                       |
 | `E2E_DATABASE_URL`                                    | `postgres://chat:chat@localhost:5432/chat_mvp_e2e`  | DB für Playwright (wird vor jedem Lauf geleert)                            |
 | `E2E_BASE_URL`                                        | –                                                   | Playwright gegen eine laufende Instanz statt eigener Dev-Server            |
+| `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`              | `3100` / `5174`                                     | Ports der von Playwright gestarteten Server                                |
+| `API_PROXY_TARGET`                                    | `http://127.0.0.1:3000`                             | Backend-Ziel des Vite-Proxys (`/api`, `/ws`)                               |
 | `NODE_ENV`                                            | `development`                                       | `development` (pino-pretty), `test`, `production`                          |
 | `PORT` / `HOST`                                       | `3000` / `0.0.0.0`                                  | Listen-Adresse                                                             |
 | `LOG_LEVEL`                                           | `info`                                              | pino Log-Level                                                             |
