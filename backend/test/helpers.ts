@@ -71,6 +71,9 @@ export async function buildTestApp(
   return app;
 }
 
+/** Shared plaintext for bulk-created test users (test-only, not a secret). */
+const BULK_PW = 'bulk-pw-123';
+
 let counter = 0;
 export function uniqueSuffix(): string {
   counter += 1;
@@ -108,7 +111,7 @@ export async function registerUser(
 
 /** Bulk-creates users with sessions directly in the DB (one shared password hash). */
 export async function bulkCreateUsers(n: number): Promise<TestUser[]> {
-  const password = 'bulk password 123';
+  const password = BULK_PW;
   const passwordHash = await hashPassword(password);
   const suffix = uniqueSuffix();
   const rows = await getDb()
