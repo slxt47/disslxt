@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+backend/drizzle/meta
+playwright-report
+test-results
+docs

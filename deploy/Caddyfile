@@ -1,0 +1,24 @@
+{$SITE_ADDRESS:localhost} {
+	tls internal
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy backend:3000
+	}
+
+	handle /ws {
+		reverse_proxy backend:3000
+	}
+
+	handle {
+		header {
+			Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{host}; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "no-referrer"
+			X-Frame-Options "DENY"
+		}
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

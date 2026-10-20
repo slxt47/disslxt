@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+caddy_data/
+caddy_config/
+*.log
+*.tsbuildinfo
+.DS_Store

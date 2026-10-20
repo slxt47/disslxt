@@ -1,0 +1,9 @@
+packages:
+  - backend
+  - frontend
+  - shared
+  - e2e
+
+onlyBuiltDependencies:
+  - esbuild
+  - '@node-rs/argon2'
