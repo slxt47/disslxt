@@ -86,7 +86,11 @@ export const editMessageSchema = z.object({ content: messageContentSchema });
 export type EditMessageInput = z.infer<typeof editMessageSchema>;
 
 /** Message ids are bigint, transported as decimal strings. */
-export const messageIdSchema = z.string().regex(/^[1-9][0-9]{0,18}$/, 'Ungültige Nachrichten-ID');
+const BIGINT_MAX = 9223372036854775807n;
+export const messageIdSchema = z
+  .string()
+  .regex(/^[1-9][0-9]{0,18}$/, 'Ungültige Nachrichten-ID')
+  .refine((s) => !/^\d+$/.test(s) || BigInt(s) <= BIGINT_MAX, 'Ungültige Nachrichten-ID');
 
 export const listMessagesQuery = z.object({
   before: messageIdSchema.optional(),

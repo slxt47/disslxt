@@ -1,0 +1,125 @@
+import { randomUUID } from 'node:crypto';
+import rateLimit from '@fastify/rate-limit';
+import websocket from '@fastify/websocket';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import type { Config } from './config.js';
+import type { Database } from './db/client.js';
+import { AppError } from './lib/errors.js';
+import authPlugin from './plugins/auth.js';
+import errorHandler from './plugins/errorHandler.js';
+import security from './plugins/security.js';
+import { Hub } from './realtime/hub.js';
+import { wsRoutes } from './realtime/ws.route.js';
+import { authRoutes } from './routes/auth.routes.js';
+import { channelRoutes } from './routes/channel.routes.js';
+import { guildRoutes } from './routes/guild.routes.js';
+import { healthRoutes } from './routes/health.js';
+import { inviteRoutes } from './routes/invite.routes.js';
+import { messageRoutes } from './routes/message.routes.js';
+import { createServices, type Services } from './services/index.js';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    hub: Hub;
+    services: Services;
+  }
+}
+
+export interface BuildAppOptions {
+  config: Config;
+  db: Database;
+  /** Override the logger (e.g. `false` in tests). Defaults to pino configured from config. */
+  logger?: FastifyServerOptions['logger'];
+  /** Hook to register extra routes before the app is ready (used by tests). */
+  extraRoutes?: (app: FastifyInstance) => void | Promise<void>;
+}
+
+export function loggerOptions(config: Config): FastifyServerOptions['logger'] {
+  return {
+    level: config.logLevel,
+    redact: {
+      paths: [
+        'req.headers.cookie',
+        'req.headers.authorization',
+        'res.headers["set-cookie"]',
+        'password',
+        '*.password',
+        'body.password',
+      ],
+      censor: '[REDACTED]',
+    },
+    ...(config.nodeEnv === 'development' ? { transport: { target: 'pino-pretty' } } : {}),
+  };
+}
+
+export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
+  const { config, db } = opts;
+  const app = Fastify({
+    logger: opts.logger ?? loggerOptions(config),
+    trustProxy: config.trustProxy,
+    bodyLimit: 64 * 1024,
+    genReqId: (req) => {
+      const incoming = req.headers['x-request-id'];
+      return typeof incoming === 'string' && /^[\w-]{1,64}$/.test(incoming)
+        ? incoming
+        : randomUUID();
+    },
+  });
+
+  const hub = new Hub();
+  const services = createServices(db, hub, config);
+  app.decorate('hub', hub);
+  app.decorate('services', services);
+
+  app.addHook('onRequest', async (req, reply) => {
+    reply.header('x-request-id', req.id);
+  });
+
+  // JSON only: drop the text/plain parser (so form-like "simple" requests get 415) and accept an
+  // empty body on JSON requests (e.g. POST /logout sent with a JSON content type).
+  app.removeContentTypeParser('text/plain');
+  const defaultJson = app.getDefaultJsonParser('error', 'error');
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    if (body === '' || body === undefined) return done(null, undefined);
+    return defaultJson(req, body as string, done);
+  });
+
+  await app.register(errorHandler);
+  await app.register(security, { config });
+  await app.register(rateLimit, {
+    global: false,
+    errorResponseBuilder: (_req, ctx) =>
+      new AppError(
+        'RATE_LIMITED',
+        429,
+        `Zu viele Anfragen, bitte in ${ctx.after} erneut versuchen`,
+        {
+          retryAfterMs: ctx.ttl,
+        },
+      ),
+  });
+  await app.register(authPlugin, { config, auth: services.auth });
+  await app.register(websocket, { options: { maxPayload: 4096 } });
+
+  await app.register(
+    async (api) => {
+      await api.register(healthRoutes, { db });
+      await api.register(authRoutes, { services, config, hub });
+      // Everything below requires a valid session.
+      await api.register(async (protectedApi) => {
+        protectedApi.addHook('preHandler', protectedApi.requireAuth);
+        await protectedApi.register(guildRoutes, { services });
+        await protectedApi.register(inviteRoutes, { services });
+        await protectedApi.register(channelRoutes, { services });
+        await protectedApi.register(messageRoutes, { services, config });
+      });
+    },
+    { prefix: '/api' },
+  );
+
+  await app.register(wsRoutes, { services, hub, config });
+
+  if (opts.extraRoutes) await opts.extraRoutes(app);
+
+  return app;
+}

@@ -47,6 +47,9 @@ export interface InvitePreviewDto {
 
 export type ErrorCode =
   | 'VALIDATION_ERROR'
+  | 'BAD_REQUEST'
+  | 'UNSUPPORTED_MEDIA_TYPE'
+  | 'PAYLOAD_TOO_LARGE'
   | 'UNAUTHORIZED'
   | 'INVALID_CREDENTIALS'
   | 'FORBIDDEN'

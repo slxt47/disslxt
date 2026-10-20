@@ -11,7 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r --if-present test",
+    "test": "pnpm -r --if-present --filter '!@chat-mvp/e2e' test",
     "e2e": "pnpm --filter @chat-mvp/e2e test",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --if-present build",

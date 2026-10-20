@@ -146,3 +146,17 @@ describe('wsClientMessageSchema', () => {
     ).toBe(false);
   });
 });
+
+describe('messageIdSchema', () => {
+  it('rejects ids beyond the bigint range', () => {
+    expect(listMessagesQuery.safeParse({ before: '9223372036854775807' }).success).toBe(true);
+    expect(listMessagesQuery.safeParse({ before: '9223372036854775808' }).success).toBe(false);
+  });
+});
+
+describe('messageIdSchema robustness', () => {
+  it('rejects non-numeric ids without throwing', () => {
+    expect(() => listMessagesQuery.safeParse({ before: 'abc' })).not.toThrow();
+    expect(listMessagesQuery.safeParse({ before: 'abc' }).success).toBe(false);
+  });
+});
