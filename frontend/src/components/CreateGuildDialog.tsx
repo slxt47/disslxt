@@ -43,7 +43,6 @@ export function CreateGuildDialog({ onClose }: { onClose: () => void }) {
           <input
             data-testid="guild-name-input"
             value={name}
-            maxLength={100}
             autoFocus
             onChange={(e) => setName(e.target.value)}
           />

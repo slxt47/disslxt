@@ -43,6 +43,14 @@ describe('POST /api/guilds/:guildId/channels', () => {
     expect(res.json().channel.id).toEqual(expect.any(String));
   });
 
+  it('D3: NUL / control char in the channel name → 400 VALIDATION_ERROR', async () => {
+    for (const name of ['de\u0000v', 'de\u001bv']) {
+      const res = await create(owner, name);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe('VALIDATION_ERROR');
+    }
+  });
+
   it('non-owner member → 403', async () => {
     const res = await create(member, 'random');
     expect(res.statusCode).toBe(403);

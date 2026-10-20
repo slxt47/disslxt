@@ -10,7 +10,8 @@ import {
   sendMessageSchema,
 } from './schemas.js';
 import { wsClientMessageSchema } from './ws.js';
-import { MESSAGE_MAX_LEN, PAGE_DEFAULT } from './constants.js';
+import { GUILD_NAME_MAX_LEN, MESSAGE_MAX_LEN, PAGE_DEFAULT } from './constants.js';
+import { textLength } from './text.js';
 
 describe('registerSchema', () => {
   const valid = { email: 'Alice@Example.com ', username: 'alice_1', password: 'secret123' };
@@ -94,6 +95,67 @@ describe('message content', () => {
   it('keeps inner newlines and HTML verbatim', () => {
     const content = 'line1\nline2 <b>x</b>';
     expect(sendMessageSchema.parse({ content }).content).toBe(content);
+  });
+});
+
+describe('D5: lengths count code points', () => {
+  it('textLength counts emoji and astral characters as one', () => {
+    expect(textLength('abc')).toBe(3);
+    expect(textLength('😀')).toBe(1);
+    expect('😀'.length).toBe(2);
+    expect(textLength('a😀b𝄞')).toBe(4);
+    expect(textLength('')).toBe(0);
+  });
+
+  it('accepts 2000 emoji, rejects 2001', () => {
+    expect(sendMessageSchema.safeParse({ content: '😀'.repeat(MESSAGE_MAX_LEN) }).success).toBe(
+      true,
+    );
+    expect(sendMessageSchema.safeParse({ content: '😀'.repeat(MESSAGE_MAX_LEN + 1) }).success).toBe(
+      false,
+    );
+  });
+
+  it('guild names count code points too', () => {
+    expect(createGuildSchema.safeParse({ name: '😀'.repeat(GUILD_NAME_MAX_LEN) }).success).toBe(
+      true,
+    );
+    expect(createGuildSchema.safeParse({ name: '😀'.repeat(GUILD_NAME_MAX_LEN + 1) }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('D3: control characters', () => {
+  it.each([sendMessageSchema, editMessageSchema])(
+    'message content rejects NUL and other control chars',
+    (schema) => {
+      for (const c of ['\u0000', '\u0001', '\u0008', '\u000b', '\u000c', '\u001b', '\u007f']) {
+        expect(schema.safeParse({ content: `a${c}b` }).success, JSON.stringify(c)).toBe(false);
+      }
+    },
+  );
+
+  it('message content keeps tab, newline and CR', () => {
+    expect(sendMessageSchema.parse({ content: 'a\tb\nc\r\nd' }).content).toBe('a\tb\nc\r\nd');
+  });
+
+  it('guild names reject any control char', () => {
+    for (const c of ['\u0000', '\t', '\n', '\u001f', '\u007f', '\u0085', '\u009f']) {
+      expect(createGuildSchema.safeParse({ name: `a${c}b` }).success, JSON.stringify(c)).toBe(
+        false,
+      );
+    }
+    expect(createGuildSchema.parse({ name: ' Mein Server ' }).name).toBe('Mein Server');
+  });
+
+  it('channel names and usernames reject control chars', () => {
+    expect(createChannelSchema.safeParse({ name: 'a\u0000b' }).success).toBe(false);
+    expect(createChannelSchema.safeParse({ name: 'a\u007fb' }).success).toBe(false);
+    const base = { email: 'a@example.com', password: 'secret123' };
+    expect(registerSchema.safeParse({ ...base, username: 'ab\u0000c' }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...base, username: 'abc\n' }).success).toBe(true); // trimmed
+    expect(registerSchema.safeParse({ ...base, username: 'ab\u0001c' }).success).toBe(false);
   });
 });
 

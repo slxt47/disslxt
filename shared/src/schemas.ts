@@ -11,6 +11,7 @@ import {
   USERNAME_MAX_LEN,
   USERNAME_MIN_LEN,
 } from './constants.js';
+import { MESSAGE_DISALLOWED_CHARS, NAME_DISALLOWED_CHARS, textLength } from './text.js';
 
 export const emailSchema = z
   .string()
@@ -49,7 +50,11 @@ export const createGuildSchema = z.object({
     .string()
     .trim()
     .min(1, 'Name fehlt')
-    .max(GUILD_NAME_MAX_LEN, `Name darf höchstens ${GUILD_NAME_MAX_LEN} Zeichen haben`),
+    .refine(
+      (s) => textLength(s) <= GUILD_NAME_MAX_LEN,
+      `Name darf höchstens ${GUILD_NAME_MAX_LEN} Zeichen haben`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Name enthält unzulässige Steuerzeichen'),
 });
 export type CreateGuildInput = z.infer<typeof createGuildSchema>;
 
@@ -77,7 +82,11 @@ export const messageContentSchema = z
   .string()
   .trim()
   .min(1, 'Nachricht ist leer')
-  .max(MESSAGE_MAX_LEN, `Nachricht darf höchstens ${MESSAGE_MAX_LEN} Zeichen haben`);
+  .refine(
+    (s) => textLength(s) <= MESSAGE_MAX_LEN,
+    `Nachricht darf höchstens ${MESSAGE_MAX_LEN} Zeichen haben`,
+  )
+  .refine((s) => !MESSAGE_DISALLOWED_CHARS.test(s), 'Nachricht enthält unzulässige Steuerzeichen');
 
 export const sendMessageSchema = z.object({ content: messageContentSchema });
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;

@@ -95,6 +95,22 @@ describe('POST /api/auth/register', () => {
     expect(paths).toEqual(expect.arrayContaining(['email', 'username', 'password']));
   });
 
+  it.each([
+    ['username', { ...creds, username: 'ali\u0000ce' }],
+    ['email', { ...creds, email: 'alice\u0000@example.com' }],
+  ])('D3: NUL byte in %s → 400 VALIDATION_ERROR', async (_label, payload) => {
+    const res = await req(app, 'POST', '/api/auth/register', { payload });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('D3: NUL byte in the login email → 400, not 500', async () => {
+    const res = await req(app, 'POST', '/api/auth/login', {
+      payload: { email: 'a\u0000@example.com', password: 'whatever1' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('returns 400 for a missing body', async () => {
     const res = await req(app, 'POST', '/api/auth/register');
     expect(res.statusCode).toBe(400);

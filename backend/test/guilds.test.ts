@@ -55,6 +55,16 @@ describe('POST /api/guilds', () => {
     expect(list.json().channels.map((c: { name: string }) => c.name)).toEqual(['general']);
   });
 
+  it.each([
+    ['NUL', 'a\u0000b'],
+    ['newline', 'a\nb'],
+    ['DEL', 'a\u007fb'],
+  ])('D3: guild name with %s → 400 VALIDATION_ERROR', async (_label, name) => {
+    const res = await req(app, 'POST', '/api/guilds', { cookie: alice.cookie, payload: { name } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('generates distinct invite codes', async () => {
     const a = await createGuild(app, alice, 'A');
     const b = await createGuild(app, alice, 'B');

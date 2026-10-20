@@ -81,7 +81,10 @@ describe('POST /api/channels/:channelId/messages', () => {
     ['empty', ''],
     ['whitespace only', '   \n\t '],
     ['2001 chars', 'x'.repeat(2001)],
+    ['2001 emoji', '😀'.repeat(2001)],
     ['non-string', 123],
+    ['NUL byte (D3)', 'a\u0000b'],
+    ['escape control char (D3)', 'a\u001bb'],
   ])('%s → 400', async (_label, content) => {
     const res = await req(app, 'POST', `/api/channels/${channelId}/messages`, {
       cookie: alice.cookie,
@@ -104,6 +107,12 @@ describe('POST /api/channels/:channelId/messages', () => {
     const res = await sendMessage(app, alice, channelId, 'x'.repeat(2000));
     expect(res.statusCode).toBe(201);
     expect(res.json().message.content).toHaveLength(2000);
+  });
+
+  it('D5: 2000 emoji (4000 UTF-16 units) is OK and stored as 2000 characters', async () => {
+    const res = await sendMessage(app, alice, channelId, '😀'.repeat(2000));
+    expect(res.statusCode).toBe(201);
+    expect([...res.json().message.content]).toHaveLength(2000);
   });
 
   it('unknown channel → 404, non-uuid → 404', async () => {
@@ -225,6 +234,16 @@ describe('PATCH /api/messages/:messageId', () => {
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('NOT_AUTHOR');
     expect((await list(alice)).json().messages[0].content).toBe('orig');
+  });
+
+  it('D3: NUL byte in an edit → 400 VALIDATION_ERROR', async () => {
+    const id = (await sendMessage(app, alice, channelId, 'orig')).json().message.id;
+    const res = await req(app, 'PATCH', `/api/messages/${id}`, {
+      cookie: alice.cookie,
+      payload: { content: 'x\u0000y' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION_ERROR');
   });
 
   it('validates content', async () => {

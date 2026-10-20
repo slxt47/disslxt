@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { MESSAGE_MAX_LEN, type MessageDto } from '@chat-mvp/shared';
+import { MESSAGE_MAX_LEN, textLength, type MessageDto } from '@chat-mvp/shared';
 import { errorMessage } from '../api/client';
 import { isSubmitKey } from './Composer';
 
@@ -41,7 +41,7 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
 
   async function saveEdit() {
     const content = draft.trim();
-    if (!content || content.length > MESSAGE_MAX_LEN) {
+    if (!content || textLength(content) > MESSAGE_MAX_LEN) {
       setError(content ? 'Nachricht ist zu lang' : 'Nachricht ist leer');
       return;
     }

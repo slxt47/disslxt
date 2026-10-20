@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { MESSAGE_MAX_LEN } from '@chat-mvp/shared';
+import { MESSAGE_MAX_LEN, textLength } from '@chat-mvp/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
 
 export interface ComposerProps {
@@ -21,7 +21,8 @@ export function Composer({ channelName, onSend }: ComposerProps) {
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  const length = value.trim().length;
+  // Code points, like the server (an emoji counts as one character).
+  const length = textLength(value.trim());
   const tooLong = length > MESSAGE_MAX_LEN;
   const canSend = length > 0 && !tooLong && !sending;
 
@@ -32,7 +33,7 @@ export function Composer({ channelName, onSend }: ComposerProps) {
 
   async function submit() {
     const content = value.trim();
-    if (!content || content.length > MESSAGE_MAX_LEN || sending) return;
+    if (!content || textLength(content) > MESSAGE_MAX_LEN || sending) return;
     setSending(true);
     setError(null);
     try {

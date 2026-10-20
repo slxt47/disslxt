@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { MESSAGE_MAX_LEN } from '@chat-mvp/shared';
 import { MessageItem } from '../components/MessageItem';
 import { ME, msg } from './fixtures';
 
@@ -46,6 +47,19 @@ describe('MessageItem', () => {
     await user.type(input, 'neu{Shift>}{Enter}{/Shift}zwei{Enter}');
     expect(onEdit).toHaveBeenCalledWith('7', 'neu\nzwei');
     await waitFor(() => expect(screen.queryByTestId('message-edit-input')).toBeNull());
+  });
+
+  it('D5: an edit with 2000 emoji is saved, 2001 emoji are rejected inline', async () => {
+    const { user, onEdit } = renderItem(true);
+    await user.click(screen.getByTestId('message-edit'));
+    const input = screen.getByTestId('message-edit-input') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '😀'.repeat(MESSAGE_MAX_LEN + 1) } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('message-error').textContent).toBe('Nachricht ist zu lang');
+    fireEvent.change(input, { target: { value: '😀'.repeat(MESSAGE_MAX_LEN) } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onEdit).toHaveBeenCalledWith('7', '😀'.repeat(MESSAGE_MAX_LEN));
   });
 
   it('Escape cancels editing without saving', async () => {

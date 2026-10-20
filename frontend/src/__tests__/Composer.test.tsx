@@ -73,6 +73,25 @@ describe('Composer', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
+  it('D5: counts emoji as one character (2000 emoji can be sent, 2001 cannot)', async () => {
+    const { input, onSend } = setup();
+    const max = '😀'.repeat(MESSAGE_MAX_LEN);
+    fireEvent.change(input, { target: { value: max } });
+    expect(screen.getByTestId('composer-counter').textContent).toBe(
+      `${MESSAGE_MAX_LEN}/${MESSAGE_MAX_LEN}`,
+    );
+    expect((screen.getByTestId('composer-send') as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSend).toHaveBeenCalledWith(max);
+    await waitFor(() => expect(input.value).toBe(''));
+
+    fireEvent.change(input, { target: { value: `${max}😀` } });
+    expect(screen.getByTestId('composer-counter').textContent).toContain(
+      `${MESSAGE_MAX_LEN + 1}/${MESSAGE_MAX_LEN}`,
+    );
+    expect((screen.getByTestId('composer-send') as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('shows a friendly message on 429 and keeps the text', async () => {
     const onSend = vi
       .fn<(content: string) => Promise<void>>()
