@@ -55,6 +55,73 @@ describe('chat store', () => {
     expect(useChatStore.getState().hasMoreByChannel[CHANNEL]).toBe(false);
   });
 
+  const range = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => msg(from + i));
+  const hasMore = () => useChatStore.getState().hasMoreByChannel[CHANNEL];
+
+  it('D1: a page that does not reach the cache replaces it and takes its hasMore', () => {
+    const s = useChatStore.getState();
+    s.applyLatestPage(CHANNEL, range(1, 3), false);
+    // 55 messages (4–58) arrived while away; the newest page is 9–58 with hasMore.
+    s.applyLatestPage(CHANNEL, range(9, 58), true);
+    expect(ids()).toEqual(range(9, 58).map((m) => m.id));
+    expect(hasMore()).toBe(true);
+    // "Load older" then fetches 1–8 without a gap.
+    s.prependOlder(CHANNEL, range(1, 8), false);
+    expect(ids()).toEqual(range(1, 58).map((m) => m.id));
+    expect(hasMore()).toBe(false);
+  });
+
+  it('D1: a gap is detected even when a WS message newer than the page is cached', () => {
+    const s = useChatStore.getState();
+    s.applyLatestPage(CHANNEL, range(1, 3), false);
+    s.upsertMessage(msg(60)); // arrived via WS before the refetch returned
+    s.applyLatestPage(CHANNEL, range(10, 59), true);
+    expect(ids()).toEqual([...range(10, 59), msg(60)].map((m) => m.id));
+    expect(hasMore()).toBe(true);
+  });
+
+  it('D1: stale edits of cached older messages do not survive a gap', () => {
+    const s = useChatStore.getState();
+    // Message 10 is cached with old content; it was edited on the server while away.
+    s.applyLatestPage(
+      CHANNEL,
+      [...range(1, 9), msg(10, { content: 'alt' }), ...range(11, 20)],
+      false,
+    );
+    s.applyLatestPage(CHANNEL, range(120, 169), true);
+    const list = useChatStore.getState().messagesByChannel[CHANNEL] ?? [];
+    expect(list.some((m) => m.content === 'alt')).toBe(false);
+    expect(list[0]?.id).toBe('120');
+  });
+
+  it('D1: an overlapping page keeps paged-in history and its hasMore', () => {
+    const s = useChatStore.getState();
+    s.applyLatestPage(CHANNEL, range(51, 100), true);
+    s.prependOlder(CHANNEL, range(1, 50), false);
+    s.applyLatestPage(CHANNEL, range(61, 110), true); // 10 new messages, overlaps 61–100
+    expect(ids()).toEqual(range(1, 110).map((m) => m.id));
+    expect(hasMore()).toBe(false);
+  });
+
+  it('D1: without hasMore, cached messages older than the page were deleted', () => {
+    const s = useChatStore.getState();
+    s.applyLatestPage(CHANNEL, range(1, 5), false);
+    s.applyLatestPage(CHANNEL, range(3, 7), false); // 1 and 2 deleted, 6 and 7 new
+    expect(ids()).toEqual(['3', '4', '5', '6', '7']);
+    expect(hasMore()).toBe(false);
+  });
+
+  it('D1: replace drops all cached older messages (channel re-opened)', () => {
+    const s = useChatStore.getState();
+    s.applyLatestPage(CHANNEL, range(51, 100), true);
+    s.prependOlder(CHANNEL, range(1, 50), false);
+    s.upsertMessage(msg(101));
+    s.applyLatestPage(CHANNEL, range(52, 100), true, { replace: true });
+    expect(ids()).toEqual(range(52, 101).map((m) => m.id));
+    expect(hasMore()).toBe(true);
+  });
+
   it('prependOlder adds older messages and updates hasMore', () => {
     const s = useChatStore.getState();
     s.applyLatestPage(CHANNEL, [msg(51), msg(52)], true);

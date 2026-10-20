@@ -48,8 +48,15 @@ export interface ChatState {
   setChannels: (guildId: string, channels: ChannelDto[]) => void;
   addChannel: (channel: ChannelDto) => void;
   /** Applies the newest page of a channel: merges it, dropping messages inside the page's id
-   *  range that the server no longer returns (deleted while we were away). */
-  applyLatestPage: (channelId: string, messages: MessageDto[], hasMore: boolean) => void;
+   *  range that the server no longer returns (deleted while we were away). Cached older messages
+   *  are only kept when they connect to the page without a gap; with `replace` (channel opened
+   *  again) they are always dropped so no stale edits/deletes survive. */
+  applyLatestPage: (
+    channelId: string,
+    messages: MessageDto[],
+    hasMore: boolean,
+    opts?: { replace?: boolean },
+  ) => void;
   prependOlder: (channelId: string, messages: MessageDto[], hasMore: boolean) => void;
   upsertMessage: (message: MessageDto) => void;
   removeMessage: (channelId: string, messageId: string) => void;
@@ -108,7 +115,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       return { channelsByGuild: { ...s.channelsByGuild, [channel.guildId]: [...list, channel] } };
     }),
 
-  applyLatestPage: (channelId, messages, hasMore) =>
+  applyLatestPage: (channelId, messages, hasMore, opts = {}) =>
     set((s) => {
       const existing = s.messagesByChannel[channelId] ?? [];
       const first = messages[0];
@@ -116,12 +123,22 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       let kept = existing;
       let more = hasMore;
       if (first && last) {
-        // Keep older (paged-in) messages and newer ones that arrived via WS after the snapshot.
-        kept = existing.filter(
-          (m) => compareIds(m.id, first.id) < 0 || compareIds(m.id, last.id) > 0,
-        );
-        const keptOlder = kept.some((m) => compareIds(m.id, first.id) < 0);
-        if (keptOlder) more = s.hasMoreByChannel[channelId] ?? hasMore;
+        // Newer messages arrived via WS after the snapshot: always keep them.
+        const newer = existing.filter((m) => compareIds(m.id, last.id) > 0);
+        const older = existing.filter((m) => compareIds(m.id, first.id) < 0);
+        // Cached older messages connect to the page only if the cache already holds the page's
+        // oldest message (the cache is contiguous). Otherwise there may be unfetched messages in
+        // between (e.g. > 1 page missed while away), so they are dropped and "load older" fetches
+        // them again. Without hasMore the page reaches back to the channel start, so anything
+        // older that is still cached was deleted.
+        const contiguous = hasMore && existing.some((m) => m.id === first.id);
+        if (opts.replace || !contiguous || older.length === 0) {
+          kept = newer;
+        } else {
+          // Keep older (paged-in) messages and their hasMore.
+          kept = [...older, ...newer];
+          more = s.hasMoreByChannel[channelId] ?? hasMore;
+        }
       }
       return {
         messagesByChannel: { ...s.messagesByChannel, [channelId]: mergeMessages(kept, messages) },

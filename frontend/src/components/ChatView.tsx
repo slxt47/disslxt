@@ -25,20 +25,26 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
   const subscribed = useChatStore((s) => s.subscribedChannelId === channelId);
   const [loading, setLoading] = useState(true);
 
-  const loadLatest = useCallback(async () => {
-    try {
-      const page = await api.listMessages(channelId);
-      useChatStore.getState().applyLatestPage(channelId, page.messages, page.hasMore);
-    } catch (err) {
-      useChatStore.getState().setError(errorMessage(err));
-    }
-  }, [channelId]);
+  const loadLatest = useCallback(
+    async (replace = false) => {
+      try {
+        const page = await api.listMessages(channelId);
+        useChatStore.getState().applyLatestPage(channelId, page.messages, page.hasMore, {
+          replace,
+        });
+      } catch (err) {
+        useChatStore.getState().setError(errorMessage(err));
+      }
+    },
+    [channelId],
+  );
 
-  // Open the channel: subscribe and load the newest page.
+  // Open the channel: subscribe and load the newest page. The cache from an earlier visit may be
+  // stale (missed messages, edits, deletes), so the page replaces it.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void loadLatest().finally(() => {
+    void loadLatest(true).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => {
