@@ -1,6 +1,15 @@
+# Chat-MVP reverse proxy: HTTPS via Caddy's local CA (`tls internal`), static SPA, /api + /ws → backend.
 {$SITE_ADDRESS:localhost} {
 	tls internal
-	encode gzip
+	encode zstd gzip
+
+	# Security headers for everything served from here (the API adds its own helmet headers too).
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		-Server
+	}
 
 	handle /api/* {
 		reverse_proxy backend:3000
@@ -11,12 +20,10 @@
 	}
 
 	handle {
-		header {
-			Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{host}; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-			X-Content-Type-Options "nosniff"
-			Referrer-Policy "no-referrer"
-			X-Frame-Options "DENY"
-		}
+		# CSP3 'self' already covers same-origin wss:// in current browsers; wss://{hostport} is
+		# listed explicitly for older ones.
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{hostport}; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
 		root * /srv
 		try_files {path} /index.html
 		file_server
