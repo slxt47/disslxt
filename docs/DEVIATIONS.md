@@ -30,6 +30,50 @@ Steps 1–15 plus the backend parts of steps 22–24.
    `content-type: application/json`), so clients can always send the JSON header.
 9. **`pnpm db:migrate` and `pnpm dev` read `.env`** from the repo root (with Node's `util.parseEnv`,
    no `dotenv-cli` dependency) and do not override variables that are already set.
-10. **Docker images were not built** in this run. Docker Hub returned `429 Too Many Requests` when
-    pulling `node:22-slim`. The Dockerfiles and Caddyfile are the plan-step-3 "placeholder-complete"
-    versions and get verified in step 26.
+10. **Docker images were not built** in the first run (Docker Hub returned `429 Too Many Requests`).
+    Resolved in the second run, see item 18.
+
+## Second run: steps 16–21, frontend side of 23–24, 25–27
+
+11. **Extra routes.** `/guilds/:guildId` exists and redirects to the guild's first channel; `/`
+    redirects to the first guild when the user has one (otherwise it shows the empty state with
+    "Server erstellen", `empty-create-guild`). Unknown guild/channel ids redirect to `/`.
+12. **Extra `data-testid`s** beyond plan §4: `to-register`/`to-login` (auth page links that keep
+    `?next=`), `current-user`, `guild-name`, `channel-title`, `guild-name-input`/
+    `create-guild-submit`, `channel-name-input`/`create-channel-submit`, `empty-state`,
+    `empty-create-guild`, `message-edit-cancel`/`message-edit-save`, `message-delete-cancel`,
+    `message-error`, `composer-error`, `composer-counter`, `invite-guild-name`,
+    `invite-member-count`, `leave-guild-confirm`, `drawer-backdrop`, `error-toast`, `loading`,
+    `not-found`. `message-list` carries `data-subscribed="true|false"`.
+13. **Subscription gap closed.** When the server confirms the WS `subscribe`, the chat view
+    refetches the newest page once (merged by id). E2E specs wait for `data-subscribed="true"`
+    before asserting realtime delivery.
+14. **"Server verlassen" asks for an inline confirmation** (`leave-guild-confirm`), like message
+    deletion. No `window.confirm`.
+15. **Realtime client extras.** Besides the backoff/`online` handling from the plan, the client
+    sends `ping` every 25 s and drops the socket when nothing arrives within 10 s, and the
+    `offline` window event drops the socket immediately (so the banner shows at once). A refetch
+    on reconnect also drops cached messages inside the refetched id range that no longer exist
+    (deleted while offline).
+16. **E2E setup details.** The backend web server is started with `tsx src/server.ts`
+    (`NODE_ENV=test`, `HOST=127.0.0.1`), and the Vite proxy targets `127.0.0.1:3000` instead of
+    `localhost:3000` (Node may resolve `localhost` to `::1`). Playwright starts the web servers
+    before `globalSetup`, so the backend applies the migrations on boot and `global-setup.ts` only
+    truncates the E2E tables; for that, `pg` is a devDependency of `@chat-mvp/e2e`. Vite's output
+    is not piped into the Playwright log (it only shows harmless ws-proxy resets when contexts
+    close). The desktop viewport is 1280×800 (plan item 36).
+17. **`pnpm e2e:docker`** runs only the first `realtime-chat.spec.ts` test against
+    `https://localhost:8443`: the second test sends 30 messages in a row, which the stack's default
+    message rate limit (20 per 10 s) correctly rejects.
+18. **Docker.** The backend service has a healthcheck (`/api/health`) and Caddy waits for it.
+    The Caddyfile CSP uses `wss://{hostport}` rather than `wss://{host}` so the explicit source
+    includes the port (8443); it also drops the `Server` header, sets long-lived caching for
+    `/assets/*` and enables zstd. Verification environment: in this sandbox, containers cannot
+    reach the npm registry (a TLS-intercepting proxy), so the `build` stages of both Dockerfiles
+    could not run inside Docker. Their exact commands were run on the host and the results passed
+    to `docker compose up --build -d` through an uncommitted override with
+    `build.additional_contexts: {build: <dir>}`, which replaces the `build` stage; the runtime
+    stages were built from the committed Dockerfiles unchanged. The committed files did not have
+    to change for this.
+19. **React Router v7 future flags** (`v7_startTransition`, `v7_relativeSplatPath`) are enabled to
+    silence the v6 deprecation warnings.

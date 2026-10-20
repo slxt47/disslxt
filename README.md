@@ -3,8 +3,11 @@
 Eine schlanke Chat-Plattform für Communities: Nutzer registrieren sich, treten Servern (Guilds)
 per Invite-Link bei und chatten in Textkanälen in Echtzeit (WebSocket).
 
-> Status: Backend (Auth, Guilds, Invites, Channels, Messages, Realtime, Presence, Rate-Limits)
-> ist implementiert und getestet. Das Frontend ist noch ein Scaffold.
+Erfüllte Erfolgskriterien (jeweils per Playwright-E2E-Test abgesichert):
+
+1. Zwei Nutzer chatten in zwei Fenstern in Echtzeit (`e2e/tests/realtime-chat.spec.ts`).
+2. Ein neuer Nutzer tritt über einen Invite-Link bei (`e2e/tests/invite-join.spec.ts`).
+3. Der Verlauf bleibt nach einem Reload erhalten (`e2e/tests/history-reload.spec.ts`).
 
 ## Aufbau
 
@@ -14,8 +17,8 @@ pnpm-Monorepo:
 | ---------------------------------- | ------------------------------------------------------------------------ |
 | `shared/` (`@chat-mvp/shared`)     | zod-Schemas, DTO-Typen, WS-Protokoll, Konstanten (TS-Source, kein Build) |
 | `backend/` (`@chat-mvp/backend`)   | Fastify 5 + `@fastify/websocket`, Drizzle ORM (PostgreSQL), argon2id     |
-| `frontend/` (`@chat-mvp/frontend`) | Vite + React (Scaffold)                                                  |
-| `e2e/` (`@chat-mvp/e2e`)           | Playwright (Scaffold)                                                    |
+| `frontend/` (`@chat-mvp/frontend`) | Vite + React 18, react-router, zustand, plain CSS (responsiv)            |
+| `e2e/` (`@chat-mvp/e2e`)           | Playwright-Specs (Chromium, zwei Browser-Kontexte)                       |
 
 ## Voraussetzungen
 
@@ -33,6 +36,16 @@ pnpm db:migrate                  # wendet die SQL-Migrationen an (passiert auch 
 pnpm dev                         # Backend :3000, Frontend :5173
 ```
 
+Dann <http://localhost:5173> öffnen: registrieren, „Server erstellen“, Einladungslink aus der
+Seitenleiste in einem zweiten Browser(-Profil) öffnen und losschreiben. Vite leitet `/api` und
+`/ws` an das Backend weiter.
+
+**Bedienung:** Enter sendet, Shift+Enter fügt einen Zeilenumbruch ein. Eigene Nachrichten lassen
+sich per Hover (auf Touch-Geräten immer sichtbar) bearbeiten (Enter speichert, Esc bricht ab) und
+löschen (Bestätigung inline). „Ältere laden“ lädt den Verlauf seitenweise (50). Bei
+Verbindungsverlust erscheint ein Banner, der Client verbindet sich mit Backoff neu und lädt
+Verpasstes nach. Unter 768 px Breite sind Server- und Kanalliste ein Drawer (☰).
+
 Alternativ zur lokalen PostgreSQL: `docker compose -f docker-compose.dev.yml up -d` (Port 5433) und
 `DATABASE_URL` entsprechend anpassen.
 
@@ -40,24 +53,64 @@ Alternativ zur lokalen PostgreSQL: `docker compose -f docker-compose.dev.yml up 
 
 ```bash
 pnpm lint && pnpm format:check && pnpm typecheck
-pnpm test                               # shared + backend (+ frontend)
+pnpm test                               # shared + backend + frontend (vitest)
 pnpm --filter @chat-mvp/backend test    # nur Backend (nutzt TEST_DATABASE_URL, Default chat_mvp_test)
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers pnpm e2e   # Playwright (E2E_DATABASE_URL, Default chat_mvp_e2e)
 ```
 
-Die Backend-Tests laufen gegen eine echte PostgreSQL-Datenbank (`chat_mvp_test`), die vor jedem
-Test geleert wird.
+- **Backend** (vitest): läuft gegen eine echte PostgreSQL-Datenbank (`chat_mvp_test`), die vor
+  jedem Test geleert wird; deckt Auth, Guilds, Channels, Messages, Autorisierung, Realtime
+  (inkl. p95-Latenz < 300 ms und 100 gleichzeitigen WS-Clients), Rate-Limits und Security ab.
+- **Frontend** (vitest + jsdom + Testing Library): Composer, MessageItem, MessageList
+  (Auto-Scroll, „Ältere laden“), Backoff, Store-Reducer, Realtime-Client.
+- **E2E** (Playwright, Chromium): startet Backend (gegen `chat_mvp_e2e`, gelockerte Rate-Limits)
+  und Vite-Dev-Server selbst und leert die E2E-Datenbank vorab. Specs: `realtime-chat`,
+  `invite-join`, `history-reload`, `auth`, `composer`, `reconnect`, `presence`, `mobile`.
+  `@playwright/test` ist auf 1.56 gepinnt (Chromium 1194); vorhandene Browser über
+  `PLAYWRIGHT_BROWSERS_PATH` nutzen, sonst einmalig `pnpm --filter @chat-mvp/e2e exec playwright
+install chromium`.
 
 ## Deployment (Docker Compose, HTTPS)
 
 ```bash
-cp .env.example .env       # POSTGRES_PASSWORD anpassen
+cp .env.example .env          # mindestens POSTGRES_PASSWORD ändern
 docker compose up --build -d
-docker compose ps
-curl -sk https://localhost:8443/api/health
+docker compose ps             # db und backend „healthy“, caddy „Up“
+curl -sk https://localhost:8443/api/health      # {"status":"ok"}
+curl -sk https://localhost:8443/ | grep Chat-MVP
+docker compose logs backend   # JSON-Request-Logs (pino)
+docker compose down           # stoppen (Daten bleiben im Volume db_data)
 ```
 
-Caddy terminiert TLS mit einer lokalen CA (`tls internal`). Browser warnen daher, bis die Caddy-CA
-vertraut wird; für `curl` `-k` verwenden. Die Datenbank veröffentlicht bewusst keinen Port.
+Die App läuft dann unter <https://localhost:8443>. Dienste:
+
+| Service   | Image / Build                                                   | Ports                 |
+| --------- | --------------------------------------------------------------- | --------------------- |
+| `db`      | `postgres:16-alpine`, Volume `db_data`, Healthcheck             | keiner (bewusst)      |
+| `backend` | `backend/Dockerfile` (Build → `node:22-slim`, non-root)         | intern 3000           |
+| `caddy`   | `deploy/caddy.Dockerfile` (Vite-Build → `caddy:2-alpine`) + CSP | `8443→443`, `8080→80` |
+
+Das Backend wendet die Migrationen beim Start an, läuft hinter Caddy mit `TRUST_PROXY=true` und
+`COOKIE_SECURE=true`. Caddy liefert das SPA aus (strikte CSP, `frame-ancestors 'none'`) und
+leitet `/api/*` und `/ws` (WebSocket) an das Backend weiter.
+
+**HTTPS-Hinweis:** Caddy erzeugt mit `tls internal` eine eigene lokale CA. Browser zeigen daher
+eine Zertifikatswarnung, bis man diese CA vertraut; `curl` braucht `-k` oder besser die CA:
+
+```bash
+docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+curl --cacert caddy-root.crt https://localhost:8443/api/health
+```
+
+Die Weiterleitung von `http://localhost:8080` zeigt auf den Standardport 443; direkt
+`https://localhost:8443` verwenden. Für einen anderen Hostnamen `SITE_ADDRESS` (und ggf.
+`HTTPS_PORT`) in `.env` setzen – erlaubte Origins werden daraus abgeleitet.
+
+Optionaler E2E-Smoke-Test gegen den laufenden Stack (akzeptiert das selbstsignierte Zertifikat):
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers E2E_BASE_URL=https://localhost:8443 pnpm e2e:docker
+```
 
 ## Konfiguration (Env-Variablen)
 
@@ -65,6 +118,9 @@ vertraut wird; für `curl` `-k` verwenden. Die Datenbank veröffentlicht bewusst
 | ----------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------- |
 | `DATABASE_URL`                                        | – (Pflicht)                                         | PostgreSQL-URL                                                             |
 | `TEST_DATABASE_URL`                                   | `postgres://chat:chat@localhost:5432/chat_mvp_test` | DB für Backend-Tests                                                       |
+| `E2E_DATABASE_URL`                                    | `postgres://chat:chat@localhost:5432/chat_mvp_e2e`  | DB für Playwright (wird vor jedem Lauf geleert)                            |
+| `E2E_BASE_URL`                                        | –                                                   | Playwright gegen eine laufende Instanz statt eigener Dev-Server            |
+| `NODE_ENV`                                            | `development`                                       | `development` (pino-pretty), `test`, `production`                          |
 | `PORT` / `HOST`                                       | `3000` / `0.0.0.0`                                  | Listen-Adresse                                                             |
 | `LOG_LEVEL`                                           | `info`                                              | pino Log-Level                                                             |
 | `COOKIE_SECURE`                                       | `false`                                             | `Secure`-Flag für das Session-Cookie                                       |
@@ -73,6 +129,7 @@ vertraut wird; für `curl` `-k` verwenden. Die Datenbank veröffentlicht bewusst
 | `ALLOWED_ORIGINS`                                     | –                                                   | zusätzlich erlaubte Origins (kommagetrennt); Same-Origin ist immer erlaubt |
 | `RATE_LIMIT_LOGIN_MAX` / `_WINDOW_MS`                 | `10` / `60000`                                      | Login/Registrierung pro IP                                                 |
 | `RATE_LIMIT_MESSAGE_MAX` / `_WINDOW_MS`               | `20` / `10000`                                      | Nachrichten pro Nutzer                                                     |
+| `WS_HEARTBEAT_MS`                                     | `30000`                                             | Server-Ping-Intervall für WebSockets                                       |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | –                                                   | nur Docker Compose                                                         |
 | `SITE_ADDRESS` / `HTTPS_PORT` / `HTTP_PORT`           | `localhost` / `8443` / `8080`                       | nur Docker Compose                                                         |
 

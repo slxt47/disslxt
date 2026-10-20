@@ -11,3 +11,4 @@ caddy_config/
 *.log
 *.tsbuildinfo
 .DS_Store
+caddy-root.crt
