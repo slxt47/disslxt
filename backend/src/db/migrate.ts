@@ -35,7 +35,9 @@ async function main(): Promise<void> {
   }
 }
 
-const isEntry = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+// Only run as a CLI when this module itself is the entry (not when bundled into server.js).
+const self = fileURLToPath(import.meta.url);
+const isEntry = /migrate\.[cm]?[jt]s$/.test(self) && process.argv[1] === self;
 if (isEntry) {
   main().catch((err: unknown) => {
     process.stderr.write(`Migration failed: ${String(err)}\n`);
