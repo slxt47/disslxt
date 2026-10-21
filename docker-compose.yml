@@ -2,6 +2,9 @@
 # HTTPS is terminated by a Cloudflare Tunnel (cloudflared on the host -> http://localhost:${HTTP_PORT}).
 # Usage: cp .env.example .env && docker compose up --build -d
 # The db port is intentionally NOT published (the host may already run PostgreSQL on 5432).
+# Pinned project name: keeps the existing volumes (database!) independent of the folder name.
+name: disslxt-repo
+
 services:
   db:
     image: postgres:16-alpine
