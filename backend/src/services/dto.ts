@@ -26,7 +26,16 @@ export const toMessageDto = (m: Message, author: { id: string; username: string 
   id: m.id.toString(),
   channelId: m.channelId,
   author: { id: author.id, username: author.username },
+  kind: m.kind === 'voice' ? 'voice' : 'text',
   content: m.content,
+  audio:
+    m.kind === 'voice' && m.audioKey
+      ? {
+          url: `/api/voice-messages/${m.id.toString()}`,
+          durationMs: m.audioDurationMs ?? 0,
+          mime: m.audioMime ?? 'audio/mp4',
+        }
+      : null,
   createdAt: m.createdAt.toISOString(),
   editedAt: m.editedAt ? m.editedAt.toISOString() : null,
 });

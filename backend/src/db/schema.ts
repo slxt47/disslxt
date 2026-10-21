@@ -5,6 +5,7 @@ import {
   char,
   check,
   index,
+  integer,
   pgTable,
   primaryKey,
   text,
@@ -134,12 +135,20 @@ export const messages = pgTable(
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id),
+    kind: varchar('kind', { length: 16 }).notNull().default('text'),
     content: text('content').notNull(),
+    /** Voice messages: file name in UPLOAD_DIR/voice, length and MIME type of the stored file. */
+    audioKey: varchar('audio_key', { length: 64 }),
+    audioDurationMs: integer('audio_duration_ms'),
+    audioMime: varchar('audio_mime', { length: 64 }),
     createdAt: createdAt(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
   },
   (t) => [
-    check('messages_content_len_chk', sql`char_length(${t.content}) between 1 and 2000`),
+    check(
+      'messages_content_len_chk',
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000)`,
+    ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
   ],
 );

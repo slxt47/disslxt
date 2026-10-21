@@ -7,6 +7,7 @@ import type { Database } from './db/client.js';
 import { AppError } from './lib/errors.js';
 import { createMailer, MemoryMailer, type Mailer } from './lib/mailer.js';
 import { MemoryPushSender, WebPushSender, type PushSender } from './lib/push.js';
+import { createTranscoder, type Transcoder } from './lib/voice.js';
 import authPlugin from './plugins/auth.js';
 import errorHandler from './plugins/errorHandler.js';
 import security from './plugins/security.js';
@@ -19,6 +20,7 @@ import { healthRoutes } from './routes/health.js';
 import { inviteRoutes } from './routes/invite.routes.js';
 import { messageRoutes } from './routes/message.routes.js';
 import { pushRoutes } from './routes/push.routes.js';
+import { voiceRoutes } from './routes/voice.routes.js';
 import { createServices, type Services } from './services/index.js';
 
 declare module 'fastify' {
@@ -39,6 +41,8 @@ export interface BuildAppOptions {
   /** Override the push transport (tests pass a MemoryPushSender). Default: Web Push if VAPID
    *  keys are configured, otherwise none. */
   pushSender?: PushSender | null;
+  /** Override voice-message conversion (tests). Default from VOICE_TRANSCODE. */
+  transcoder?: Transcoder;
   /** Hook to register extra routes before the app is ready (used by tests). */
   extraRoutes?: (app: FastifyInstance) => void | Promise<void>;
 }
@@ -148,6 +152,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         await protectedApi.register(channelRoutes, { services });
         await protectedApi.register(messageRoutes, { services, config });
         await protectedApi.register(pushRoutes, { services, config });
+        await protectedApi.register(voiceRoutes, {
+          services,
+          config,
+          transcoder: opts.transcoder ?? createTranscoder(config.voice, app.log),
+        });
       });
     },
     { prefix: '/api' },

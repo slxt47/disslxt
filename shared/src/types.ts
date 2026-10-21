@@ -24,12 +24,24 @@ export interface MessageAuthorDto {
   username: string;
 }
 
+export type MessageKind = 'text' | 'voice';
+
+export interface VoiceAudioDto {
+  /** Same-origin URL, only readable by members of the guild. */
+  url: string;
+  durationMs: number;
+  mime: string;
+}
+
 export interface MessageDto {
   /** bigint as decimal string */
   id: string;
   channelId: string;
   author: MessageAuthorDto;
+  kind: MessageKind;
+  /** Empty for voice messages. */
   content: string;
+  audio: VoiceAudioDto | null;
   createdAt: string;
   editedAt: string | null;
 }

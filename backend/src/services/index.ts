@@ -30,6 +30,6 @@ export function createServices(
   const push = new PushService(db, hub, config, pushSender, log);
   const guilds = new GuildService(db, hub, push);
   const channels = new ChannelService(db, hub, guilds);
-  const messages = new MessageService(db, hub, guilds, channels, push);
+  const messages = new MessageService(db, hub, guilds, channels, push, config.voice.dir);
   return { auth, guilds, channels, messages, push };
 }

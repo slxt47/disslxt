@@ -240,6 +240,32 @@ Web-Push-Verschlüsselung (RFC 8291) Ende-zu-Ende verschlüsselt; der Push-Diens
 **Lokal/E2E:** `PUSH_TRANSPORT=memory` zeichnet Pushes auf statt sie zu senden
 (`GET /api/dev/pushes`, nur außerhalb von Produktion).
 
+## Sprache: Diktieren, Vorlesen, Sprachnachrichten
+
+| Funktion          | Technik                                 | Wo es geht                                                | Datenschutz                                                         |
+| ----------------- | --------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------- |
+| Diktieren         | Web Speech API `SpeechRecognition`      | Chrome, Edge, Safari (macOS/iOS 14.5+); **nicht** Firefox | Chrome/Edge schicken das Audio an Google/Microsoft, Safari an Apple |
+| Vorlesen          | `speechSynthesis` (Stimme des Geräts)   | alle aktuellen Browser                                    | lokal, nichts verlässt das Gerät                                    |
+| Sprachnachrichten | `MediaRecorder` → Upload → ffmpeg → AAC | alle aktuellen Browser inkl. iOS 14.3+                    | Dateien auf dem eigenen Server, nur für Mitglieder abrufbar         |
+
+- **Diktieren:** Mikrofon-Symbol im Eingabefeld. Der erkannte Text erscheint live im Feld und
+  wird erst mit Enter gesendet (korrigierbar). Ohne Browser-Unterstützung ist der Knopf
+  ausgeblendet. Auf iOS endet jede Erkennung nach einem Satz (iOS-Verhalten), also pro Satz
+  einmal tippen; in der Home-Bildschirm-App ist `SpeechRecognition` je nach iOS-Version nicht
+  verfügbar – dort hilft die Diktiertaste der iOS-Tastatur.
+- **Vorlesen:** Lautsprecher-Symbol an jeder Nachricht (Maus darüber bzw. Nachricht antippen).
+  In den Einstellungen: _Neue Nachrichten vorlesen_ für den offenen Kanal, plus Sprechtempo.
+  iOS spricht erst nach einer Nutzeraktion, deshalb sagt das Einschalten einmal „Vorlesen ist an“.
+- **Sprachnachrichten:** Wellen-Symbol bei leerem Eingabefeld. Maximal 2 Minuten und 5 MB; nach
+  2 Minuten wird automatisch gesendet. Der Server prüft die Datei anhand ihrer Signatur (WebM,
+  Ogg, MP4, MP3, WAV, AAC – der Content-Type allein zählt nicht), wandelt sie mit ffmpeg in
+  AAC/m4a (mono, 64 kbit/s, schneidet nach 2 Minuten ab) und liefert sie nur an Mitglieder des
+  Servers aus, mit HTTP-Range (nötig für Safari). Bearbeiten geht nicht, Löschen entfernt auch
+  die Datei. Speicherort: Docker-Volume `uploads` (`/data/uploads/voice`) – beim Backup der
+  Datenbank auch dieses Volume sichern.
+- **Lokal ohne ffmpeg** (`VOICE_TRANSCODE=auto`): Aufnahmen werden unverändert gespeichert; WebM
+  aus Chrome spielt dann auf älteren iPhones evtl. nicht ab. Das Docker-Image enthält ffmpeg.
+
 ## Konfiguration (Env-Variablen)
 
 | Variable                                              | Default                                            | Beschreibung                                                                                                               |
@@ -273,6 +299,9 @@ Web-Push-Verschlüsselung (RFC 8291) Ende-zu-Ende verschlüsselt; der Push-Diens
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`              | –                                                  | Web-Push-Schlüssel (`pnpm vapid:generate`); leer = Mitteilungen aus                                                        |
 | `VAPID_SUBJECT`                                       | `PUBLIC_URL`                                       | Kontakt für die Push-Dienste (`mailto:` oder `https:`)                                                                     |
 | `PUSH_TRANSPORT`                                      | `webpush`                                          | `memory` zeichnet nur auf (Dev/E2E), in Produktion verboten                                                                |
+| `UPLOAD_DIR`                                          | `data/uploads`                                     | Ablage für Sprachnachrichten (Compose: Volume unter `/data/uploads`)                                                       |
+| `VOICE_TRANSCODE`                                     | `auto`                                             | `ffmpeg` (Pflicht-Umwandlung, Compose), `auto` (wenn vorhanden), `off` (unverändert speichern)                             |
+| `FFMPEG_PATH` / `FFPROBE_PATH`                        | `ffmpeg` / `ffprobe`                               | Pfade der ffmpeg-Programme                                                                                                 |
 
 Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 

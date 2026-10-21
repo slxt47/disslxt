@@ -57,6 +57,11 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      # Voice messages: stored in the uploads volume, always converted with ffmpeg.
+      UPLOAD_DIR: /data/uploads
+      VOICE_TRANSCODE: ffmpeg
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -90,5 +95,6 @@ services:
 
 volumes:
   db_data:
+  uploads:
   caddy_data:
   caddy_config:

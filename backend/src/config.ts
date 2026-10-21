@@ -58,6 +58,12 @@ const envSchema = z.object({
   VAPID_SUBJECT: z.string().default(''),
   // 'memory' records pushes instead of sending them (E2E); rejected in production.
   PUSH_TRANSPORT: z.enum(['webpush', 'memory']).default('webpush'),
+  // Voice messages are stored below this directory (a Docker volume in production).
+  UPLOAD_DIR: z.string().default('data/uploads'),
+  // auto: convert to AAC with ffmpeg if it is installed, else keep the original upload.
+  VOICE_TRANSCODE: z.enum(['auto', 'ffmpeg', 'off']).default('auto'),
+  FFMPEG_PATH: z.string().default('ffmpeg'),
+  FFPROBE_PATH: z.string().default('ffprobe'),
 });
 
 export interface MailConfig {
@@ -98,6 +104,13 @@ export interface Config {
   mail: MailConfig;
   /** null = push disabled (no VAPID keys). */
   push: PushConfig | null;
+  voice: {
+    /** Absolute directory for voice message files. */
+    dir: string;
+    transcode: 'auto' | 'ffmpeg' | 'off';
+    ffmpegPath: string;
+    ffprobePath: string;
+  };
 }
 
 /** Parses configuration from environment variables. Throws on invalid input. */
@@ -155,6 +168,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       from: e.MAIL_FROM,
       verificationTtlHours: e.EMAIL_VERIFICATION_TTL_HOURS,
       maxPerAddressPerHour: e.MAIL_MAX_PER_ADDRESS_PER_HOUR,
+    },
+    voice: {
+      dir: resolve(e.UPLOAD_DIR, 'voice'),
+      transcode: e.VOICE_TRANSCODE,
+      ffmpegPath: e.FFMPEG_PATH,
+      ffprobePath: e.FFPROBE_PATH,
     },
     push: e.VAPID_PUBLIC_KEY
       ? {

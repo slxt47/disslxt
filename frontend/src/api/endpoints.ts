@@ -7,7 +7,7 @@ import type {
   PushConfigDto,
   UserDto,
 } from '@disslxt/shared';
-import { apiRequest } from './client';
+import { apiRequest, apiUpload } from './client';
 
 const enc = encodeURIComponent;
 
@@ -57,6 +57,14 @@ export const api = {
   editMessage: (messageId: string, content: string) =>
     apiRequest<{ message: MessageDto }>('PATCH', `/messages/${enc(messageId)}`, { content }),
   deleteMessage: (messageId: string) => apiRequest<void>('DELETE', `/messages/${enc(messageId)}`),
+
+  sendVoiceMessage: (channelId: string, audio: Blob, durationMs: number) =>
+    apiUpload<{ message: MessageDto }>(
+      `/channels/${enc(channelId)}/voice-messages?durationMs=${Math.round(durationMs)}`,
+      audio,
+      // The server checks the bytes; the type only has to name an audio container.
+      audio.type.split(';')[0] || 'audio/webm',
+    ),
 
   pushConfig: () => apiRequest<PushConfigDto>('GET', '/push/config'),
   subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>

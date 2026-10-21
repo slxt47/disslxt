@@ -80,6 +80,14 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
     [channelId],
   );
 
+  const onSendVoice = useCallback(
+    async (audio: Blob, durationMs: number) => {
+      const { message } = await api.sendVoiceMessage(channelId, audio, durationMs);
+      useChatStore.getState().upsertMessage(message);
+    },
+    [channelId],
+  );
+
   const onEdit = useCallback(async (id: string, content: string) => {
     const { message } = await api.editMessage(id, content);
     useChatStore.getState().upsertMessage(message);
@@ -122,7 +130,12 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
         onEdit={onEdit}
         onDelete={onDelete}
       />
-      <Composer key={channelId} channelName={channel.name} onSend={onSend} />
+      <Composer
+        key={channelId}
+        channelName={channel.name}
+        onSend={onSend}
+        onSendVoice={onSendVoice}
+      />
     </section>
   );
 }

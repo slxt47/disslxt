@@ -138,7 +138,10 @@ export class PushService {
       const members = await this.recipients(ctx.guildId, message.author.id);
       const mentioned = mentionedNames(message.content);
       const url = `/guilds/${ctx.guildId}/channels/${message.channelId}`;
-      const text = truncate(`${message.author.username}: ${message.content}`);
+      const text =
+        message.kind === 'voice'
+          ? `${message.author.username}: 🎤 Sprachnachricht`
+          : truncate(`${message.author.username}: ${message.content}`);
 
       const plain: string[] = [];
       const mentions: string[] = [];

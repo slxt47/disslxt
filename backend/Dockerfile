@@ -18,6 +18,12 @@ RUN pnpm --filter @disslxt/backend build \
 # Stage 2: runtime
 FROM node:22-slim
 ENV NODE_ENV=production
+# ffmpeg converts voice messages to AAC/m4a (plays everywhere, incl. iOS Safari).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/* \
+  && mkdir -p /data/uploads \
+  && chown node:node /data/uploads
 WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./package.json

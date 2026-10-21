@@ -4,6 +4,7 @@ import { errorMessage } from '../api/client';
 import { speak, spokenText, ttsSupported } from '../speech/tts';
 import { usePrefs } from '../store/prefs';
 import { isSubmitKey } from './Composer';
+import { VoicePlayer } from './VoicePlayer';
 import { Avatar, Icon } from './Icon';
 
 export interface MessageItemProps {
@@ -147,6 +148,8 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
             </button>
           </div>
         </div>
+      ) : message.kind === 'voice' && message.audio ? (
+        <VoicePlayer audio={message.audio} />
       ) : (
         <div className="message-content" data-testid="message-content">
           {message.content}
@@ -201,15 +204,17 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
           )}
           {isOwn && (
             <>
-              <button
-                className="icon-btn"
-                data-testid="message-edit"
-                aria-label="Bearbeiten"
-                title="Bearbeiten"
-                onClick={startEdit}
-              >
-                <Icon name="edit" size={18} />
-              </button>
+              {message.kind !== 'voice' && (
+                <button
+                  className="icon-btn"
+                  data-testid="message-edit"
+                  aria-label="Bearbeiten"
+                  title="Bearbeiten"
+                  onClick={startEdit}
+                >
+                  <Icon name="edit" size={18} />
+                </button>
+              )}
               <button
                 className="icon-btn danger"
                 data-testid="message-delete"

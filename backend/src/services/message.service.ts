@@ -1,8 +1,10 @@
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import type { ListMessagesQuery, MessageDto, UserDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { channels, messages, users } from '../db/schema.js';
-import { forbidden, notFound } from '../lib/errors.js';
+import { AppError, forbidden, notFound } from '../lib/errors.js';
 import type { Hub } from '../realtime/hub.js';
 import type { ChannelService } from './channel.service.js';
 import { toMessageDto } from './dto.js';
@@ -16,7 +18,51 @@ export class MessageService {
     private readonly guilds: GuildService,
     private readonly channels: ChannelService,
     private readonly push: PushService,
+    /** Directory of voice message files (deleted together with their message). */
+    private readonly voiceDir: string,
   ) {}
+
+  /** Stores a voice message whose file is already in the voice directory. */
+  async createVoice(
+    user: Pick<UserDto, 'id' | 'username'>,
+    channelId: string,
+    audio: { key: string; mime: string; durationMs: number },
+  ): Promise<MessageDto> {
+    const [row] = await this.db
+      .insert(messages)
+      .values({
+        channelId,
+        authorId: user.id,
+        kind: 'voice',
+        content: '',
+        audioKey: audio.key,
+        audioMime: audio.mime,
+        audioDurationMs: audio.durationMs,
+      })
+      .returning();
+    if (!row) throw new Error('insert returned no row');
+    const message = toMessageDto(row, user);
+    this.hub.publishToChannel(channelId, { type: 'message.created', data: { message } });
+    this.push.messageCreated(message);
+    return message;
+  }
+
+  /** Voice file of a message, for members of its guild only (404 / 403 otherwise). */
+  async voiceFile(userId: string, messageId: string): Promise<{ path: string; mime: string }> {
+    const [row] = await this.db
+      .select({
+        audioKey: messages.audioKey,
+        audioMime: messages.audioMime,
+        guildId: channels.guildId,
+      })
+      .from(messages)
+      .innerJoin(channels, eq(channels.id, messages.channelId))
+      .where(and(eq(messages.id, BigInt(messageId)), eq(messages.kind, 'voice')))
+      .limit(1);
+    if (!row?.audioKey) throw notFound('Sprachnachricht nicht gefunden');
+    await this.guilds.assertMember(userId, row.guildId);
+    return { path: join(this.voiceDir, row.audioKey), mime: row.audioMime ?? 'audio/mp4' };
+  }
 
   async create(
     user: Pick<UserDto, 'id' | 'username'>,
@@ -63,6 +109,9 @@ export class MessageService {
     content: string,
   ): Promise<MessageDto> {
     const msg = await this.assertAuthor(user.id, messageId);
+    if (msg.kind === 'voice') {
+      throw new AppError('BAD_REQUEST', 400, 'Sprachnachrichten können nicht bearbeitet werden');
+    }
     const [row] = await this.db
       .update(messages)
       .set({ content, editedAt: new Date() })
@@ -81,6 +130,7 @@ export class MessageService {
       .where(eq(messages.id, msg.id))
       .returning({ id: messages.id });
     if (deleted.length === 0) throw notFound('Nachricht nicht gefunden');
+    if (msg.audioKey) await rm(join(this.voiceDir, msg.audioKey), { force: true });
     this.hub.publishToChannel(msg.channelId, {
       type: 'message.deleted',
       data: { id: msg.id.toString(), channelId: msg.channelId },
@@ -94,6 +144,8 @@ export class MessageService {
         id: messages.id,
         authorId: messages.authorId,
         channelId: messages.channelId,
+        kind: messages.kind,
+        audioKey: messages.audioKey,
         guildId: channels.guildId,
       })
       .from(messages)

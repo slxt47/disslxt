@@ -874,6 +874,7 @@ label {
   animation: fade-in var(--dur) var(--ease-out);
 }
 .message > .form-error,
+.message > .voice-player,
 .message > .message-edit,
 .message > .message-confirm,
 .message > .message-content,
@@ -1445,4 +1446,104 @@ input[type='range']:focus {
   50% {
     box-shadow: 0 0 0 6px var(--danger-soft);
   }
+}
+
+/* --- Voice messages --- */
+.voice-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(320px, 100%);
+  margin-top: 4px;
+  padding: 6px 14px 6px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+}
+.voice-play {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.voice-play:active {
+  transform: scale(0.92);
+}
+.voice-progress {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  padding: 0;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--accent-text) var(--progress, 0%),
+    var(--accent-soft-strong) var(--progress, 0%)
+  );
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.voice-progress:focus {
+  background: linear-gradient(
+    to right,
+    var(--accent-text) var(--progress, 0%),
+    var(--accent-soft-strong) var(--progress, 0%)
+  );
+}
+.voice-progress::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-text);
+  -webkit-appearance: none;
+}
+.voice-progress::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-text);
+}
+.voice-time {
+  flex: none;
+  min-width: 34px;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.voice-failed {
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+.recording-bar {
+  align-items: center;
+  padding-left: 6px;
+}
+.rec-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: blink 1.2s ease-in-out infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+.rec-time {
+  flex: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }

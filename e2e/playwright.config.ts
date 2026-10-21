@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -79,6 +80,9 @@ export default defineConfig({
             VAPID_PUBLIC_KEY: vapid.publicKey,
             VAPID_PRIVATE_KEY: vapid.privateKey,
             PUSH_TRANSPORT: 'memory',
+            // Voice uploads of the run; stored as recorded (the Playwright image has no ffmpeg).
+            UPLOAD_DIR: `${tmpdir()}/disslxt-e2e-uploads`,
+            VOICE_TRANSCODE: 'off',
           },
         },
         {
