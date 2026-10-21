@@ -36,6 +36,10 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
+    files: ['frontend/public/sw.js'],
+    languageOptions: { sourceType: 'script', globals: { ...globals.serviceworker } },
+  },
+  {
     files: ['frontend/**/*.{ts,tsx}'],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {

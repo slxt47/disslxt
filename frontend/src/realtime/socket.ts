@@ -1,4 +1,4 @@
-import { WS_CLOSE, type WsClientMessage, type WsServerMessage } from '@chat-mvp/shared';
+import { WS_CLOSE, type WsClientMessage, type WsServerMessage } from '@disslxt/shared';
 import { nextDelay } from './backoff';
 
 /**
@@ -30,6 +30,13 @@ export interface RealtimeOptions {
   pongTimeoutMs?: number;
   /** Window-like target for `online`/`offline` events (defaults to `window`). */
   eventTarget?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> | null;
+  /** Document-like source of `visibilitychange` (defaults to `document`). The server skips push
+   *  notifications for a channel that is open in a visible tab. */
+  visibility?:
+    | (Pick<EventTarget, 'addEventListener' | 'removeEventListener'> & {
+        visibilityState: string;
+      })
+    | null;
 }
 
 type EventListener = (ev: WsServerMessage) => void;
@@ -59,9 +66,10 @@ export class RealtimeClient {
   private readonly eventListeners = new Set<EventListener>();
   private readonly statusListeners = new Set<StatusListener>();
   private readonly readyListeners = new Set<ReadyListener>();
-  private readonly opts: Required<Omit<RealtimeOptions, 'url' | 'eventTarget'>> & {
+  private readonly opts: Required<Omit<RealtimeOptions, 'url' | 'eventTarget' | 'visibility'>> & {
     url: string | undefined;
     eventTarget: RealtimeOptions['eventTarget'];
+    visibility: RealtimeOptions['visibility'];
   };
 
   constructor(options: RealtimeOptions = {}) {
@@ -77,6 +85,12 @@ export class RealtimeClient {
             ? window
             : null
           : options.eventTarget,
+      visibility:
+        options.visibility === undefined
+          ? typeof document !== 'undefined'
+            ? document
+            : null
+          : options.visibility,
     };
   }
 
@@ -105,6 +119,7 @@ export class RealtimeClient {
     this.hadConnection = false;
     this.opts.eventTarget?.addEventListener('online', this.handleOnline);
     this.opts.eventTarget?.addEventListener('offline', this.handleOffline);
+    this.opts.visibility?.addEventListener('visibilitychange', this.sendVisibility);
     this.setStatus('connecting');
     this.connect();
   }
@@ -112,6 +127,7 @@ export class RealtimeClient {
   stop(): void {
     this.opts.eventTarget?.removeEventListener('online', this.handleOnline);
     this.opts.eventTarget?.removeEventListener('offline', this.handleOffline);
+    this.opts.visibility?.removeEventListener('visibilitychange', this.sendVisibility);
     this.clearReconnect();
     this.dropSocket(1000);
     this.setStatus('stopped');
@@ -162,6 +178,7 @@ export class RealtimeClient {
         this.attempt = 0;
         this.setStatus('open');
         this.startPing();
+        if (this.opts.visibility?.visibilityState === 'hidden') this.sendVisibility();
         if (this.activeChannel) {
           this.send({ type: 'subscribe', data: { channelId: this.activeChannel } });
         }
@@ -249,6 +266,11 @@ export class RealtimeClient {
     this.dropSocket(4000);
     this.scheduleReconnect();
   }
+
+  private readonly sendVisibility = (): void => {
+    const visible = this.opts.visibility?.visibilityState !== 'hidden';
+    this.send({ type: 'visibility', data: { visible } });
+  };
 
   private readonly handleOffline = (): void => {
     if (this.status === 'stopped' || this.status === 'unauthorized') return;

@@ -4,6 +4,7 @@ import {
   EMAIL_MAX_LEN,
   GUILD_NAME_MAX_LEN,
   MESSAGE_MAX_LEN,
+  NEXT_PATH_MAX_LEN,
   PAGE_DEFAULT,
   PAGE_MAX,
   PASSWORD_MAX_LEN,
@@ -32,12 +33,31 @@ export const passwordSchema = z
   .min(PASSWORD_MIN_LEN, `Passwort muss mindestens ${PASSWORD_MIN_LEN} Zeichen haben`)
   .max(PASSWORD_MAX_LEN, `Passwort darf höchstens ${PASSWORD_MAX_LEN} Zeichen haben`);
 
+/**
+ * In-app path to continue at after the e-mail is confirmed (e.g. an invite link). Only plain
+ * same-origin paths are accepted, so a confirmation can never redirect off-site.
+ */
+export const nextPathSchema = z
+  .string()
+  .max(NEXT_PATH_MAX_LEN)
+  .regex(/^\/(?![/\\])[A-Za-z0-9/_\-.~%?=&]*$/, 'Ungültiges Weiterleitungsziel');
+
 export const registerSchema = z.object({
   email: emailSchema,
   username: usernameSchema,
   password: passwordSchema,
+  next: nextPathSchema.optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+/** Token from the confirmation link: 32 random bytes, base64url (43 chars). */
+export const verifyEmailSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Ungültiger Bestätigungslink'),
+});
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+export const resendVerificationSchema = z.object({ email: emailSchema });
+export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
 
 export const loginSchema = z.object({
   email: emailSchema,
@@ -112,3 +132,45 @@ export const inviteCodeSchema = z
   .regex(/^[A-Za-z0-9]{1,16}$/, 'Ungültiger Einladungscode');
 
 export const uuidSchema = z.guid();
+
+/**
+ * A browser push subscription (PushSubscription.toJSON()). The server POSTs to `endpoint`, so
+ * only the push services of the major browsers are accepted (no requests to arbitrary hosts).
+ */
+export const PUSH_SERVICE_HOSTS = [
+  'fcm.googleapis.com',
+  'updates.push.services.mozilla.com',
+  'web.push.apple.com',
+  '.push.apple.com',
+  '.notify.windows.com',
+] as const;
+
+export function isPushServiceUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || url.port !== '' || url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return PUSH_SERVICE_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) : host === h));
+}
+
+const base64url = (min: number, max: number) =>
+  z
+    .string()
+    .min(min)
+    .max(max)
+    .regex(/^[A-Za-z0-9_-]+=*$/, 'Ungültiger Schlüssel');
+
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().max(2048).refine(isPushServiceUrl, 'Unbekannter Push-Dienst'),
+  keys: z.object({ p256dh: base64url(80, 100), auth: base64url(16, 32) }),
+});
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionSchema>;
+
+export const pushUnsubscribeSchema = z.object({ endpoint: z.string().max(2048) });
+
+export const guildNotificationsSchema = z.object({ muted: z.boolean() });
+export type GuildNotificationsInput = z.infer<typeof guildNotificationsSchema>;

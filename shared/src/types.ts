@@ -24,12 +24,24 @@ export interface MessageAuthorDto {
   username: string;
 }
 
+export type MessageKind = 'text' | 'voice';
+
+export interface VoiceAudioDto {
+  /** Same-origin URL, only readable by members of the guild. */
+  url: string;
+  durationMs: number;
+  mime: string;
+}
+
 export interface MessageDto {
   /** bigint as decimal string */
   id: string;
   channelId: string;
   author: MessageAuthorDto;
+  kind: MessageKind;
+  /** Empty for voice messages. */
   content: string;
+  audio: VoiceAudioDto | null;
   createdAt: string;
   editedAt: string | null;
 }
@@ -38,6 +50,23 @@ export interface MemberDto {
   userId: string;
   username: string;
   online: boolean;
+}
+
+export interface PushConfigDto {
+  /** False when the server has no VAPID keys configured. */
+  enabled: boolean;
+  publicKey: string | null;
+  mutedGuildIds: string[];
+}
+
+/** Payload of a push message, as the service worker receives it. */
+export interface PushPayload {
+  title: string;
+  body: string;
+  /** In-app path to open on click. */
+  url: string;
+  /** Notifications with the same tag replace each other (one per channel). */
+  tag: string;
 }
 
 export interface InvitePreviewDto {
@@ -52,13 +81,14 @@ export type ErrorCode =
   | 'PAYLOAD_TOO_LARGE'
   | 'UNAUTHORIZED'
   | 'INVALID_CREDENTIALS'
+  | 'EMAIL_NOT_VERIFIED'
+  | 'VERIFICATION_INVALID'
   | 'FORBIDDEN'
   | 'BAD_ORIGIN'
   | 'NOT_AUTHOR'
   | 'NOT_FOUND'
   | 'INVITE_NOT_FOUND'
   | 'CONFLICT'
-  | 'EMAIL_TAKEN'
   | 'CHANNEL_EXISTS'
   | 'OWNER_CANNOT_LEAVE'
   | 'RATE_LIMITED'

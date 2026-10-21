@@ -1,12 +1,12 @@
 {
-  "name": "@chat-mvp/e2e",
+  "name": "@disslxt/e2e",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "playwright test",
     "typecheck": "tsc --noEmit",
-    "test:docker": "E2E_BASE_URL=${E2E_BASE_URL:-https://localhost:8443} playwright test tests/realtime-chat.spec.ts --grep \"two users chat\""
+    "test:docker": "E2E_BASE_URL=${E2E_BASE_URL:?set E2E_BASE_URL to the PUBLIC_URL of the stack} playwright test tests/smoke.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "~1.56.1",

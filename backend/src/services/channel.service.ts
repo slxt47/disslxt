@@ -1,5 +1,5 @@
 import { asc, eq } from 'drizzle-orm';
-import type { ChannelDto } from '@chat-mvp/shared';
+import type { ChannelDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { channels, type Channel } from '../db/schema.js';
 import { conflict, forbidden, notFound } from '../lib/errors.js';

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { inviteCodeSchema } from '@chat-mvp/shared';
+import { inviteCodeSchema } from '@disslxt/shared';
 import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 import { parseParam } from '../lib/validate.js';

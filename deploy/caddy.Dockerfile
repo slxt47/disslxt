@@ -8,11 +8,11 @@ COPY shared/package.json shared/
 COPY frontend/package.json frontend/
 COPY backend/package.json backend/
 COPY e2e/package.json e2e/
-RUN pnpm install --frozen-lockfile --filter @chat-mvp/frontend...
+RUN pnpm install --frozen-lockfile --filter @disslxt/frontend...
 COPY tsconfig.base.json ./
 COPY shared shared
 COPY frontend frontend
-RUN pnpm --filter @chat-mvp/frontend build
+RUN pnpm --filter @disslxt/frontend build
 
 # Stage 2: serve with Caddy
 FROM caddy:2-alpine

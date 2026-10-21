@@ -1,11 +1,5 @@
 import { create } from 'zustand';
-import type {
-  ChannelDto,
-  GuildDto,
-  MemberDto,
-  MessageDto,
-  WsServerMessage,
-} from '@chat-mvp/shared';
+import type { ChannelDto, GuildDto, MemberDto, MessageDto, WsServerMessage } from '@disslxt/shared';
 import type { ConnectionStatus } from '../realtime/socket';
 
 /** Compares decimal bigint ids without BigInt (ids have no leading zeros). */

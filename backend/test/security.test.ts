@@ -14,6 +14,7 @@ import {
   resetDb,
   sendMessage,
   testConfig,
+  verificationToken,
   type TestUser,
 } from './helpers.js';
 
@@ -268,10 +269,12 @@ describe('logging', () => {
     });
     try {
       const password = 'super secret pw 42';
-      const reg = await req(logApp, 'POST', '/api/auth/register', {
-        payload: { email: 'log@example.com', username: 'logger', password },
+      const { token: sid } = await registerUser(logApp, {
+        email: 'log@example.com',
+        username: 'logger',
+        password,
       });
-      const sid = reg.cookies.find((c) => c.name === 'sid')!.value;
+      const confirmToken = verificationToken(logApp, 'log@example.com');
       await req(logApp, 'GET', '/api/auth/me', { cookie: `sid=${sid}` });
       logApp.log.info(
         { password, body: { password }, user: { password }, req: { headers: { cookie: sid } } },
@@ -281,10 +284,11 @@ describe('logging', () => {
       const output = lines.join('');
       expect(output).not.toContain(password);
       expect(output).not.toContain(sid);
+      expect(output).not.toContain(confirmToken);
       expect(output).toContain('[REDACTED]');
       const parsed = lines.map((l) => JSON.parse(l));
       const completed = parsed.find((l) => l.msg === 'request completed');
-      expect(completed).toMatchObject({ reqId: expect.any(String), res: { statusCode: 201 } });
+      expect(completed).toMatchObject({ reqId: expect.any(String), res: { statusCode: 202 } });
     } finally {
       await logApp.close();
     }

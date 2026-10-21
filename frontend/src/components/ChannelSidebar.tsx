@@ -1,23 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { GuildDto } from '@chat-mvp/shared';
+import type { GuildDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
+import { usePushStore } from '../store/push';
 import { CreateChannelDialog } from './CreateChannelDialog';
+import { Avatar, Icon } from './Icon';
 
 export interface ChannelSidebarProps {
   guild: GuildDto | null;
   activeChannelId: string | null;
   onNavigate: () => void;
+  onOpenSettings: () => void;
 }
 
 export function inviteUrl(code: string): string {
   return `${window.location.origin}/invite/${code}`;
 }
 
-export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSidebarProps) {
+export function ChannelSidebar({
+  guild,
+  activeChannelId,
+  onNavigate,
+  onOpenSettings,
+}: ChannelSidebarProps) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const channels = useChatStore((s) => (guild ? s.channelsByGuild[guild.id] : undefined));
@@ -27,6 +35,24 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [busy, setBusy] = useState(false);
   const isOwner = !!guild && guild.ownerId === user?.id;
+  const pushConfig = usePushStore((s) => s.config);
+  const muted = !!guild && !!pushConfig?.mutedGuildIds.includes(guild.id);
+
+  useEffect(() => {
+    if (!usePushStore.getState().config)
+      void usePushStore
+        .getState()
+        .load()
+        .catch(() => undefined);
+  }, []);
+
+  async function toggleMute(guildId: string) {
+    try {
+      await usePushStore.getState().setMuted(guildId, !muted);
+    } catch (err) {
+      useChatStore.getState().setError(errorMessage(err));
+    }
+  }
 
   async function copyInvite(code: string) {
     try {
@@ -66,6 +92,18 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
             <h2 className="guild-name" data-testid="guild-name" title={guild.name}>
               {guild.name}
             </h2>
+            {pushConfig?.enabled && (
+              <button
+                className={`icon-btn${muted ? ' muted-on' : ''}`}
+                data-testid="guild-mute-toggle"
+                aria-pressed={muted}
+                aria-label={muted ? 'Mitteilungen für diesen Server an' : 'Server stummschalten'}
+                title={muted ? 'Stummgeschaltet – tippen zum Einschalten' : 'Server stummschalten'}
+                onClick={() => void toggleMute(guild.id)}
+              >
+                <Icon name={muted ? 'bell-off' : 'bell'} size={18} />
+              </button>
+            )}
           </header>
           <div className="sidebar-section">
             <div className="sidebar-heading-row">
@@ -78,7 +116,7 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
                   title="Kanal erstellen"
                   onClick={() => setCreating(true)}
                 >
-                  +
+                  <Icon name="plus" size={18} />
                 </button>
               )}
             </div>
@@ -92,7 +130,9 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
                     aria-current={c.id === activeChannelId ? 'page' : undefined}
                     onClick={onNavigate}
                   >
-                    <span aria-hidden="true">#</span> {c.name}
+                    <Icon name="hash" size={16} />
+                    <span className="sr-only">#</span>
+                    {c.name}
                   </Link>
                 </li>
               ))}
@@ -108,6 +148,7 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
               data-testid="copy-invite-button"
               onClick={() => void copyInvite(guild.inviteCode)}
             >
+              <Icon name={copied ? 'check' : 'copy'} size={16} />
               {copied ? 'Kopiert!' : 'Link kopieren'}
             </button>
           </div>
@@ -145,16 +186,36 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
         </>
       ) : (
         <header className="sidebar-header">
-          <h2 className="guild-name">Chat-MVP</h2>
+          <h2 className="guild-name">disslxt</h2>
         </header>
       )}
       <footer className="user-footer">
-        <span className="current-user" data-testid="current-user">
-          {user?.username}
+        <span className="who">
+          <Avatar name={user?.username ?? '?'} size="sm" />
+          <span className="current-user" data-testid="current-user">
+            {user?.username}
+          </span>
         </span>
-        <button className="btn small" data-testid="logout-button" onClick={() => void onLogout()}>
-          Abmelden
-        </button>
+        <span className="footer-actions">
+          <button
+            className="icon-btn"
+            data-testid="settings-button"
+            aria-label="Einstellungen"
+            title="Einstellungen"
+            onClick={onOpenSettings}
+          >
+            <Icon name="gear" size={20} />
+          </button>
+          <button
+            className="icon-btn"
+            data-testid="logout-button"
+            aria-label="Abmelden"
+            title="Abmelden"
+            onClick={() => void onLogout()}
+          >
+            <Icon name="logout" size={20} />
+          </button>
+        </span>
       </footer>
     </div>
   );

@@ -1,6 +1,10 @@
-# Production-like stack: PostgreSQL + backend + Caddy (HTTPS via `tls internal`).
+# Production stack: PostgreSQL + backend + Caddy, published as plain HTTP on 127.0.0.1 only.
+# HTTPS is terminated by a Cloudflare Tunnel (cloudflared on the host -> http://localhost:${HTTP_PORT}).
 # Usage: cp .env.example .env && docker compose up --build -d
 # The db port is intentionally NOT published (the host may already run PostgreSQL on 5432).
+# Pinned project name: keeps the existing volumes (database!) independent of the folder name.
+name: disslxt-repo
+
 services:
   db:
     image: postgres:16-alpine
@@ -8,7 +12,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chat}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
-      POSTGRES_DB: ${POSTGRES_DB:-chat_mvp}
+      POSTGRES_DB: ${POSTGRES_DB:-disslxt}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,18 +28,40 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-chat}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-chat_mvp}
+      DATABASE_URL: postgres://${POSTGRES_USER:-chat}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-disslxt}
       PORT: 3000
       HOST: 0.0.0.0
       LOG_LEVEL: ${LOG_LEVEL:-info}
       COOKIE_SECURE: 'true'
       TRUST_PROXY: 'true'
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
-      ALLOWED_ORIGINS: https://${SITE_ADDRESS:-localhost}:${HTTPS_PORT:-8443}
+      ALLOWED_ORIGINS: ${PUBLIC_URL:?PUBLIC_URL must be set, e.g. https://disslxt.slxt.org}
       RATE_LIMIT_LOGIN_MAX: ${RATE_LIMIT_LOGIN_MAX:-10}
       RATE_LIMIT_LOGIN_WINDOW_MS: ${RATE_LIMIT_LOGIN_WINDOW_MS:-60000}
       RATE_LIMIT_MESSAGE_MAX: ${RATE_LIMIT_MESSAGE_MAX:-20}
       RATE_LIMIT_MESSAGE_WINDOW_MS: ${RATE_LIMIT_MESSAGE_WINDOW_MS:-10000}
+      RATE_LIMIT_MAIL_MAX: ${RATE_LIMIT_MAIL_MAX:-5}
+      RATE_LIMIT_MAIL_WINDOW_MS: ${RATE_LIMIT_MAIL_WINDOW_MS:-900000}
+      PUBLIC_URL: ${PUBLIC_URL}
+      # Production refuses to start unless all of these are set (see README, "E-Mail").
+      MAIL_TRANSPORT: smtp
+      SMTP_HOST: ${SMTP_HOST:-smtp.mail.me.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      EMAIL_VERIFICATION_TTL_HOURS: ${EMAIL_VERIFICATION_TTL_HOURS:-24}
+      MAIL_MAX_PER_ADDRESS_PER_HOUR: ${MAIL_MAX_PER_ADDRESS_PER_HOUR:-3}
+      # Web Push; generate with `pnpm vapid:generate`. Empty = notifications switched off.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      # Voice messages: stored in the uploads volume, always converted with ffmpeg.
+      UPLOAD_DIR: /data/uploads
+      VOICE_TRANSCODE: ffmpeg
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -57,12 +83,9 @@ services:
       context: .
       dockerfile: deploy/caddy.Dockerfile
     restart: unless-stopped
-    environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
-      HTTPS_PORT: ${HTTPS_PORT:-8443}
     ports:
-      - '${HTTPS_PORT:-8443}:443'
-      - '${HTTP_PORT:-8080}:80'
+      # Loopback only: the app must not be reachable except through the tunnel.
+      - '127.0.0.1:${HTTP_PORT:-8091}:80'
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -72,5 +95,6 @@ services:
 
 volumes:
   db_data:
+  uploads:
   caddy_data:
   caddy_config:

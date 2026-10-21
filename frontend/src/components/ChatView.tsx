@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ChannelDto } from '@chat-mvp/shared';
+import type { ChannelDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useRealtime } from '../realtime/RealtimeProvider';
@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 import { Composer } from './Composer';
 import { ConnectionBanner } from './ConnectionBanner';
+import { Icon } from './Icon';
 import { MessageList } from './MessageList';
 
 const EMPTY: never[] = [];
@@ -79,6 +80,14 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
     [channelId],
   );
 
+  const onSendVoice = useCallback(
+    async (audio: Blob, durationMs: number) => {
+      const { message } = await api.sendVoiceMessage(channelId, audio, durationMs);
+      useChatStore.getState().upsertMessage(message);
+    },
+    [channelId],
+  );
+
   const onEdit = useCallback(async (id: string, content: string) => {
     const { message } = await api.editMessage(id, content);
     useChatStore.getState().upsertMessage(message);
@@ -101,10 +110,12 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
           aria-label="Menü öffnen"
           onClick={onOpenMenu}
         >
-          ☰
+          <Icon name="menu" />
         </button>
         <h1 className="chat-title" data-testid="channel-title">
-          <span aria-hidden="true">#</span> {channel.name}
+          <Icon name="hash" size={18} />
+          <span className="sr-only">#</span>
+          {channel.name}
         </h1>
       </header>
       <ConnectionBanner />
@@ -119,7 +130,12 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
         onEdit={onEdit}
         onDelete={onDelete}
       />
-      <Composer key={channelId} channelName={channel.name} onSend={onSend} />
+      <Composer
+        key={channelId}
+        channelName={channel.name}
+        onSend={onSend}
+        onSendVoice={onSendVoice}
+      />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import type { ApiError } from '@chat-mvp/shared';
+import type { ApiError } from '@disslxt/shared';
 
 /** Error thrown for every non-2xx API response (and for network failures, with status 0). */
 export class ApiRequestError extends Error {
@@ -37,21 +37,35 @@ function isApiError(body: unknown): body is ApiError {
  * Throws ApiRequestError with the server's `{error:{code,message,details}}`.
  */
 export async function apiRequest<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
 ): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (method !== 'GET') headers['content-type'] = 'application/json';
 
+  return send<T>(path, {
+    method,
+    credentials: 'include',
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+/** POSTs raw bytes (e.g. an audio recording) with their own Content-Type; JSON response. */
+export function apiUpload<T>(path: string, body: Blob, contentType: string): Promise<T> {
+  return send<T>(path, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { accept: 'application/json', 'content-type': contentType },
+    body,
+  });
+}
+
+async function send<T>(path: string, init: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`/api${path}`, {
-      method,
-      credentials: 'include',
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    res = await fetch(`/api${path}`, init);
   } catch {
     throw new ApiRequestError(0, 'NETWORK_ERROR', 'Keine Verbindung zum Server');
   }

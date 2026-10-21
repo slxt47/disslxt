@@ -1,4 +1,4 @@
-import type { MessageDto } from '@chat-mvp/shared';
+import type { MessageDto } from '@disslxt/shared';
 
 export const CHANNEL = '11111111-1111-4111-8111-111111111111';
 export const ME = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', username: 'alice' };
@@ -9,7 +9,9 @@ export function msg(id: number | string, overrides: Partial<MessageDto> = {}): M
     id: String(id),
     channelId: CHANNEL,
     author: OTHER,
+    kind: 'text',
     content: `Nachricht ${id}`,
+    audio: null,
     createdAt: '2026-10-20T12:00:00.000Z',
     editedAt: null,
     ...overrides,

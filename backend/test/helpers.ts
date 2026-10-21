@@ -2,16 +2,17 @@ import type { AddressInfo } from 'node:net';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import WebSocket from 'ws';
-import type { UserDto, WsServerMessage } from '@chat-mvp/shared';
+import type { UserDto, WsServerMessage } from '@disslxt/shared';
 import { buildApp, type BuildAppOptions } from '../src/app.js';
 import { loadConfig, type Config } from '../src/config.js';
 import { createDb, type DbHandle } from '../src/db/client.js';
 import { sessions, users } from '../src/db/schema.js';
+import { MemoryMailer, type MailMessage } from '../src/lib/mailer.js';
 import { hashPassword } from '../src/lib/password.js';
 import { randomToken, sha256 } from '../src/lib/tokens.js';
 
 export const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_test';
+  process.env.TEST_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_test';
 
 export const ALLOWED_TEST_ORIGIN = 'http://allowed.example';
 
@@ -32,7 +33,7 @@ export async function closeDb(): Promise<void> {
 
 export async function resetDb(): Promise<void> {
   await getDb().db.execute(
-    sql`TRUNCATE users, sessions, guilds, guild_members, channels, messages RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE users, sessions, guilds, guild_members, channels, messages, pending_registrations, mail_log, push_subscriptions, guild_notification_settings RESTART IDENTITY CASCADE`,
   );
 }
 
@@ -49,6 +50,9 @@ export function testConfig(overrides: ConfigOverrides = {}): Config {
     ALLOWED_ORIGINS: ALLOWED_TEST_ORIGIN,
     RATE_LIMIT_LOGIN_MAX: '10000',
     RATE_LIMIT_MESSAGE_MAX: '10000',
+    RATE_LIMIT_MAIL_MAX: '10000',
+    MAIL_MAX_PER_ADDRESS_PER_HOUR: '10000',
+    PUBLIC_URL: 'https://disslxt.test',
   });
   return {
     ...base,
@@ -65,6 +69,7 @@ export async function buildTestApp(
     config: testConfig(overrides),
     db: getDb().db,
     logger: false,
+    mailer: new MemoryMailer(),
     ...extra,
   });
   await app.ready();
@@ -92,6 +97,23 @@ export function sidFromSetCookie(res: LightMyRequestResponse): string | undefine
   return c?.value;
 }
 
+/** Mails captured by the test app's MemoryMailer. */
+export function sentMails(app: FastifyInstance): MailMessage[] {
+  if (!(app.mailer instanceof MemoryMailer)) throw new Error('test app has no MemoryMailer');
+  return app.mailer.sent;
+}
+
+/** Confirmation token from the newest verification mail to this address. */
+export function verificationToken(app: FastifyInstance, email: string): string {
+  const mail = sentMails(app)
+    .filter((m) => m.to === email.toLowerCase() && m.subject.startsWith('Bestätige'))
+    .at(-1);
+  const token = mail?.text.match(/#token=([A-Za-z0-9_-]{43})/)?.[1];
+  if (!token) throw new Error(`no verification mail for ${email}`);
+  return token;
+}
+
+/** Registers through the real flow: sign-up → read the mail → redeem the link. */
 export async function registerUser(
   app: FastifyInstance,
   data: Partial<{ email: string; username: string; password: string }> = {},
@@ -103,10 +125,17 @@ export async function registerUser(
     password: data.password ?? 'correct horse battery',
   };
   const res = await app.inject({ method: 'POST', url: '/api/auth/register', payload });
-  if (res.statusCode !== 201) throw new Error(`register failed: ${res.statusCode} ${res.body}`);
-  const token = sidFromSetCookie(res);
+  if (res.statusCode !== 202) throw new Error(`register failed: ${res.statusCode} ${res.body}`);
+  const verify = await app.inject({
+    method: 'POST',
+    url: '/api/auth/verify-email',
+    payload: { token: verificationToken(app, payload.email) },
+  });
+  if (verify.statusCode !== 200)
+    throw new Error(`verify failed: ${verify.statusCode} ${verify.body}`);
+  const token = sidFromSetCookie(verify);
   if (!token) throw new Error('no sid cookie');
-  return { user: res.json().user, cookie: `sid=${token}`, token, password: payload.password };
+  return { user: verify.json().user, cookie: `sid=${token}`, token, password: payload.password };
 }
 
 /** Bulk-creates users with sessions directly in the DB (one shared password hash). */
@@ -121,6 +150,7 @@ export async function bulkCreateUsers(n: number): Promise<TestUser[]> {
         email: `bulk_${suffix}_${i}@example.com`,
         username: `b${i}_${suffix}`.slice(0, 32),
         passwordHash,
+        emailVerifiedAt: new Date(),
       })),
     )
     .returning();

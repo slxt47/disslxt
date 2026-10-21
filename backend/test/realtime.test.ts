@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { WS_CLOSE } from '@chat-mvp/shared';
+import { WS_CLOSE } from '@disslxt/shared';
 import { guildMembers } from '../src/db/schema.js';
 import {
   ALLOWED_TEST_ORIGIN,

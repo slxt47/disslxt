@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { InvitePreviewDto } from '@chat-mvp/shared';
+import type { InvitePreviewDto } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useChatStore } from '../store/chat';

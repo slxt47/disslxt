@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { ChannelDto, GuildDto } from '@chat-mvp/shared';
+import type { ChannelDto, GuildDto } from '@disslxt/shared';
 import { compareIds, mergeMessages, useChatStore } from '../store/chat';
 import { CHANNEL, ME, OTHER, msg } from './fixtures';
 

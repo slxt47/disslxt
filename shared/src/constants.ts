@@ -9,7 +9,21 @@ export const USERNAME_MAX_LEN = 32;
 export const PASSWORD_MIN_LEN = 8;
 export const PASSWORD_MAX_LEN = 128;
 export const EMAIL_MAX_LEN = 254;
+export const NEXT_PATH_MAX_LEN = 200;
 export const DEFAULT_CHANNEL_NAME = 'general';
+
+/** Voice messages: longest recording and largest upload accepted. */
+export const VOICE_MAX_SECONDS = 120;
+export const VOICE_MAX_BYTES = 5 * 1024 * 1024;
+/** Container formats browsers record in (Chrome/Firefox: WebM/Ogg Opus, Safari: MP4/AAC). */
+export const VOICE_UPLOAD_TYPES = [
+  'audio/webm',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/aac',
+  'audio/mpeg',
+  'audio/wav',
+] as const;
 
 /** WebSocket close codes used by the server. */
 export const WS_CLOSE = {

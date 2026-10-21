@@ -5,9 +5,13 @@ import { InvitePage } from './pages/InvitePage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFound } from './pages/NotFound';
 import { RegisterPage } from './pages/RegisterPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { ServiceWorkerBridge } from './pwa/ServiceWorkerBridge';
 import { RealtimeProvider } from './realtime/RealtimeProvider';
+import { safeNext } from './navigation';
 import { useAuthStore } from './store/auth';
 import { useChatStore } from './store/chat';
+import { usePushStore } from './store/push';
 
 function Loading() {
   return (
@@ -30,17 +34,13 @@ export function RequireAuth() {
   }
   return (
     <RealtimeProvider>
+      <ServiceWorkerBridge />
       <Outlet />
     </RealtimeProvider>
   );
 }
 
-/** Returns a safe in-app redirect target from `?next=` (only same-origin paths). */
-export function safeNext(search: string): string {
-  const next = new URLSearchParams(search).get('next');
-  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return '/';
-  return next;
-}
+export { safeNext } from './navigation';
 
 function GuestOnly() {
   const status = useAuthStore((s) => s.status);
@@ -57,6 +57,8 @@ export function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
+      {/* Reachable logged in or out: the link may be opened in any browser. */}
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<AppLayout />} />
         <Route path="/guilds/:guildId" element={<AppLayout />} />
@@ -78,7 +80,10 @@ export function App() {
 
   // Drop all cached chat data when the session ends.
   useEffect(() => {
-    if (status === 'guest') useChatStore.getState().reset();
+    if (status === 'guest') {
+      useChatStore.getState().reset();
+      usePushStore.getState().reset();
+    }
   }, [status]);
 
   return (

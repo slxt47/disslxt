@@ -1,4 +1,4 @@
-# Chat-MVP
+# disslxt
 
 Eine schlanke Chat-Plattform für Communities: Nutzer registrieren sich, treten Servern (Guilds)
 per Invite-Link bei und chatten in Textkanälen in Echtzeit (WebSocket).
@@ -13,12 +13,12 @@ Erfüllte Erfolgskriterien (jeweils per Playwright-E2E-Test abgesichert):
 
 pnpm-Monorepo:
 
-| Paket                              | Inhalt                                                                   |
-| ---------------------------------- | ------------------------------------------------------------------------ |
-| `shared/` (`@chat-mvp/shared`)     | zod-Schemas, DTO-Typen, WS-Protokoll, Konstanten (TS-Source, kein Build) |
-| `backend/` (`@chat-mvp/backend`)   | Fastify 5 + `@fastify/websocket`, Drizzle ORM (PostgreSQL), argon2id     |
-| `frontend/` (`@chat-mvp/frontend`) | Vite + React 18, react-router, zustand, plain CSS (responsiv)            |
-| `e2e/` (`@chat-mvp/e2e`)           | Playwright-Specs (Chromium, zwei Browser-Kontexte)                       |
+| Paket                             | Inhalt                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| `shared/` (`@disslxt/shared`)     | zod-Schemas, DTO-Typen, WS-Protokoll, Konstanten (TS-Source, kein Build) |
+| `backend/` (`@disslxt/backend`)   | Fastify 5 + `@fastify/websocket`, Drizzle ORM (PostgreSQL), argon2id     |
+| `frontend/` (`@disslxt/frontend`) | Vite + React 18, react-router, zustand, plain CSS (responsiv)            |
+| `e2e/` (`@disslxt/e2e`)           | Playwright-Specs (Chromium, zwei Browser-Kontexte)                       |
 
 ## Voraussetzungen
 
@@ -29,7 +29,7 @@ pnpm-Monorepo:
 ## Lokale Entwicklung
 
 ```bash
-bash scripts/setup-local-db.sh   # als root: legt Rolle chat/chat + DBs chat_mvp_dev/_test/_e2e an
+bash scripts/setup-local-db.sh   # als root: legt Rolle chat/chat + DBs disslxt_dev/_test/_e2e an
 cp .env.example .env
 pnpm install
 pnpm db:migrate                  # wendet die SQL-Migrationen an (passiert auch beim Backend-Start)
@@ -54,16 +54,16 @@ Alternativ zur lokalen PostgreSQL: `docker compose -f docker-compose.dev.yml up 
 ```bash
 pnpm lint && pnpm format:check && pnpm typecheck
 pnpm test                               # shared + backend + frontend (vitest)
-pnpm --filter @chat-mvp/backend test    # nur Backend (nutzt TEST_DATABASE_URL, Default chat_mvp_test)
-PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers pnpm e2e   # Playwright (E2E_DATABASE_URL, Default chat_mvp_e2e)
+pnpm --filter @disslxt/backend test    # nur Backend (nutzt TEST_DATABASE_URL, Default disslxt_test)
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers pnpm e2e   # Playwright (E2E_DATABASE_URL, Default disslxt_e2e)
 ```
 
-- **Backend** (vitest): läuft gegen eine echte PostgreSQL-Datenbank (`chat_mvp_test`), die vor
+- **Backend** (vitest): läuft gegen eine echte PostgreSQL-Datenbank (`disslxt_test`), die vor
   jedem Test geleert wird; deckt Auth, Guilds, Channels, Messages, Autorisierung, Realtime
   (inkl. p95-Latenz < 300 ms und 100 gleichzeitigen WS-Clients), Rate-Limits und Security ab.
 - **Frontend** (vitest + jsdom + Testing Library): Composer, MessageItem, MessageList
   (Auto-Scroll, „Ältere laden“), Backoff, Store-Reducer, Realtime-Client.
-- **E2E** (Playwright, Chromium): startet ein eigenes Backend (gegen `chat_mvp_e2e`, gelockerte
+- **E2E** (Playwright, Chromium): startet ein eigenes Backend (gegen `disslxt_e2e`, gelockerte
   Rate-Limits) auf Port **3100** und einen eigenen Vite-Dev-Server auf Port **5174** (mit Proxy
   auf Port 3100) und leert die E2E-Datenbank vorab. Laufende Server werden nie wiederverwendet
   (`reuseExistingServer: false`); ein parallel laufendes `pnpm dev` (3000/5173) stört also nicht,
@@ -71,90 +71,249 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers pnpm e2e   # Playwright (E2E_DATABASE_
   `invite-join`, `history-reload`, `auth`, `composer`, `reconnect`, `presence`, `mobile`,
   `missed-messages`.
   `@playwright/test` ist auf 1.56 gepinnt (Chromium 1194); vorhandene Browser über
-  `PLAYWRIGHT_BROWSERS_PATH` nutzen, sonst einmalig `pnpm --filter @chat-mvp/e2e exec playwright
+  `PLAYWRIGHT_BROWSERS_PATH` nutzen, sonst einmalig `pnpm --filter @disslxt/e2e exec playwright
 install chromium`.
 
-## Deployment (Docker Compose, HTTPS)
+## Deployment (Docker Compose hinter Cloudflare Tunnel)
+
+Die App ist nie direkt aus dem Internet erreichbar: Caddy lauscht nur auf `127.0.0.1:8091` (HTTP),
+HTTPS übernimmt ein Cloudflare Tunnel. `cloudflared` läuft als Systemdienst auf dem Host; im
+Cloudflare-Dashboard ist für `disslxt.slxt.org` als Service-URL `http://localhost:8091`
+eingetragen (**http**, nicht https – TLS endet bei Cloudflare). WebSockets laufen ohne weitere
+Einstellung durch den Tunnel.
 
 ```bash
-cp .env.example .env          # mindestens POSTGRES_PASSWORD ändern
+cp .env.example .env          # POSTGRES_PASSWORD setzen, PUBLIC_URL prüfen
 docker compose up --build -d
-docker compose ps             # db und backend „healthy“, caddy „Up“
-curl -sk https://localhost:8443/api/health      # {"status":"ok"}
-curl -sk https://localhost:8443/ | grep Chat-MVP
+docker compose ps             # db, backend und caddy „healthy“
+curl -s http://localhost:8091/api/health          # {"status":"ok"}  (lokal)
+curl -s https://disslxt.slxt.org/api/health       # {"status":"ok"}  (über den Tunnel)
 docker compose logs backend   # JSON-Request-Logs (pino)
 docker compose down           # stoppen (Daten bleiben im Volume db_data)
 ```
 
-Die App läuft dann unter <https://localhost:8443>. Dienste:
-
-| Service   | Image / Build                                                   | Ports                 |
-| --------- | --------------------------------------------------------------- | --------------------- |
-| `db`      | `postgres:16-alpine`, Volume `db_data`, Healthcheck             | keiner (bewusst)      |
-| `backend` | `backend/Dockerfile` (Build → `node:22-slim`, non-root)         | intern 3000           |
-| `caddy`   | `deploy/caddy.Dockerfile` (Vite-Build → `caddy:2-alpine`) + CSP | `8443→443`, `8080→80` |
+| Service   | Image / Build                                                   | Ports                      |
+| --------- | --------------------------------------------------------------- | -------------------------- |
+| `db`      | `postgres:16-alpine`, Volume `db_data`, Healthcheck             | keiner (bewusst)           |
+| `backend` | `backend/Dockerfile` (Build → `node:22-slim`, non-root)         | intern 3000                |
+| `caddy`   | `deploy/caddy.Dockerfile` (Vite-Build → `caddy:2-alpine`) + CSP | `127.0.0.1:8091→80` (HTTP) |
 
 Das Backend wendet die Migrationen beim Start an, läuft hinter Caddy mit `TRUST_PROXY=true` und
-`COOKIE_SECURE=true`. Caddy liefert das SPA aus (strikte CSP, `frame-ancestors 'none'`) und
-leitet `/api/*` und `/ws` (WebSocket) an das Backend weiter.
+`COOKIE_SECURE=true` (der Browser sieht HTTPS). Caddy liefert das SPA aus (strikte CSP,
+`frame-ancestors 'none'`) und leitet `/api/*` und `/ws` (WebSocket) an das Backend weiter.
 
-**HTTPS-Hinweis:** Caddy erzeugt mit `tls internal` eine eigene lokale CA. Browser zeigen daher
-eine Zertifikatswarnung, bis man diese CA vertraut; `curl` braucht `-k` oder besser die CA:
+**Client-IP (wichtig für Rate-Limits):** Alle Anfragen kommen per `cloudflared` vom Host. Caddy
+übernimmt die echte Client-IP aus dem von Cloudflare ergänzten `X-Forwarded-For` (strikt von
+rechts gelesen, vorgetäuschte Einträge davor zählen nicht) und reicht dem Backend genau diese eine
+Adresse weiter. Ohne das würden alle Nutzer dasselbe Rate-Limit teilen.
 
-```bash
-docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
-curl --cacert caddy-root.crt https://localhost:8443/api/health
-```
-
-`http://…:8080` leitet auf `https://$SITE_ADDRESS:$HTTPS_PORT` weiter.
-
-**Auf einem Server (Zugriff von außen):** In `.env` `SITE_ADDRESS` auf die öffentliche IP oder den
-Hostnamen setzen, unter dem die App aufgerufen wird, z. B. `SITE_ADDRESS=46.225.187.29`. Caddy
-stellt nur für diese Adresse ein Zertifikat aus; mit `SITE_ADDRESS=localhost` bricht ein Zugriff
-über die IP mit `tlsv1 alert internal error` ab. Erlaubte Origins werden daraus abgeleitet.
-Wer die Standardports will (und 80/443 auf dem Host frei sind): `HTTPS_PORT=443`, `HTTP_PORT=80`.
 Nach Änderungen an `.env`: `docker compose up -d --build`.
 
-Optionaler E2E-Smoke-Test gegen den laufenden Stack (akzeptiert das selbstsignierte Zertifikat):
+Optionaler E2E-Smoke-Test gegen den laufenden Stack über den Tunnel (legt zwei Testnutzer an):
 
 ```bash
-PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers E2E_BASE_URL=https://localhost:8443 pnpm e2e:docker
+E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker
 ```
+
+## E-Mail und Registrierung mit Bestätigung
+
+Neue Konten entstehen erst, wenn die E-Mail-Adresse bestätigt ist:
+
+1. `POST /api/auth/register` speichert die Registrierung als **ausstehend** (Tabelle
+   `pending_registrations`, Passwort nur als argon2id-Hash) und schickt einen Link
+   `PUBLIC_URL/verify-email#token=…`. Antwort immer `202`, ohne Cookie.
+2. Die Seite `/verify-email` nimmt das Token sofort aus der Adresszeile und löst es erst nach
+   einem Klick ein (`POST /api/auth/verify-email`). Link-Scanner von Mailprogrammen können es
+   so nicht verbrauchen. Erst jetzt wird das Konto angelegt; der Nutzer ist danach angemeldet und
+   landet dort, wo er herkam (z. B. auf einer Einladung).
+3. Login vor der Bestätigung → `403 EMAIL_NOT_VERIFIED` (nur mit richtigem Passwort; sonst
+   dieselbe Antwort wie bei unbekannten Adressen). Die Oberfläche bietet „Erneut senden“ an
+   (`POST /api/auth/resend-verification`).
+
+**Schutz gegen Missbrauch**
+
+- Links sind einmalig, laufen nach `EMAIL_VERIFICATION_TTL_HOURS` (24 h) ab, in der DB liegt nur
+  der SHA-256-Hash. „Erneut senden“ macht den vorherigen Link ungültig.
+- Keine Rückschlüsse, welche Adressen registriert sind: Registrierung und „Erneut senden“
+  antworten immer gleich. Ist die Adresse schon vergeben, bekommt nur deren Inhaber eine Mail
+  „Du hast schon ein Konto“.
+- Keine Übernahme durch Vorab-Registrierung: Jeder Link gehört zu genau der Registrierung, die
+  ihn ausgelöst hat (inklusive Passwort). Bestätigt der echte Inhaber seinen Link, verfallen alle
+  anderen.
+- Rate-Limits: pro IP `RATE_LIMIT_MAIL_MAX` pro `RATE_LIMIT_MAIL_WINDOW_MS` (5 / 15 min), pro
+  Empfängeradresse `MAIL_MAX_PER_ADDRESS_PER_HOUR` (3 / h, Tabelle `mail_log`, nur
+  Adress-Hashes). Darüber hinaus wird still nichts mehr verschickt.
+- Der Versand läuft im Hintergrund mit 3 Versuchen; ein SMTP-Ausfall verzögert keine Antwort und
+  verrät nichts über die Adresse. Beim Start prüft das Backend die SMTP-Verbindung und loggt
+  `smtp connection ok` bzw. einen Fehler.
+- Konten, die vor Einführung der Bestätigung existierten, gelten als bestätigt (Migration 0001).
+
+**Versand über iCloud+ (Produktion)**
+
+`slxt.org` ist bereits als eigene Domain in iCloud+ eingerichtet; die DNS-Einträge stimmen
+(Stand 21.10.2026 geprüft):
+
+| Eintrag | Wert                                                            |
+| ------- | --------------------------------------------------------------- |
+| MX      | `mx01.mail.icloud.com`, `mx02.mail.icloud.com`                  |
+| SPF     | `v=spf1 a:my.slxt.org include:icloud.com ~all`                  |
+| DKIM    | `sig1._domainkey` → `sig1.dkim.slxt.org.at.icloudmailadmin.com` |
+| DMARC   | `v=DMARC1; p=reject; pct=100`                                   |
+
+Apple signiert ausgehende Mails mit DKIM, SPF passt; damit besteht DMARC. Weil DMARC auf
+`reject` steht, **muss `MAIL_FROM` eine Adresse sein, die in deinem iCloud-Konto existiert**
+(z. B. eine neu angelegte `noreply@slxt.org` unter icloud.com → Einstellungen → Eigene
+E-Mail-Domain), sonst weisen Empfänger die Mails ab. Optional für Berichte:
+`rua=mailto:dmarc@slxt.org` im DMARC-Eintrag ergänzen.
+
+Einrichtung:
+
+1. App-spezifisches Passwort erzeugen: account.apple.com → Anmeldung und Sicherheit →
+   App-spezifische Passwörter (setzt Zwei-Faktor-Authentifizierung voraus).
+2. In `.env` (nie ins Repository):
+
+   ```bash
+   SMTP_USER=deine-apple-id@icloud.com   # die primäre iCloud-Adresse, auch bei eigener Domain
+   SMTP_PASS=xxxx-xxxx-xxxx-xxxx          # das App-spezifische Passwort
+   MAIL_FROM="disslxt <noreply@slxt.org>"
+   ```
+
+3. `docker compose up -d --build`, dann `docker compose logs backend | grep smtp`.
+
+Grenzen von iCloud+: ca. 1.000 Empfänger pro Tag, kein Bounce-Webhook, Apple kann Konten bei
+Massenversand sperren. Für mehr Volumen nur die `SMTP_*`-Variablen auf einen Versanddienst
+umstellen; der Code bleibt gleich. Ein eigener Postfix ist nicht nötig (und mit `p=reject`
+müsste er zusätzlich ins SPF und eigene DKIM-Schlüssel bekommen).
+
+**Lokal:** `MAIL_TRANSPORT=log` hält Mails im Speicher; abrufbar unter
+`GET /api/dev/mails` (existiert nur außerhalb von Produktion und nur mit diesem Transport).
+
+## Mitteilungen (Web Push) und App-Installation
+
+disslxt ist eine installierbare Web-App (PWA): Manifest, Icons (inkl. `apple-touch-icon` und
+maskierbarem Icon) und ein handgeschriebener Service Worker (`frontend/public/sw.js`). Der
+Service Worker cacht nur die App-Hülle und die gehashten Assets, nie `/api` oder `/ws`.
+
+**Wann kommt eine Mitteilung?**
+
+| Ereignis                               | Wer bekommt sie                | Stummgeschalteter Server |
+| -------------------------------------- | ------------------------------ | ------------------------ |
+| Neue Nachricht                         | alle Mitglieder außer Autor:in | nein                     |
+| `@name`-Erwähnung                      | die erwähnte Person            | **ja**, kommt trotzdem   |
+| Jemand tritt per Einladung bei         | Besitzer:in des Servers        | nein                     |
+| Erste Person betritt einen Sprachkanal | alle anderen Mitglieder        | nein                     |
+
+Wer einen Kanal gerade in einem **sichtbaren** Tab offen hat, bekommt dafür keine Mitteilung (der
+Client meldet die Sichtbarkeit über die WebSocket). Mehrere Nachrichten eines Kanals ersetzen
+sich auf dem Gerät (ein Eintrag pro Kanal). Abos, die der Push-Dienst als erloschen meldet
+(404/410), werden gelöscht. Beim Abmelden wird das Abo des Geräts vom Konto getrennt.
+
+**Einrichtung:**
+
+1. Schlüssel erzeugen und in `.env` übernehmen: `pnpm vapid:generate >> .env`
+   (optional `VAPID_SUBJECT=mailto:no-reply@deine-domain`). Ohne Schlüssel läuft die App, nur
+   Mitteilungen sind aus. Neue Schlüssel machen alle bestehenden Abos ungültig.
+2. `docker compose up -d --build`.
+3. In der App: Zahnrad unten links → **Mitteilungen aktivieren**. Die Berechtigung wird
+   ausschließlich nach diesem Klick abgefragt (Pflicht auf iOS, in Safari und Firefox).
+   „Testmitteilung senden“ prüft die ganze Kette.
+
+**HTTPS ist Pflicht.** Service Worker, Push, Mikrofon und Spracherkennung funktionieren nur in
+einem sicheren Kontext (HTTPS oder `localhost`). In Produktion übernimmt das der Cloudflare
+Tunnel; über `http://<server-ip>` würde nichts davon gehen.
+
+**Sicherheit:** Der Server sendet nur an Endpunkte der bekannten Push-Dienste (Google FCM,
+Mozilla, Apple, Microsoft) und nimmt keine beliebigen URLs an (kein SSRF). Inhalte sind per
+Web-Push-Verschlüsselung (RFC 8291) Ende-zu-Ende verschlüsselt; der Push-Dienst sieht sie nicht.
+
+**iPhone/iPad (iOS/iPadOS 16.4+):**
+
+- Push gibt es **nur** für Web-Apps auf dem Home-Bildschirm, nicht in Safari selbst. Die App
+  erkennt Safari auf iOS und zeigt einmalig einen Hinweis sowie in den Einstellungen eine
+  3-Schritt-Anleitung: _Teilen → Zum Home-Bildschirm → von dort öffnen und Mitteilungen
+  aktivieren_.
+- Vom Home-Bildschirm gestartet läuft disslxt im Vollbild ohne Browserleiste, mit eigenem Icon,
+  Safe-Area-Abständen (Notch, Home-Indicator) und Sheets statt Popups.
+- Wurde die Abfrage einmal abgelehnt, lässt sie sich nur unter _Einstellungen › Mitteilungen ›
+  disslxt_ wieder erlauben; die App sagt das an der Stelle.
+
+**Lokal/E2E:** `PUSH_TRANSPORT=memory` zeichnet Pushes auf statt sie zu senden
+(`GET /api/dev/pushes`, nur außerhalb von Produktion).
+
+## Sprache: Diktieren, Vorlesen, Sprachnachrichten
+
+| Funktion          | Technik                                 | Wo es geht                                                | Datenschutz                                                         |
+| ----------------- | --------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------- |
+| Diktieren         | Web Speech API `SpeechRecognition`      | Chrome, Edge, Safari (macOS/iOS 14.5+); **nicht** Firefox | Chrome/Edge schicken das Audio an Google/Microsoft, Safari an Apple |
+| Vorlesen          | `speechSynthesis` (Stimme des Geräts)   | alle aktuellen Browser                                    | lokal, nichts verlässt das Gerät                                    |
+| Sprachnachrichten | `MediaRecorder` → Upload → ffmpeg → AAC | alle aktuellen Browser inkl. iOS 14.3+                    | Dateien auf dem eigenen Server, nur für Mitglieder abrufbar         |
+
+- **Diktieren:** Mikrofon-Symbol im Eingabefeld. Der erkannte Text erscheint live im Feld und
+  wird erst mit Enter gesendet (korrigierbar). Ohne Browser-Unterstützung ist der Knopf
+  ausgeblendet. Auf iOS endet jede Erkennung nach einem Satz (iOS-Verhalten), also pro Satz
+  einmal tippen; in der Home-Bildschirm-App ist `SpeechRecognition` je nach iOS-Version nicht
+  verfügbar – dort hilft die Diktiertaste der iOS-Tastatur.
+- **Vorlesen:** Lautsprecher-Symbol an jeder Nachricht (Maus darüber bzw. Nachricht antippen).
+  In den Einstellungen: _Neue Nachrichten vorlesen_ für den offenen Kanal, plus Sprechtempo.
+  iOS spricht erst nach einer Nutzeraktion, deshalb sagt das Einschalten einmal „Vorlesen ist an“.
+- **Sprachnachrichten:** Wellen-Symbol bei leerem Eingabefeld. Maximal 2 Minuten und 5 MB; nach
+  2 Minuten wird automatisch gesendet. Der Server prüft die Datei anhand ihrer Signatur (WebM,
+  Ogg, MP4, MP3, WAV, AAC – der Content-Type allein zählt nicht), wandelt sie mit ffmpeg in
+  AAC/m4a (mono, 64 kbit/s, schneidet nach 2 Minuten ab) und liefert sie nur an Mitglieder des
+  Servers aus, mit HTTP-Range (nötig für Safari). Bearbeiten geht nicht, Löschen entfernt auch
+  die Datei. Speicherort: Docker-Volume `uploads` (`/data/uploads/voice`) – beim Backup der
+  Datenbank auch dieses Volume sichern.
+- **Lokal ohne ffmpeg** (`VOICE_TRANSCODE=auto`): Aufnahmen werden unverändert gespeichert; WebM
+  aus Chrome spielt dann auf älteren iPhones evtl. nicht ab. Das Docker-Image enthält ffmpeg.
 
 ## Konfiguration (Env-Variablen)
 
-| Variable                                              | Default                                             | Beschreibung                                                               |
-| ----------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------- |
-| `DATABASE_URL`                                        | – (Pflicht)                                         | PostgreSQL-URL                                                             |
-| `TEST_DATABASE_URL`                                   | `postgres://chat:chat@localhost:5432/chat_mvp_test` | DB für Backend-Tests                                                       |
-| `E2E_DATABASE_URL`                                    | `postgres://chat:chat@localhost:5432/chat_mvp_e2e`  | DB für Playwright (wird vor jedem Lauf geleert)                            |
-| `E2E_BASE_URL`                                        | –                                                   | Playwright gegen eine laufende Instanz statt eigener Dev-Server            |
-| `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`              | `3100` / `5174`                                     | Ports der von Playwright gestarteten Server                                |
-| `API_PROXY_TARGET`                                    | `http://127.0.0.1:3000`                             | Backend-Ziel des Vite-Proxys (`/api`, `/ws`)                               |
-| `NODE_ENV`                                            | `development`                                       | `development` (pino-pretty), `test`, `production`                          |
-| `PORT` / `HOST`                                       | `3000` / `0.0.0.0`                                  | Listen-Adresse                                                             |
-| `LOG_LEVEL`                                           | `info`                                              | pino Log-Level                                                             |
-| `COOKIE_SECURE`                                       | `false`                                             | `Secure`-Flag für das Session-Cookie                                       |
-| `TRUST_PROXY`                                         | `false`                                             | hinter Reverse-Proxy (Caddy) auf `true`                                    |
-| `SESSION_TTL_DAYS`                                    | `30`                                                | Session-Lebensdauer                                                        |
-| `ALLOWED_ORIGINS`                                     | –                                                   | zusätzlich erlaubte Origins (kommagetrennt); Same-Origin ist immer erlaubt |
-| `RATE_LIMIT_LOGIN_MAX` / `_WINDOW_MS`                 | `10` / `60000`                                      | Login/Registrierung pro IP                                                 |
-| `RATE_LIMIT_MESSAGE_MAX` / `_WINDOW_MS`               | `20` / `10000`                                      | Nachrichten pro Nutzer                                                     |
-| `WS_HEARTBEAT_MS`                                     | `30000`                                             | Server-Ping-Intervall für WebSockets                                       |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | –                                                   | nur Docker Compose                                                         |
-| `SITE_ADDRESS` / `HTTPS_PORT` / `HTTP_PORT`           | `localhost` / `8443` / `8080`                       | nur Docker Compose                                                         |
+| Variable                                              | Default                                            | Beschreibung                                                                                                               |
+| ----------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                        | – (Pflicht)                                        | PostgreSQL-URL                                                                                                             |
+| `TEST_DATABASE_URL`                                   | `postgres://chat:chat@localhost:5432/disslxt_test` | DB für Backend-Tests                                                                                                       |
+| `E2E_DATABASE_URL`                                    | `postgres://chat:chat@localhost:5432/disslxt_e2e`  | DB für Playwright (wird vor jedem Lauf geleert)                                                                            |
+| `E2E_BASE_URL`                                        | –                                                  | Playwright gegen eine laufende Instanz statt eigener Dev-Server                                                            |
+| `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`              | `3100` / `5174`                                    | Ports der von Playwright gestarteten Server                                                                                |
+| `API_PROXY_TARGET`                                    | `http://127.0.0.1:3000`                            | Backend-Ziel des Vite-Proxys (`/api`, `/ws`)                                                                               |
+| `NODE_ENV`                                            | `development`                                      | `development` (pino-pretty), `test`, `production`                                                                          |
+| `PORT` / `HOST`                                       | `3000` / `0.0.0.0`                                 | Listen-Adresse                                                                                                             |
+| `LOG_LEVEL`                                           | `info`                                             | pino Log-Level                                                                                                             |
+| `COOKIE_SECURE`                                       | `false`                                            | `Secure`-Flag für das Session-Cookie                                                                                       |
+| `TRUST_PROXY`                                         | `false`                                            | hinter Reverse-Proxy (Caddy) auf `true`                                                                                    |
+| `SESSION_TTL_DAYS`                                    | `30`                                               | Session-Lebensdauer                                                                                                        |
+| `ALLOWED_ORIGINS`                                     | –                                                  | zusätzlich erlaubte Origins (kommagetrennt); Same-Origin ist immer erlaubt                                                 |
+| `RATE_LIMIT_LOGIN_MAX` / `_WINDOW_MS`                 | `10` / `60000`                                     | Login/Bestätigung pro IP                                                                                                   |
+| `RATE_LIMIT_MESSAGE_MAX` / `_WINDOW_MS`               | `20` / `10000`                                     | Nachrichten pro Nutzer                                                                                                     |
+| `WS_HEARTBEAT_MS`                                     | `30000`                                            | Server-Ping-Intervall für WebSockets                                                                                       |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | –                                                  | nur Docker Compose                                                                                                         |
+| `PUBLIC_URL`                                          | `http://localhost:5173`                            | öffentliche HTTPS-Adresse, z. B. `https://disslxt.slxt.org`; Basis für Mail-Links und einziger erlaubter Origin in Compose |
+| `MAIL_TRANSPORT`                                      | `log`                                              | `smtp` (Pflicht in Produktion) oder `log` (Mails im Speicher, nur Dev/Test)                                                |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE`             | – / `587` / `false`                                | SMTP-Server; `false` = STARTTLS (erzwungen), `true` = TLS auf 465                                                          |
+| `SMTP_USER` / `SMTP_PASS`                             | –                                                  | Zugangsdaten (iCloud: Apple-ID-Adresse + App-spezifisches Passwort)                                                        |
+| `MAIL_FROM`                                           | –                                                  | Absender, z. B. `disslxt <noreply@slxt.org>`                                                                               |
+| `EMAIL_VERIFICATION_TTL_HOURS`                        | `24`                                               | Gültigkeit der Bestätigungslinks (max. 168)                                                                                |
+| `MAIL_MAX_PER_ADDRESS_PER_HOUR`                       | `3`                                                | Mails pro Empfängeradresse und Stunde                                                                                      |
+| `RATE_LIMIT_MAIL_MAX` / `_WINDOW_MS`                  | `5` / `900000`                                     | Registrierung/„Erneut senden“ pro IP                                                                                       |
+| `HTTP_PORT`                                           | `8091`                                             | lokaler Port von Caddy (nur `127.0.0.1`), Ziel des Tunnels                                                                 |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`              | –                                                  | Web-Push-Schlüssel (`pnpm vapid:generate`); leer = Mitteilungen aus                                                        |
+| `VAPID_SUBJECT`                                       | `PUBLIC_URL`                                       | Kontakt für die Push-Dienste (`mailto:` oder `https:`)                                                                     |
+| `PUSH_TRANSPORT`                                      | `webpush`                                          | `memory` zeichnet nur auf (Dev/E2E), in Produktion verboten                                                                |
+| `UPLOAD_DIR`                                          | `data/uploads`                                     | Ablage für Sprachnachrichten (Compose: Volume unter `/data/uploads`)                                                       |
+| `VOICE_TRANSCODE`                                     | `auto`                                             | `ffmpeg` (Pflicht-Umwandlung, Compose), `auto` (wenn vorhanden), `off` (unverändert speichern)                             |
+| `FFMPEG_PATH` / `FFPROBE_PATH`                        | `ffmpeg` / `ffprobe`                               | Pfade der ffmpeg-Programme                                                                                                 |
 
 Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
 ## Entscheidungen zu offenen Fragen
 
-- **Name:** Arbeitstitel „Chat-MVP“ (kein Markenname).
+- **Name:** Arbeitstitel „disslxt“ (kein Markenname).
 - **Betrieb:** self-hosted per Docker Compose.
-- **Gäste:** ohne Account kann nichts gelesen werden; alle Endpunkte außer Registrierung, Login
-  und Health erfordern eine Session.
+- **Gäste:** ohne Account kann nichts gelesen werden; alle Endpunkte außer Registrierung,
+  Bestätigung, Login und Health erfordern eine Session.
 
 ## API-Überblick
 
 Alle Endpunkte unter `/api`, JSON, Session-Cookie `sid` (httpOnly, SameSite=Lax). Fehlerformat:
 `{ "error": { "code", "message", "details?" } }`. Echtzeit über `GET /ws` (Server→Client-Events,
-Client sendet nur `subscribe`/`unsubscribe`/`ping`). Details: `docs/PLAN.md` §3.
+Client sendet nur `subscribe`/`unsubscribe`/`ping`/`visibility`). Details: `docs/PLAN.md` §3.

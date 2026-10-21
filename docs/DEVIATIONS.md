@@ -5,7 +5,7 @@ Steps 1–15 plus the backend parts of steps 22–24.
 1. **Root `test` script excludes e2e.** The plan has `"test": "pnpm -r --if-present test"`. The e2e
    package also has a `test` script (Playwright), so `pnpm test` would run Playwright as well, and
    it fails while there are no specs. The plan says `pnpm test` is shared + backend + frontend, so
-   the script is now `pnpm -r --if-present --filter '!@chat-mvp/e2e' test`. Use `pnpm e2e` to run
+   the script is now `pnpm -r --if-present --filter '!@disslxt/e2e' test`. Use `pnpm e2e` to run
    Playwright.
 2. **`docs/` is in `.prettierignore`.** The spec and plan are inputs, so `pnpm format:check` does
    not reformat them.
@@ -59,7 +59,7 @@ Steps 1–15 plus the backend parts of steps 22–24.
     (`NODE_ENV=test`, `HOST=127.0.0.1`), and the Vite proxy targets `127.0.0.1:3000` instead of
     `localhost:3000` (Node may resolve `localhost` to `::1`). Playwright starts the web servers
     before `globalSetup`, so the backend applies the migrations on boot and `global-setup.ts` only
-    truncates the E2E tables; for that, `pg` is a devDependency of `@chat-mvp/e2e`. Vite's output
+    truncates the E2E tables; for that, `pg` is a devDependency of `@disslxt/e2e`. Vite's output
     is not piped into the Playwright log (it only shows harmless ws-proxy resets when contexts
     close). The desktop viewport is 1280×800 (plan item 36).
 17. **`pnpm e2e:docker`** runs only the first `realtime-chat.spec.ts` test against
@@ -96,7 +96,7 @@ Steps 1–15 plus the backend parts of steps 22–24.
     CR, and DEL (CR is allowed because API clients may send CRLF). Guild names reject all control
     characters (C0, DEL, C1), including newlines. Usernames, channel names and emails already
     rejected them through their regexes / email check (now covered by tests).
-23. **D5 – one length definition.** `textLength()` in `@chat-mvp/shared` counts Unicode code points
+23. **D5 – one length definition.** `textLength()` in `@disslxt/shared` counts Unicode code points
     (`[...s].length`, like PostgreSQL's `char_length`). The message and guild-name schemas, the
     composer counter and the edit field use it. The guild-name input lost its HTML `maxLength`
     (which counts UTF-16 units); the schema check on submit enforces 100 characters instead.

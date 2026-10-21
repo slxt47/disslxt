@@ -11,6 +11,7 @@ import {
   req,
   resetDb,
   sidFromSetCookie,
+  verificationToken,
 } from './helpers.js';
 
 let app: FastifyInstance;
@@ -27,61 +28,50 @@ afterAll(closeDb);
 const creds = { email: 'Alice@Example.com', username: 'alice', password: 'correct horse' };
 
 describe('POST /api/auth/register', () => {
-  it('register → 201 + cookie, password_hash ≠ plaintext', async () => {
-    const res = await req(app, 'POST', '/api/auth/register', { payload: creds });
-    expect(res.statusCode).toBe(201);
-    const { user } = res.json();
-    expect(user).toEqual({ id: expect.any(String), email: 'alice@example.com', username: 'alice' });
-    expect(user).not.toHaveProperty('passwordHash');
+  it('stores only an argon2id hash; the account exists only after confirmation', async () => {
+    const u = await registerUser(app, creds);
+    expect(u.user).toEqual({
+      id: expect.any(String),
+      email: 'alice@example.com',
+      username: 'alice',
+    });
+    expect(u.user).not.toHaveProperty('passwordHash');
 
-    const sid = sidFromSetCookie(res);
-    expect(sid).toBeTruthy();
-
-    const [row] = await getDb().db.select().from(users).where(eq(users.id, user.id));
-    expect(row?.passwordHash).toBeDefined();
+    const [row] = await getDb().db.select().from(users).where(eq(users.id, u.user.id));
     expect(row?.passwordHash).not.toBe(creds.password);
     expect(row?.passwordHash.startsWith('$argon2id$')).toBe(true);
+    expect(row?.emailVerifiedAt).toBeInstanceOf(Date);
   });
 
-  it('sets an httpOnly, SameSite=Lax session cookie and stores only the token hash', async () => {
-    const res = await req(app, 'POST', '/api/auth/register', { payload: creds });
-    const cookie = res.cookies.find((c) => c.name === 'sid');
-    expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' });
-    expect(cookie?.secure).toBeFalsy();
-    expect(cookie?.maxAge).toBe(30 * 24 * 60 * 60);
-
-    const token = cookie!.value;
+  it('confirming sets an httpOnly, SameSite=Lax session cookie and stores only the token hash', async () => {
+    const u = await registerUser(app, creds);
     const rows = await getDb().db.select().from(sessions);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.tokenHash).toBe(sha256(token));
-    expect(rows[0]?.tokenHash).not.toBe(token);
+    expect(rows[0]?.tokenHash).toBe(sha256(u.token));
+    expect(rows[0]?.tokenHash).not.toBe(u.token);
     expect(rows[0]!.expiresAt.getTime()).toBeGreaterThan(Date.now() + 29 * 86_400_000);
   });
 
   it('sets the Secure flag when COOKIE_SECURE is enabled', async () => {
     const secureApp = await buildTestApp({ cookieSecure: true });
     try {
-      const res = await req(secureApp, 'POST', '/api/auth/register', { payload: creds });
-      expect(res.cookies.find((c) => c.name === 'sid')?.secure).toBe(true);
+      await req(secureApp, 'POST', '/api/auth/register', { payload: creds });
+      const res = await req(secureApp, 'POST', '/api/auth/verify-email', {
+        payload: { token: verificationToken(secureApp, creds.email) },
+      });
+      const cookie = res.cookies.find((c) => c.name === 'sid');
+      expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/', secure: true });
+      expect(cookie?.maxAge).toBe(30 * 24 * 60 * 60);
     } finally {
       await secureApp.close();
     }
   });
 
-  it('auto-logs in: the cookie works for /me', async () => {
+  it('auto-logs in after confirming: the cookie works for /me', async () => {
     const u = await registerUser(app);
     const me = await req(app, 'GET', '/api/auth/me', { cookie: u.cookie });
     expect(me.statusCode).toBe(200);
     expect(me.json().user).toEqual(u.user);
-  });
-
-  it('rejects duplicate e-mail (case-insensitive) with 409 EMAIL_TAKEN', async () => {
-    await req(app, 'POST', '/api/auth/register', { payload: creds });
-    const res = await req(app, 'POST', '/api/auth/register', {
-      payload: { ...creds, email: 'ALICE@example.COM', username: 'alice2' },
-    });
-    expect(res.statusCode).toBe(409);
-    expect(res.json().error.code).toBe('EMAIL_TAKEN');
   });
 
   it('returns 400 VALIDATION_ERROR with field details', async () => {
@@ -120,7 +110,7 @@ describe('POST /api/auth/register', () => {
 
 describe('POST /api/auth/login', () => {
   beforeEach(async () => {
-    await req(app, 'POST', '/api/auth/register', { payload: creds });
+    await registerUser(app, creds);
   });
 
   it('login ok → 200 + new session cookie', async () => {

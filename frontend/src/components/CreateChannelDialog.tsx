@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createChannelSchema } from '@chat-mvp/shared';
+import { createChannelSchema } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useChatStore } from '../store/chat';

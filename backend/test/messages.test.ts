@@ -60,7 +60,9 @@ describe('POST /api/channels/:channelId/messages', () => {
       id: expect.stringMatching(/^\d+$/),
       channelId,
       author: { id: bob.user.id, username: 'bob' },
+      kind: 'text',
       content: 'Hallo Welt',
+      audio: null,
       createdAt: expect.any(String),
       editedAt: null,
     });

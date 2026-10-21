@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -7,19 +9,26 @@ import { defineConfig, devices } from '@playwright/test';
  * reused, so E2E never hits the dev database or the real rate limits. Override the ports with
  * E2E_BACKEND_PORT / E2E_FRONTEND_PORT.
  *
- * Docker smoke run: `E2E_BASE_URL=https://localhost:8443 pnpm e2e:docker` uses the running
- * `docker compose` stack instead (no web servers, self-signed certificate accepted).
+ * Docker smoke run: `E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker` runs the read-only
+ * smoke spec against the deployed stack through the tunnel (no web servers, no accounts created).
  */
 const externalBaseUrl = process.env.E2E_BASE_URL;
 const backendPort = process.env.E2E_BACKEND_PORT ?? '3100';
 const frontendPort = process.env.E2E_FRONTEND_PORT ?? '5174';
 const frontendOrigin = `http://localhost:${frontendPort}`;
 const baseURL = externalBaseUrl ?? frontendOrigin;
+// Throwaway VAPID keys per run; pushes are recorded by the backend (PUSH_TRANSPORT=memory) and
+// read back through /api/dev/pushes, nothing goes to a real push service.
+const vapid = createRequire(new URL('../backend/package.json', import.meta.url))(
+  'web-push',
+).generateVAPIDKeys() as { publicKey: string; privateKey: string };
 const e2eDatabaseUrl =
-  process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_e2e';
+  process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_e2e';
 
 export default defineConfig({
   testDir: './tests',
+  // The smoke spec targets a deployed stack only; local runs cover the same ground and more.
+  testIgnore: externalBaseUrl ? [] : ['smoke.spec.ts'],
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -44,7 +53,7 @@ export default defineConfig({
     : [
         {
           name: 'backend',
-          command: 'pnpm --filter @chat-mvp/backend exec tsx src/server.ts',
+          command: 'pnpm --filter @disslxt/backend exec tsx src/server.ts',
           cwd: '..',
           url: `http://127.0.0.1:${backendPort}/api/health`,
           // Fail if the port is taken instead of silently testing against another server.
@@ -63,11 +72,22 @@ export default defineConfig({
             ALLOWED_ORIGINS: frontendOrigin,
             RATE_LIMIT_LOGIN_MAX: '1000',
             RATE_LIMIT_MESSAGE_MAX: '1000',
+            RATE_LIMIT_MAIL_MAX: '1000',
+            MAIL_MAX_PER_ADDRESS_PER_HOUR: '1000',
+            // Mails stay in memory and are read back via /api/dev/mails.
+            MAIL_TRANSPORT: 'log',
+            PUBLIC_URL: frontendOrigin,
+            VAPID_PUBLIC_KEY: vapid.publicKey,
+            VAPID_PRIVATE_KEY: vapid.privateKey,
+            PUSH_TRANSPORT: 'memory',
+            // Voice uploads of the run; stored as recorded (the Playwright image has no ffmpeg).
+            UPLOAD_DIR: `${tmpdir()}/disslxt-e2e-uploads`,
+            VOICE_TRANSCODE: 'off',
           },
         },
         {
           name: 'frontend',
-          command: `pnpm --filter @chat-mvp/frontend exec vite --port ${frontendPort} --strictPort`,
+          command: `pnpm --filter @disslxt/frontend exec vite --port ${frontendPort} --strictPort`,
           cwd: '..',
           url: frontendOrigin,
           reuseExistingServer: false,

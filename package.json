@@ -1,5 +1,5 @@
 {
-  "name": "chat-mvp",
+  "name": "disslxt",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.0",
@@ -11,12 +11,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r --if-present --filter '!@chat-mvp/e2e' test",
-    "e2e": "pnpm --filter @chat-mvp/e2e test",
-    "e2e:docker": "pnpm --filter @chat-mvp/e2e test:docker",
+    "test": "pnpm -r --if-present --filter '!@disslxt/e2e' test",
+    "e2e": "pnpm --filter @disslxt/e2e test",
+    "e2e:docker": "pnpm --filter @disslxt/e2e test:docker",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --if-present build",
-    "db:migrate": "pnpm --filter @chat-mvp/backend db:migrate"
+    "db:migrate": "pnpm --filter @disslxt/backend db:migrate",
+    "vapid:generate": "node scripts/generate-vapid-keys.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

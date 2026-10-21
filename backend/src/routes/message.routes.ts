@@ -5,7 +5,7 @@ import {
   messageIdSchema,
   sendMessageSchema,
   uuidSchema,
-} from '@chat-mvp/shared';
+} from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';

@@ -1,21 +1,22 @@
-# Chat-MVP reverse proxy: HTTPS via Caddy's local CA (`tls internal`), static SPA, /api + /ws → backend.
-# SITE_ADDRESS may be a hostname or a bare IP (e.g. 46.225.187.29); HTTPS_PORT is the host port
-# mapped to :443, used for the HTTP → HTTPS redirect.
+# disslxt reverse proxy behind a Cloudflare Tunnel: Cloudflare terminates HTTPS, cloudflared on
+# the host forwards to http://localhost:${HTTP_PORT}, which docker compose binds to 127.0.0.1 only.
+# Caddy serves the static SPA and forwards /api + /ws to the backend.
 {
-	# Browsers and curl send no SNI when connecting to an IP address; without a default SNI Caddy
-	# finds no certificate and aborts the handshake ("tlsv1 alert internal error").
-	default_sni {$SITE_ADDRESS:localhost}
-	# Caddy's own redirect would point at port 443 inside the container; the http:// block below
-	# redirects to the published HTTPS port instead.
-	auto_https disable_redirects
+	# Plain HTTP only; TLS is Cloudflare's job.
+	auto_https off
+
+	servers {
+		# Requests arrive from cloudflared via the Docker bridge (a private address), with the real
+		# client appended to X-Forwarded-For by Cloudflare's edge. Strict mode reads it right to
+		# left, so entries a client puts in front of it are ignored. The port itself is loopback
+		# only, so nobody can reach Caddy without going through the tunnel.
+		trusted_proxies static private_ranges
+		trusted_proxies_strict
+		client_ip_headers X-Forwarded-For
+	}
 }
 
-http:// {
-	redir https://{$SITE_ADDRESS:localhost}:{$HTTPS_PORT:8443}{uri} permanent
-}
-
-{$SITE_ADDRESS:localhost} {
-	tls internal
+:80 {
 	encode zstd gzip
 
 	# Security headers for everything served from here (the API adds its own helmet headers too).
@@ -26,19 +27,34 @@ http:// {
 		-Server
 	}
 
+	# The backend trusts X-Forwarded-For (TRUST_PROXY=true). Overwrite it with the single resolved
+	# client address so a client-supplied X-Forwarded-For can never reach the rate limiter.
 	handle /api/* {
-		reverse_proxy backend:3000
+		reverse_proxy backend:3000 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 
 	handle /ws {
-		reverse_proxy backend:3000
+		reverse_proxy backend:3000 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 
 	handle {
-		# CSP3 'self' already covers same-origin wss:// in current browsers; wss://{hostport} is
+		# CSP3 'self' already covers same-origin wss:// in current browsers; wss://{host} is
 		# listed explicitly for older ones.
-		header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{hostport}; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# worker-src: /sw.js; media-src blob:: preview of a voice message before sending.
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{host}; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# Microphone for dictation, voice messages and voice channels; nothing else.
+		header Permissions-Policy "microphone=(self), camera=(), geolocation=(), payment=()"
 		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		# Always revalidate the shell, the service worker and the manifest, so a deploy is picked
+		# up on the next start (the service worker itself updates on every check).
+		@revalidate not path /assets/* /icons/*
+		header @revalidate Cache-Control "no-cache"
+		header /icons/* Cache-Control "public, max-age=86400"
+		header /manifest.webmanifest Content-Type "application/manifest+json"
 		root * /srv
 		try_files {path} /index.html
 		file_server
