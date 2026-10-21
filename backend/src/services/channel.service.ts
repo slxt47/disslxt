@@ -1,8 +1,8 @@
 import { asc, eq } from 'drizzle-orm';
-import type { ChannelDto } from '@disslxt/shared';
+import type { ChannelDto, ChannelKind, VoicePeerDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { channels, type Channel } from '../db/schema.js';
-import { conflict, forbidden, notFound } from '../lib/errors.js';
+import { AppError, conflict, forbidden, notFound } from '../lib/errors.js';
 import { isUniqueViolation } from '../lib/pgErrors.js';
 import type { Hub } from '../realtime/hub.js';
 import { toChannelDto } from './dto.js';
@@ -26,12 +26,17 @@ export class ChannelService {
   }
 
   /** Owner only. `name` must already be normalised by the shared schema. */
-  async create(userId: string, guildId: string, name: string): Promise<ChannelDto> {
+  async create(
+    userId: string,
+    guildId: string,
+    name: string,
+    kind: ChannelKind = 'text',
+  ): Promise<ChannelDto> {
     const guild = await this.guilds.assertMember(userId, guildId);
     if (guild.ownerId !== userId) throw forbidden('Nur der Besitzer kann Kanäle anlegen');
     let row: Channel | undefined;
     try {
-      [row] = await this.db.insert(channels).values({ guildId, name }).returning();
+      [row] = await this.db.insert(channels).values({ guildId, name, kind }).returning();
     } catch (err) {
       if (isUniqueViolation(err)) {
         throw conflict('CHANNEL_EXISTS', 'Ein Kanal mit diesem Namen existiert bereits');
@@ -41,6 +46,21 @@ export class ChannelService {
     if (!row) throw new Error('insert returned no row');
     const channel = toChannelDto(row);
     this.hub.publishToGuild(guildId, { type: 'channel.created', data: { channel } });
+    return channel;
+  }
+
+  /** Who is in which voice channel of a guild right now (members only). */
+  async voiceState(userId: string, guildId: string): Promise<Record<string, VoicePeerDto[]>> {
+    await this.guilds.assertMember(userId, guildId);
+    return this.hub.voiceStateForGuild(guildId);
+  }
+
+  /** Like assertAccess, for posting messages: voice channels have no text chat. */
+  async assertTextChannel(userId: string, channelId: string): Promise<Channel> {
+    const channel = await this.assertAccess(userId, channelId);
+    if (channel.kind !== 'text') {
+      throw new AppError('BAD_REQUEST', 400, 'In Sprachkanälen gibt es keine Textnachrichten');
+    }
     return channel;
   }
 

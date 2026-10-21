@@ -117,6 +117,7 @@ export const channels = pgTable(
       .notNull()
       .references(() => guilds.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 32 }).notNull(),
+    kind: varchar('kind', { length: 16 }).notNull().default('text'),
     createdAt: createdAt(),
   },
   (t) => [
@@ -184,6 +185,16 @@ export const guildNotificationSettings = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.guildId] })],
 );
+
+/**
+ * Bytes relayed through TURN per calendar month (UTC), as measured and reported by the clients.
+ * Used to stop handing out TURN credentials before the free quota is used up.
+ */
+export const turnUsage = pgTable('turn_usage', {
+  month: char('month', { length: 7 }).primaryKey(),
+  bytes: bigint('bytes', { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export type User = typeof users.$inferSelect;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;

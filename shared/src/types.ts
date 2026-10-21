@@ -12,11 +12,23 @@ export interface GuildDto {
   createdAt: string;
 }
 
+export type ChannelKind = 'text' | 'voice';
+
 export interface ChannelDto {
   id: string;
   guildId: string;
   name: string;
+  kind: ChannelKind;
   createdAt: string;
+}
+
+/** Someone in a live voice channel. One person can be in one voice channel at a time. */
+export interface VoicePeerDto {
+  /** Per join; addresses this participant for WebRTC signalling. */
+  peerId: string;
+  userId: string;
+  username: string;
+  muted: boolean;
 }
 
 export interface MessageAuthorDto {
@@ -50,6 +62,16 @@ export interface MemberDto {
   userId: string;
   username: string;
   online: boolean;
+}
+
+export interface TurnUsageDto {
+  /** Calendar month (UTC), "YYYY-MM". */
+  month: string;
+  usedBytes: number;
+  limitBytes: number;
+  exhausted: boolean;
+  /** A TURN server is set up at all. */
+  configured: boolean;
 }
 
 export interface PushConfigDto {

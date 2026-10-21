@@ -60,6 +60,15 @@ services:
       # Voice messages: stored in the uploads volume, always converted with ffmpeg.
       UPLOAD_DIR: /data/uploads
       VOICE_TRANSCODE: ffmpeg
+      # Live voice channels: STUN plus optional TURN (see README, "Sprachkanäle").
+      VOICE_STUN_URLS: ${VOICE_STUN_URLS:-stun:stun.cloudflare.com:3478}
+      CLOUDFLARE_TURN_KEY_ID: ${CLOUDFLARE_TURN_KEY_ID:-}
+      CLOUDFLARE_TURN_API_TOKEN: ${CLOUDFLARE_TURN_API_TOKEN:-}
+      TURN_URLS: ${TURN_URLS:-}
+      TURN_USERNAME: ${TURN_USERNAME:-}
+      TURN_CREDENTIAL: ${TURN_CREDENTIAL:-}
+      # TURN stops for the rest of the month at this much relayed traffic (Cloudflare: 1000 GB free).
+      TURN_MONTHLY_LIMIT_GB: ${TURN_MONTHLY_LIMIT_GB:-900}
     volumes:
       - uploads:/data/uploads
     depends_on:

@@ -64,8 +64,10 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* Dark: follows the system unless the user picked a theme in the settings (data-theme on
+   <html>, set by /theme-init.js before the first paint and by the settings dialog). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #1c1c1e;
     --bg-secondary: #161617;
     --bg-tertiary: #0e0e0f;
@@ -98,6 +100,45 @@
     --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.35);
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1c1c1e;
+  --bg-secondary: #161617;
+  --bg-tertiary: #0e0e0f;
+  --bg-elevated: #2c2c2e;
+  --bg-translucent: rgba(28, 28, 30, 0.78);
+  --fill: rgba(118, 118, 128, 0.2);
+  --fill-strong: rgba(118, 118, 128, 0.32);
+  --separator: rgba(255, 255, 255, 0.1);
+
+  --text: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-tertiary: #86868b;
+
+  /* Navy itself is too dark on black; a lighter navy keeps the hue and the contrast. */
+  --accent: #2f5da3;
+  --accent-hover: #3a6cb7;
+  --accent-pressed: #264d89;
+  --accent-text: #8fb4f0;
+  --accent-soft: rgba(143, 180, 240, 0.12);
+  --accent-soft-strong: rgba(143, 180, 240, 0.2);
+  --focus-ring: 0 0 0 4px rgba(143, 180, 240, 0.35);
+
+  --danger: #ff453a;
+  --danger-soft: rgba(255, 69, 58, 0.14);
+  --success: #30d158;
+  --warning-bg: #3a2a10;
+  --warning-text: #ffcc80;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 /* ==========================================================================
@@ -1059,6 +1100,9 @@ label {
 .modal {
   display: grid;
   gap: 18px;
+  max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   width: 100%;
   max-width: 440px;
   padding: 28px;
@@ -1477,7 +1521,7 @@ input[type='range']:focus {
 .voice-play:active {
   transform: scale(0.92);
 }
-.voice-progress {
+.voice-player .voice-progress {
   flex: 1;
   min-width: 0;
   height: 4px;
@@ -1492,7 +1536,7 @@ input[type='range']:focus {
   -webkit-appearance: none;
   cursor: pointer;
 }
-.voice-progress:focus {
+.voice-player .voice-progress:focus {
   background: linear-gradient(
     to right,
     var(--accent-text) var(--progress, 0%),
@@ -1546,4 +1590,224 @@ input[type='range']:focus {
   flex: 1;
   color: var(--text);
   font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Live voice
+   ========================================================================== */
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--fill);
+}
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.segmented button[aria-checked='true'] {
+  background: var(--bg-elevated);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.voice-participants {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 6px 30px;
+  padding: 0;
+  list-style: none;
+}
+.voice-participants li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  animation: fade-in var(--dur) var(--ease-out);
+}
+.voice-participants .avatar.sm {
+  width: 22px;
+  height: 22px;
+  font-size: 0.5625rem;
+}
+
+.voice-view {
+  background: var(--bg);
+}
+.voice-stage {
+  display: grid;
+  flex: 1;
+  align-content: center;
+  justify-items: center;
+  gap: 20px;
+  min-height: 0;
+  padding: 32px 20px;
+  overflow-y: auto;
+}
+.voice-tiles {
+  display: grid;
+  justify-self: stretch;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 180px));
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.voice-tile {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 24px 14px 18px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  animation: rise-in var(--dur) var(--ease-out);
+}
+.voice-tile .avatar {
+  width: 72px;
+  height: 72px;
+  font-size: 1.5rem;
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+/* Ring around whoever is speaking, as in FaceTime group calls. */
+.voice-tile.speaking .avatar {
+  box-shadow:
+    0 0 0 3px var(--bg-secondary),
+    0 0 0 6px var(--success);
+}
+.voice-tile > .icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--danger);
+}
+.voice-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.voice-sub {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.voice-empty {
+  max-width: 320px;
+  text-align: center;
+}
+.voice-controls {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  padding: 16px 16px calc(24px + var(--safe-bottom));
+}
+.btn.round {
+  width: 60px;
+  min-width: 60px;
+  height: 60px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.btn.round.active {
+  background: var(--text);
+  color: var(--bg);
+}
+.btn.round.danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.voice-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 12px 0;
+  padding: 8px 6px 8px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  animation: rise-in var(--dur) var(--ease-out);
+}
+.voice-bar-info {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.voice-bar-info:hover {
+  text-decoration: none;
+}
+.voice-bar-info strong {
+  color: var(--success);
+  font-size: 0.875rem;
+}
+.voice-bar[data-status='joining'] .voice-bar-info strong {
+  color: var(--text-secondary);
+}
+.voice-bar-info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.segmented.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+  .voice-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .modal {
+    max-height: calc(100dvh - 24px - var(--safe-top));
+  }
+}
+
+.quota {
+  display: grid;
+  gap: 8px;
+}
+.quota-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--fill);
+}
+.quota-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width var(--dur) var(--ease-out);
+}
+.quota-bar span.full {
+  background: var(--danger);
 }

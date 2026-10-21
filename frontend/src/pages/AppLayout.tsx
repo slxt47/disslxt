@@ -9,7 +9,11 @@ import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
 import { InstallBanner } from '../components/InstallBanner';
 import { SettingsDialog } from '../components/SettingsDialog';
+import { AppearanceSettings } from '../components/AppearanceSettings';
 import { SpeechSettings } from '../components/SpeechSettings';
+import { VoiceSettings } from '../components/VoiceSettings';
+import { VoiceChannelView } from '../components/VoiceChannelView';
+import { loadVoiceState } from '../voice/voiceState';
 import { Icon } from '../components/Icon';
 import { MemberList } from '../components/MemberList';
 import { ServerList } from '../components/ServerList';
@@ -56,6 +60,16 @@ export function AppLayout() {
       (err: unknown) => chat.setError(errorMessage(err)),
     );
   }, [guildId, guildKnown]);
+
+  // Who is in the guild's voice channels (kept current by voice.state events afterwards).
+  const voiceChannelIds = channels
+    ?.filter((c) => c.kind === 'voice')
+    .map((c) => c.id)
+    .join(',');
+  useEffect(() => {
+    if (!guildId || !voiceChannelIds) return;
+    loadVoiceState(guildId, voiceChannelIds.split(',')).catch(() => undefined);
+  }, [guildId, voiceChannelIds]);
 
   useEffect(() => {
     activeView.guildId = guild ? guildId : null;
@@ -117,7 +131,9 @@ export function AppLayout() {
       )}
 
       <main className="main-pane">
-        {channel ? (
+        {channel?.kind === 'voice' ? (
+          <VoiceChannelView channel={channel} onOpenMenu={() => setDrawerOpen(true)} />
+        ) : channel ? (
           <ChatView channel={channel} onOpenMenu={() => setDrawerOpen(true)} />
         ) : (
           <section className="chat-view">
@@ -157,7 +173,16 @@ export function AppLayout() {
       {guild && <MemberList guildId={guild.id} />}
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}
       {settingsOpen && (
-        <SettingsDialog onClose={() => setSettingsOpen(false)} extra={<SpeechSettings />} />
+        <SettingsDialog
+          onClose={() => setSettingsOpen(false)}
+          extra={
+            <>
+              <AppearanceSettings />
+              <SpeechSettings />
+              <VoiceSettings />
+            </>
+          }
+        />
       )}
       <InstallBanner onShowGuide={() => setSettingsOpen(true)} />
       <ErrorToast />

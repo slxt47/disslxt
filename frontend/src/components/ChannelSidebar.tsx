@@ -8,6 +8,27 @@ import { useChatStore } from '../store/chat';
 import { usePushStore } from '../store/push';
 import { CreateChannelDialog } from './CreateChannelDialog';
 import { Avatar, Icon } from './Icon';
+import { VoiceBar } from './VoiceBar';
+import { useVoiceStore } from '../store/voice';
+
+const NO_PEERS: never[] = [];
+
+/** Who is in a voice channel, under its name in the list. */
+function VoiceParticipants({ channelId }: { channelId: string }) {
+  const peers = useVoiceStore((s) => s.participants[channelId] ?? NO_PEERS);
+  if (peers.length === 0) return null;
+  return (
+    <ul className="voice-participants" data-testid={`voice-participants-${channelId}`}>
+      {peers.map((p) => (
+        <li key={p.peerId} data-testid={`voice-participant-${p.username}`}>
+          <Avatar name={p.username} size="sm" />
+          <span>{p.username}</span>
+          {p.muted && <Icon name="mic-off" size={14} />}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export interface ChannelSidebarProps {
   guild: GuildDto | null;
@@ -121,23 +142,51 @@ export function ChannelSidebar({
               )}
             </div>
             <ul className="channels" data-testid="channel-list">
-              {channels?.map((c) => (
-                <li key={c.id}>
-                  <Link
-                    to={`/guilds/${guild.id}/channels/${c.id}`}
-                    className={`channel-link${c.id === activeChannelId ? ' active' : ''}`}
-                    data-testid={`channel-item-${c.name}`}
-                    aria-current={c.id === activeChannelId ? 'page' : undefined}
-                    onClick={onNavigate}
-                  >
-                    <Icon name="hash" size={16} />
-                    <span className="sr-only">#</span>
-                    {c.name}
-                  </Link>
-                </li>
-              ))}
+              {channels
+                ?.filter((c) => c.kind !== 'voice')
+                .map((c) => (
+                  <li key={c.id}>
+                    <Link
+                      to={`/guilds/${guild.id}/channels/${c.id}`}
+                      className={`channel-link${c.id === activeChannelId ? ' active' : ''}`}
+                      data-testid={`channel-item-${c.name}`}
+                      aria-current={c.id === activeChannelId ? 'page' : undefined}
+                      onClick={onNavigate}
+                    >
+                      <Icon name="hash" size={16} />
+                      <span className="sr-only">#</span>
+                      {c.name}
+                    </Link>
+                  </li>
+                ))}
             </ul>
           </div>
+          {channels?.some((c) => c.kind === 'voice') && (
+            <div className="sidebar-section">
+              <div className="sidebar-heading-row">
+                <h3 className="sidebar-heading">Sprachkanäle</h3>
+              </div>
+              <ul className="channels" data-testid="voice-channel-list">
+                {channels
+                  .filter((c) => c.kind === 'voice')
+                  .map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        to={`/guilds/${guild.id}/channels/${c.id}`}
+                        className={`channel-link${c.id === activeChannelId ? ' active' : ''}`}
+                        data-testid={`channel-item-${c.name}`}
+                        aria-current={c.id === activeChannelId ? 'page' : undefined}
+                        onClick={onNavigate}
+                      >
+                        <Icon name="speaker" size={16} />
+                        {c.name}
+                      </Link>
+                      <VoiceParticipants channelId={c.id} />
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
           <div className="sidebar-section invite">
             <h3 className="sidebar-heading">Einladungslink</h3>
             <code className="invite-link" data-testid="invite-link">
@@ -189,6 +238,7 @@ export function ChannelSidebar({
           <h2 className="guild-name">disslxt</h2>
         </header>
       )}
+      <VoiceBar onNavigate={onNavigate} />
       <footer className="user-footer">
         <span className="who">
           <Avatar name={user?.username ?? '?'} size="sm" />

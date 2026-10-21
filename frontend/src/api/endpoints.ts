@@ -1,10 +1,13 @@
 import type {
   ChannelDto,
+  ChannelKind,
+  VoicePeerDto,
   GuildDto,
   InvitePreviewDto,
   MemberDto,
   MessageDto,
   PushConfigDto,
+  TurnUsageDto,
   UserDto,
 } from '@disslxt/shared';
 import { apiRequest, apiUpload } from './client';
@@ -37,8 +40,19 @@ export const api = {
 
   listChannels: (guildId: string) =>
     apiRequest<{ channels: ChannelDto[] }>('GET', `/guilds/${enc(guildId)}/channels`),
-  createChannel: (guildId: string, name: string) =>
-    apiRequest<{ channel: ChannelDto }>('POST', `/guilds/${enc(guildId)}/channels`, { name }),
+  createChannel: (guildId: string, name: string, kind: ChannelKind = 'text') =>
+    apiRequest<{ channel: ChannelDto }>('POST', `/guilds/${enc(guildId)}/channels`, {
+      name,
+      kind,
+    }),
+  voiceState: (guildId: string) =>
+    apiRequest<{ channels: Record<string, VoicePeerDto[]> }>(
+      'GET',
+      `/guilds/${enc(guildId)}/voice`,
+    ),
+  iceServers: () => apiRequest<{ iceServers: RTCIceServer[] }>('GET', '/voice/ice-servers'),
+  reportTurnUsage: (bytes: number) => apiRequest<void>('POST', '/voice/turn-usage', { bytes }),
+  turnUsage: () => apiRequest<TurnUsageDto>('GET', '/voice/turn-usage'),
 
   listMessages: (channelId: string, opts: { before?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();

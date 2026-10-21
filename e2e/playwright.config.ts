@@ -83,6 +83,9 @@ export default defineConfig({
             // Voice uploads of the run; stored as recorded (the Playwright image has no ffmpeg).
             UPLOAD_DIR: `${tmpdir()}/disslxt-e2e-uploads`,
             VOICE_TRANSCODE: 'off',
+            // Optional real TURN for tests/turn-relay.spec.ts (skipped without it).
+            CLOUDFLARE_TURN_KEY_ID: process.env.E2E_CLOUDFLARE_TURN_KEY_ID ?? '',
+            CLOUDFLARE_TURN_API_TOKEN: process.env.E2E_CLOUDFLARE_TURN_API_TOKEN ?? '',
           },
         },
         {

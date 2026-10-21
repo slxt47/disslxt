@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PushPayload } from '@disslxt/shared';
 import { loadConfig } from '../src/config.js';
 import { MemoryPushSender } from '../src/lib/push.js';
-import { mentionedNames } from '../src/services/push.service.js';
+import { MAX_SUBSCRIPTIONS_PER_USER, mentionedNames } from '../src/services/push.service.js';
 import {
   buildTestApp,
   closeDb,
@@ -202,6 +202,18 @@ describe('subscriptions', () => {
     sender.sent.length = 0;
     await sendMessage(app, alice, generalId, 'zwei');
     expect((await delivered()).map((d) => d.to).sort()).toEqual(['bob', 'carol']);
+  });
+
+  it(`keeps at most ${MAX_SUBSCRIPTIONS_PER_USER} devices per account, dropping the oldest`, async () => {
+    // Through the service: the HTTP route is rate limited to 10 per minute on top.
+    for (let i = 0; i < MAX_SUBSCRIPTIONS_PER_USER + 3; i++) {
+      await app.services.push.subscribe(bob.user.id, { endpoint: endpoint(`bob-dev-${i}`), keys });
+    }
+    const res = await req(app, 'POST', '/api/push/test', { cookie: bob.cookie });
+    expect(res.json()).toEqual({ delivered: MAX_SUBSCRIPTIONS_PER_USER });
+    const reached = (await delivered()).filter((d) => d.payload.tag === 'test').map((d) => d.to);
+    expect(reached).toContain(`bob-dev-${MAX_SUBSCRIPTIONS_PER_USER + 2}`);
+    expect(reached).not.toContain('bob');
   });
 
   it('POST /push/test reaches all own devices', async () => {

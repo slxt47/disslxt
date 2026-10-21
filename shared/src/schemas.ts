@@ -95,7 +95,10 @@ export const channelNameSchema = z
       ),
   );
 
-export const createChannelSchema = z.object({ name: channelNameSchema });
+export const createChannelSchema = z.object({
+  name: channelNameSchema,
+  kind: z.enum(['text', 'voice']).default('text'),
+});
 export type CreateChannelInput = z.infer<typeof createChannelSchema>;
 
 export const messageContentSchema = z
@@ -132,6 +135,9 @@ export const inviteCodeSchema = z
   .regex(/^[A-Za-z0-9]{1,16}$/, 'Ungültiger Einladungscode');
 
 export const uuidSchema = z.guid();
+
+/** Bytes relayed through TURN since the client's last report. */
+export const turnUsageReportSchema = z.object({ bytes: z.number().int().min(0).max(1e10) });
 
 /**
  * A browser push subscription (PushSubscription.toJSON()). The server POSTs to `endpoint`, so

@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type {
   MessageDto,
@@ -20,6 +20,8 @@ import type { PushSender } from '../lib/push.js';
 import type { Hub } from '../realtime/hub.js';
 
 const BODY_MAX = 140;
+/** Devices per account; the oldest subscription goes when a new one would exceed it. */
+export const MAX_SUBSCRIPTIONS_PER_USER = 20;
 /** Parallel requests to the push services per fan-out. */
 const CONCURRENCY = 8;
 
@@ -78,6 +80,21 @@ export class PushService {
       .insert(pushSubscriptions)
       .values(values)
       .onConflictDoUpdate({ target: pushSubscriptions.endpoint, set: values });
+    // Bounded fan-out: every message is sent to every subscription of a recipient.
+    const surplus = await this.db
+      .select({ id: pushSubscriptions.id })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, userId))
+      .orderBy(desc(pushSubscriptions.createdAt))
+      .offset(MAX_SUBSCRIPTIONS_PER_USER);
+    if (surplus.length > 0) {
+      await this.db.delete(pushSubscriptions).where(
+        inArray(
+          pushSubscriptions.id,
+          surplus.map((s) => s.id),
+        ),
+      );
+    }
   }
 
   async unsubscribe(userId: string, endpoint: string): Promise<void> {
