@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { MESSAGE_MAX_LEN, textLength } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
+import { useDictation } from '../speech/useDictation';
 import { Icon } from './Icon';
 
 export interface ComposerProps {
@@ -21,6 +22,21 @@ export function Composer({ channelName, onSend }: ComposerProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
+  /** Text in the field when dictation started; recognised speech is appended to it. */
+  const dictationBase = useRef('');
+  const dictation = useDictation((spoken) => {
+    const base = dictationBase.current;
+    setValue(base && spoken ? `${base.trimEnd()} ${spoken}` : base || spoken);
+  });
+
+  function toggleDictation() {
+    if (dictation.listening) {
+      dictation.stop();
+      return;
+    }
+    dictationBase.current = value;
+    dictation.start();
+  }
 
   // Code points, like the server (an emoji counts as one character).
   const length = textLength(value.trim());
@@ -35,6 +51,7 @@ export function Composer({ channelName, onSend }: ComposerProps) {
   async function submit() {
     const content = value.trim();
     if (!content || textLength(content) > MESSAGE_MAX_LEN || sending) return;
+    if (dictation.listening) dictation.stop();
     setSending(true);
     setError(null);
     try {
@@ -66,9 +83,9 @@ export function Composer({ channelName, onSend }: ComposerProps) {
         void submit();
       }}
     >
-      {error && (
+      {(error ?? dictation.error) && (
         <p className="composer-error" role="alert" data-testid="composer-error">
-          {error}
+          {error ?? dictation.error}
         </p>
       )}
       <div className="composer-row">
@@ -77,13 +94,27 @@ export function Composer({ channelName, onSend }: ComposerProps) {
           data-testid="composer-input"
           className="composer-input"
           rows={1}
-          placeholder={`Nachricht an #${channelName}`}
+          placeholder={dictation.listening ? 'Sprich jetzt…' : `Nachricht an #${channelName}`}
           aria-label={`Nachricht an #${channelName}`}
           value={value}
           disabled={sending}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
         />
+        {dictation.supported && (
+          <button
+            type="button"
+            className={`icon-btn composer-tool${dictation.listening ? ' recording' : ''}`}
+            data-testid="dictate-button"
+            aria-pressed={dictation.listening}
+            aria-label={dictation.listening ? 'Diktieren beenden' : 'Diktieren'}
+            title={dictation.listening ? 'Diktieren beenden' : 'Diktieren (Sprache zu Text)'}
+            disabled={sending}
+            onClick={toggleDictation}
+          >
+            <Icon name="mic" size={20} />
+          </button>
+        )}
         <button
           type="submit"
           className="btn primary composer-send"

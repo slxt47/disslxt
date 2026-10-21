@@ -9,6 +9,7 @@ import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
 import { InstallBanner } from '../components/InstallBanner';
 import { SettingsDialog } from '../components/SettingsDialog';
+import { SpeechSettings } from '../components/SpeechSettings';
 import { Icon } from '../components/Icon';
 import { MemberList } from '../components/MemberList';
 import { ServerList } from '../components/ServerList';
@@ -155,7 +156,9 @@ export function AppLayout() {
 
       {guild && <MemberList guildId={guild.id} />}
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsDialog onClose={() => setSettingsOpen(false)} extra={<SpeechSettings />} />
+      )}
       <InstallBanner onShowGuide={() => setSettingsOpen(true)} />
       <ErrorToast />
     </div>

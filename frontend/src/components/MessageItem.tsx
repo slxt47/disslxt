@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { MESSAGE_MAX_LEN, textLength, type MessageDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
+import { speak, spokenText, ttsSupported } from '../speech/tts';
+import { usePrefs } from '../store/prefs';
 import { isSubmitKey } from './Composer';
 import { Avatar, Icon } from './Icon';
 
@@ -23,6 +25,8 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  /** Touch screens have no hover: a tap on the message shows its actions. */
+  const [selected, setSelected] = useState(false);
 
   useEffect(() => {
     if (mode === 'edit') {
@@ -85,7 +89,14 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
   }
 
   return (
-    <li className={`message${isOwn ? ' own' : ''}`} data-testid={`message-${message.id}`}>
+    <li
+      className={`message${isOwn ? ' own' : ''}${selected ? ' selected' : ''}`}
+      data-testid={`message-${message.id}`}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('button, a, textarea, input, audio')) return;
+        setSelected((s) => !s);
+      }}
+    >
       <Avatar name={message.author.username} />
       <div className="message-meta">
         <span className="message-author" data-testid="message-author">
@@ -170,29 +181,49 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
         </p>
       )}
 
-      {isOwn && mode === 'view' && (
+      {mode === 'view' && (ttsSupported() || isOwn) && (
         <div className="message-actions">
-          <button
-            className="icon-btn"
-            data-testid="message-edit"
-            aria-label="Bearbeiten"
-            title="Bearbeiten"
-            onClick={startEdit}
-          >
-            <Icon name="edit" size={18} />
-          </button>
-          <button
-            className="icon-btn danger"
-            data-testid="message-delete"
-            aria-label="Löschen"
-            title="Löschen"
-            onClick={() => {
-              setError(null);
-              setMode('confirm-delete');
-            }}
-          >
-            <Icon name="trash" size={18} />
-          </button>
+          {ttsSupported() && (
+            <button
+              className="icon-btn"
+              data-testid="message-speak"
+              aria-label="Vorlesen"
+              title="Vorlesen"
+              onClick={() =>
+                speak(spokenText(message), {
+                  rate: usePrefs.getState().speechRate,
+                  interrupt: true,
+                })
+              }
+            >
+              <Icon name="speaker" size={18} />
+            </button>
+          )}
+          {isOwn && (
+            <>
+              <button
+                className="icon-btn"
+                data-testid="message-edit"
+                aria-label="Bearbeiten"
+                title="Bearbeiten"
+                onClick={startEdit}
+              >
+                <Icon name="edit" size={18} />
+              </button>
+              <button
+                className="icon-btn danger"
+                data-testid="message-delete"
+                aria-label="Löschen"
+                title="Löschen"
+                onClick={() => {
+                  setError(null);
+                  setMode('confirm-delete');
+                }}
+              >
+                <Icon name="trash" size={18} />
+              </button>
+            </>
+          )}
         </div>
       )}
     </li>
