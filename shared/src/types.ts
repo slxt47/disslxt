@@ -12,11 +12,23 @@ export interface GuildDto {
   createdAt: string;
 }
 
+export type ChannelKind = 'text' | 'voice';
+
 export interface ChannelDto {
   id: string;
   guildId: string;
   name: string;
+  kind: ChannelKind;
   createdAt: string;
+}
+
+/** Someone in a live voice channel. One person can be in one voice channel at a time. */
+export interface VoicePeerDto {
+  /** Per join; addresses this participant for WebRTC signalling. */
+  peerId: string;
+  userId: string;
+  username: string;
+  muted: boolean;
 }
 
 export interface MessageAuthorDto {

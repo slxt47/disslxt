@@ -8,6 +8,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { ServiceWorkerBridge } from './pwa/ServiceWorkerBridge';
 import { RealtimeProvider } from './realtime/RealtimeProvider';
+import { VoiceProvider } from './voice/VoiceProvider';
 import { safeNext } from './navigation';
 import { useAuthStore } from './store/auth';
 import { useChatStore } from './store/chat';
@@ -34,8 +35,10 @@ export function RequireAuth() {
   }
   return (
     <RealtimeProvider>
-      <ServiceWorkerBridge />
-      <Outlet />
+      <VoiceProvider>
+        <ServiceWorkerBridge />
+        <Outlet />
+      </VoiceProvider>
     </RealtimeProvider>
   );
 }

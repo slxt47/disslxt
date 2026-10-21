@@ -19,10 +19,14 @@ export async function channelRoutes(
     channels: await channels.list(currentUser(req).id, guildId(req.params)),
   }));
 
+  app.get<GuildParams>('/guilds/:guildId/voice', async (req) => ({
+    channels: await channels.voiceState(currentUser(req).id, guildId(req.params)),
+  }));
+
   app.post<GuildParams>('/guilds/:guildId/channels', async (req, reply) => {
     const id = guildId(req.params);
-    const { name } = parse(createChannelSchema, req.body);
-    const channel = await channels.create(currentUser(req).id, id, name);
+    const { name, kind } = parse(createChannelSchema, req.body);
+    const channel = await channels.create(currentUser(req).id, id, name, kind);
     return reply.status(201).send({ channel });
   });
 }

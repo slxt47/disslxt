@@ -36,6 +36,10 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
+    files: ['frontend/public/theme-init.js'],
+    languageOptions: { sourceType: 'script', globals: { ...globals.browser } },
+  },
+  {
     files: ['frontend/public/sw.js'],
     languageOptions: { sourceType: 'script', globals: { ...globals.serviceworker } },
   },

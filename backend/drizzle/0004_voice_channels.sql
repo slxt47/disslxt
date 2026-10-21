@@ -1,0 +1,1 @@
+ALTER TABLE "channels" ADD COLUMN "kind" varchar(16) DEFAULT 'text' NOT NULL;

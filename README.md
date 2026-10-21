@@ -266,6 +266,40 @@ Web-Push-Verschlüsselung (RFC 8291) Ende-zu-Ende verschlüsselt; der Push-Diens
 - **Lokal ohne ffmpeg** (`VOICE_TRANSCODE=auto`): Aufnahmen werden unverändert gespeichert; WebM
   aus Chrome spielt dann auf älteren iPhones evtl. nicht ab. Das Docker-Image enthält ffmpeg.
 
+## Live-Sprachkanäle (WebRTC)
+
+Besitzer:innen legen über **+ → Sprache** einen Sprachkanal an. In der Kanalliste sieht jedes
+Mitglied, wer gerade drin ist. **Beitreten** fragt einmal nach dem Mikrofon; danach kann man in
+Textkanälen weiterlesen – die Leiste über dem Profil zeigt die Verbindung, Stummschalten und
+Auflegen. Ein Ring um den Avatar zeigt, wer spricht. Die erste Person im Kanal löst eine
+Mitteilung an die anderen aus.
+
+**Technik:** Mesh mit bis zu **6 Personen** (jede:r sendet an jede:n; mehr wäre auf Handys zu viel
+Upload). Signalisierung (SDP, ICE) läuft über die bestehende WebSocket und wird nur zwischen
+Teilnehmenden desselben Kanals weitergereicht; das Audio fließt direkt zwischen den Browsern
+(DTLS-SRTP-verschlüsselt), nie über den Server. Wer kurz die Verbindung verliert, tritt
+automatisch wieder bei; scheitert ein Pfad (z. B. WLAN → Mobilfunk), startet ein ICE-Restart.
+Pro Person ein Kanal auf einem Gerät – Beitreten am zweiten Gerät übernimmt.
+
+**TURN – wann nötig?** STUN (Standard: Cloudflare) reicht, wenn sich die Geräte direkt
+erreichen. Hinter symmetrischem NAT (viele Mobilfunknetze, Firmen-WLAN) braucht es einen
+TURN-Server, der das Audio weiterleitet. Der Cloudflare Tunnel überträgt **kein UDP**, daher
+kann dieser Server selbst kein TURN anbieten. Optionen:
+
+1. **Cloudflare Realtime TURN (empfohlen):** im Cloudflare-Dashboard unter _Realtime → TURN_
+   einen Schlüssel anlegen und `CLOUDFLARE_TURN_KEY_ID` / `CLOUDFLARE_TURN_API_TOKEN` setzen.
+   Das Backend holt kurzlebige Zugangsdaten (6 h) und filtert Port 53 heraus (blockieren
+   Browser). Die ersten 1000 GB im Monat sind kostenlos.
+2. **Eigener coturn:** `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL`. Braucht offene UDP-Ports
+   (3478 + Relay-Bereich) direkt am Server, also Firewall-Freigaben – nicht über den Tunnel.
+
+Ohne TURN zeigt die App bei gescheiterter Verbindung einen Hinweis darauf.
+
+## Darstellung (Dark Mode)
+
+Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
+Gerät; `/theme-init.js` setzt die Wahl vor dem ersten Zeichnen, damit nichts hell aufblitzt.
+
 ## Konfiguration (Env-Variablen)
 
 | Variable                                              | Default                                            | Beschreibung                                                                                                               |
@@ -302,6 +336,9 @@ Web-Push-Verschlüsselung (RFC 8291) Ende-zu-Ende verschlüsselt; der Push-Diens
 | `UPLOAD_DIR`                                          | `data/uploads`                                     | Ablage für Sprachnachrichten (Compose: Volume unter `/data/uploads`)                                                       |
 | `VOICE_TRANSCODE`                                     | `auto`                                             | `ffmpeg` (Pflicht-Umwandlung, Compose), `auto` (wenn vorhanden), `off` (unverändert speichern)                             |
 | `FFMPEG_PATH` / `FFPROBE_PATH`                        | `ffmpeg` / `ffprobe`                               | Pfade der ffmpeg-Programme                                                                                                 |
+| `VOICE_STUN_URLS`                                     | `stun:stun.cloudflare.com:3478`                    | STUN-Server für Sprachkanäle (kommagetrennt)                                                                               |
+| `CLOUDFLARE_TURN_KEY_ID` / `_API_TOKEN`               | –                                                  | Cloudflare Realtime TURN (kurzlebige Zugangsdaten per API)                                                                 |
+| `TURN_URLS` / `TURN_USERNAME` / `TURN_CREDENTIAL`     | –                                                  | eigener TURN-Server (z. B. coturn)                                                                                         |
 
 Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
@@ -316,4 +353,4 @@ Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
 Alle Endpunkte unter `/api`, JSON, Session-Cookie `sid` (httpOnly, SameSite=Lax). Fehlerformat:
 `{ "error": { "code", "message", "details?" } }`. Echtzeit über `GET /ws` (Server→Client-Events,
-Client sendet nur `subscribe`/`unsubscribe`/`ping`/`visibility`). Details: `docs/PLAN.md` §3.
+Client sendet `subscribe`/`unsubscribe`/`ping`/`visibility` und `voice.*` für Sprachkanäle). Details: `docs/PLAN.md` §3.

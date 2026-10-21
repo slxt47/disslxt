@@ -12,7 +12,7 @@ import authPlugin from './plugins/auth.js';
 import errorHandler from './plugins/errorHandler.js';
 import security from './plugins/security.js';
 import { Hub } from './realtime/hub.js';
-import { wsRoutes } from './realtime/ws.route.js';
+import { MAX_FRAME_BYTES, wsRoutes } from './realtime/ws.route.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { channelRoutes } from './routes/channel.routes.js';
 import { guildRoutes } from './routes/guild.routes.js';
@@ -127,7 +127,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       ),
   });
   await app.register(authPlugin, { config, auth: services.auth });
-  await app.register(websocket, { options: { maxPayload: 4096 } });
+  await app.register(websocket, { options: { maxPayload: MAX_FRAME_BYTES } });
 
   await app.register(
     async (api) => {

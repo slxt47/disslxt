@@ -55,7 +55,7 @@ export async function voiceRoutes(
         notFound('Kanal nicht gefunden'),
       );
       const user = currentUser(req);
-      await channels.assertAccess(user.id, channelId);
+      await channels.assertTextChannel(user.id, channelId);
 
       const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
       if (!(VOICE_UPLOAD_TYPES as readonly string[]).includes(type)) {
@@ -87,6 +87,12 @@ export async function voiceRoutes(
       }
     },
   );
+
+  // Fresh per call (Cloudflare credentials are short-lived); only for logged-in users.
+  app.get('/voice/ice-servers', async (req, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return { iceServers: await opts.services.ice.servers() };
+  });
 
   app.get<{ Params: { messageId: string } }>('/voice-messages/:messageId', async (req, reply) => {
     const messageId = parseParam(messageIdSchema, req.params.messageId, () =>

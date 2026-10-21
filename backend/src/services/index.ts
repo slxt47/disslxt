@@ -7,6 +7,7 @@ import { AuthService } from './auth.service.js';
 import { ChannelService } from './channel.service.js';
 import { GuildService } from './guild.service.js';
 import { MessageService } from './message.service.js';
+import { IceService } from './ice.service.js';
 import { PushService } from './push.service.js';
 import type { PushSender } from '../lib/push.js';
 
@@ -16,6 +17,7 @@ export interface Services {
   channels: ChannelService;
   messages: MessageService;
   push: PushService;
+  ice: IceService;
 }
 
 export function createServices(
@@ -31,5 +33,6 @@ export function createServices(
   const guilds = new GuildService(db, hub, push);
   const channels = new ChannelService(db, hub, guilds);
   const messages = new MessageService(db, hub, guilds, channels, push, config.voice.dir);
-  return { auth, guilds, channels, messages, push };
+  const ice = new IceService(config, log);
+  return { auth, guilds, channels, messages, push, ice };
 }

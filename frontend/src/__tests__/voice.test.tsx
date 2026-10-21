@@ -74,7 +74,9 @@ describe('recording a voice message', () => {
     expect(await screen.findByTestId('recording-bar')).toBeTruthy();
     expect(FakeRecorder.last!.mimeType).toBe('audio/mp4');
     const constraints = vi.mocked(navigator.mediaDevices.getUserMedia).mock.calls[0]![0];
-    expect(constraints).toMatchObject({ audio: { echoCancellation: true, noiseSuppression: true } });
+    expect(constraints).toMatchObject({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
 
     await userEvent.click(screen.getByTestId('voice-send'));
     expect(onSendVoice).toHaveBeenCalledTimes(1);

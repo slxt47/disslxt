@@ -69,7 +69,7 @@ export class MessageService {
     channelId: string,
     content: string,
   ): Promise<MessageDto> {
-    await this.channels.assertAccess(user.id, channelId);
+    await this.channels.assertTextChannel(user.id, channelId);
     const [row] = await this.db
       .insert(messages)
       .values({ channelId, authorId: user.id, content })

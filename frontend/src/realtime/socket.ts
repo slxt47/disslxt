@@ -149,8 +149,11 @@ export class RealtimeClient {
     for (const l of this.statusListeners) l(status);
   }
 
-  private send(msg: WsClientMessage): void {
-    if (this.socket && this.socket.readyState === OPEN) this.socket.send(JSON.stringify(msg));
+  /** Sends a frame if connected; returns false otherwise (the caller decides what to do). */
+  send(msg: WsClientMessage): boolean {
+    if (!this.socket || this.socket.readyState !== OPEN) return false;
+    this.socket.send(JSON.stringify(msg));
+    return true;
   }
 
   private connect(): void {

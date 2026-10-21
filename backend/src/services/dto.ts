@@ -19,6 +19,7 @@ export const toChannelDto = (c: Channel): ChannelDto => ({
   id: c.id,
   guildId: c.guildId,
   name: c.name,
+  kind: c.kind === 'voice' ? 'voice' : 'text',
   createdAt: c.createdAt.toISOString(),
 });
 

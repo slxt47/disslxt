@@ -12,6 +12,10 @@ export const EMAIL_MAX_LEN = 254;
 export const NEXT_PATH_MAX_LEN = 200;
 export const DEFAULT_CHANNEL_NAME = 'general';
 
+/** Live voice channels are a WebRTC mesh: every participant sends to every other one, so the
+ *  upload grows with the room. Six keeps it workable on phones. */
+export const VOICE_CHANNEL_MAX_PARTICIPANTS = 6;
+
 /** Voice messages: longest recording and largest upload accepted. */
 export const VOICE_MAX_SECONDS = 120;
 export const VOICE_MAX_BYTES = 5 * 1024 * 1024;

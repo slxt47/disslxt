@@ -117,6 +117,7 @@ export const channels = pgTable(
       .notNull()
       .references(() => guilds.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 32 }).notNull(),
+    kind: varchar('kind', { length: 16 }).notNull().default('text'),
     createdAt: createdAt(),
   },
   (t) => [

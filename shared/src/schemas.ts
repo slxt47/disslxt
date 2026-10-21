@@ -95,7 +95,10 @@ export const channelNameSchema = z
       ),
   );
 
-export const createChannelSchema = z.object({ name: channelNameSchema });
+export const createChannelSchema = z.object({
+  name: channelNameSchema,
+  kind: z.enum(['text', 'voice']).default('text'),
+});
 export type CreateChannelInput = z.infer<typeof createChannelSchema>;
 
 export const messageContentSchema = z

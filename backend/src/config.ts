@@ -64,6 +64,13 @@ const envSchema = z.object({
   VOICE_TRANSCODE: z.enum(['auto', 'ffmpeg', 'off']).default('auto'),
   FFMPEG_PATH: z.string().default('ffmpeg'),
   FFPROBE_PATH: z.string().default('ffprobe'),
+  // Live voice: STUN (comma separated) and optional TURN (Cloudflare Realtime or own server).
+  VOICE_STUN_URLS: z.string().default('stun:stun.cloudflare.com:3478'),
+  CLOUDFLARE_TURN_KEY_ID: z.string().default(''),
+  CLOUDFLARE_TURN_API_TOKEN: z.string().default(''),
+  TURN_URLS: z.string().default(''),
+  TURN_USERNAME: z.string().default(''),
+  TURN_CREDENTIAL: z.string().default(''),
 });
 
 export interface MailConfig {
@@ -104,6 +111,11 @@ export interface Config {
   mail: MailConfig;
   /** null = push disabled (no VAPID keys). */
   push: PushConfig | null;
+  ice: {
+    stunUrls: string[];
+    cloudflare: { keyId: string; apiToken: string } | null;
+    static: { urls: string[]; username: string; credential: string } | null;
+  };
   voice: {
     /** Absolute directory for voice message files. */
     dir: string;
@@ -112,6 +124,12 @@ export interface Config {
     ffprobePath: string;
   };
 }
+
+const list = (s: string) =>
+  s
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
 
 /** Parses configuration from environment variables. Throws on invalid input. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -168,6 +186,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       from: e.MAIL_FROM,
       verificationTtlHours: e.EMAIL_VERIFICATION_TTL_HOURS,
       maxPerAddressPerHour: e.MAIL_MAX_PER_ADDRESS_PER_HOUR,
+    },
+    ice: {
+      stunUrls: list(e.VOICE_STUN_URLS),
+      cloudflare:
+        e.CLOUDFLARE_TURN_KEY_ID && e.CLOUDFLARE_TURN_API_TOKEN
+          ? { keyId: e.CLOUDFLARE_TURN_KEY_ID, apiToken: e.CLOUDFLARE_TURN_API_TOKEN }
+          : null,
+      static: e.TURN_URLS
+        ? { urls: list(e.TURN_URLS), username: e.TURN_USERNAME, credential: e.TURN_CREDENTIAL }
+        : null,
     },
     voice: {
       dir: resolve(e.UPLOAD_DIR, 'voice'),

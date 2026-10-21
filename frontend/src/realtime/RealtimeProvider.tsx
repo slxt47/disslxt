@@ -6,6 +6,7 @@ import { usePrefs } from '../store/prefs';
 import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 import { RealtimeClient } from './socket';
+import { loadVoiceState } from '../voice/voiceState';
 
 const RealtimeContext = createContext<RealtimeClient | null>(null);
 
@@ -25,7 +26,13 @@ export async function refetchAfterReconnect(): Promise<void> {
   const { guildId, channelId } = activeView;
   const tasks: Promise<unknown>[] = [api.listGuilds().then((r) => chat.setGuilds(r.guilds))];
   if (guildId) {
-    tasks.push(api.listChannels(guildId).then((r) => chat.setChannels(guildId, r.channels)));
+    tasks.push(
+      api.listChannels(guildId).then(async (r) => {
+        chat.setChannels(guildId, r.channels);
+        const voiceIds = r.channels.filter((c) => c.kind === 'voice').map((c) => c.id);
+        if (voiceIds.length > 0) await loadVoiceState(guildId, voiceIds);
+      }),
+    );
     tasks.push(api.listMembers(guildId).then((r) => chat.setMembers(guildId, r.members)));
   }
   if (channelId) {
