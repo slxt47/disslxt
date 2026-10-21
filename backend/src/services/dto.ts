@@ -1,4 +1,4 @@
-import type { ChannelDto, GuildDto, MessageDto, UserDto } from '@chat-mvp/shared';
+import type { ChannelDto, GuildDto, MessageDto, UserDto } from '@disslxt/shared';
 import type { Channel, Guild, Message, User } from '../db/schema.js';
 
 export const toUserDto = (u: Pick<User, 'id' | 'email' | 'username'>): UserDto => ({

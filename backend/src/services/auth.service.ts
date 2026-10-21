@@ -1,5 +1,5 @@
 import { and, eq, gt, sql } from 'drizzle-orm';
-import type { LoginInput, RegisterInput, UserDto } from '@chat-mvp/shared';
+import type { LoginInput, RegisterInput, UserDto } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import type { Database } from '../db/client.js';
 import { sessions, users } from '../db/schema.js';

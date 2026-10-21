@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { loginSchema, registerSchema } from '@chat-mvp/shared';
+import { loginSchema, registerSchema } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { currentUser, SESSION_COOKIE } from '../plugins/auth.js';
-import { WS_CLOSE } from '@chat-mvp/shared';
+import { WS_CLOSE } from '@disslxt/shared';
 import type { Hub } from '../realtime/hub.js';
 import type { Services } from '../services/index.js';
 import { parse } from '../lib/validate.js';

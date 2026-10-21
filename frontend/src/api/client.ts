@@ -1,4 +1,4 @@
-import type { ApiError } from '@chat-mvp/shared';
+import type { ApiError } from '@disslxt/shared';
 
 /** Error thrown for every non-2xx API response (and for network failures, with status 0). */
 export class ApiRequestError extends Error {

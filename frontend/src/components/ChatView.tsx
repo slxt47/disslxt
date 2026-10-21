@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ChannelDto } from '@chat-mvp/shared';
+import type { ChannelDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useRealtime } from '../realtime/RealtimeProvider';

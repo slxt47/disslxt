@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type UIEvent } from 'react';
-import type { MessageDto } from '@chat-mvp/shared';
+import type { MessageDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { MessageItem } from './MessageItem';
 

@@ -6,7 +6,7 @@ import {
   type InvitePreviewDto,
   type MemberDto,
   type UserDto,
-} from '@chat-mvp/shared';
+} from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { channels, guildMembers, guilds, users, type Guild } from '../db/schema.js';
 import { conflict, forbidden, notFound } from '../lib/errors.js';

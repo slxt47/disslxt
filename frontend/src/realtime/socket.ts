@@ -1,4 +1,4 @@
-import { WS_CLOSE, type WsClientMessage, type WsServerMessage } from '@chat-mvp/shared';
+import { WS_CLOSE, type WsClientMessage, type WsServerMessage } from '@disslxt/shared';
 import { nextDelay } from './backoff';
 
 /**

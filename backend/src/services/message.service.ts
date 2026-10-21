@@ -1,5 +1,5 @@
 import { and, desc, eq, lt } from 'drizzle-orm';
-import type { ListMessagesQuery, MessageDto, UserDto } from '@chat-mvp/shared';
+import type { ListMessagesQuery, MessageDto, UserDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { channels, messages, users } from '../db/schema.js';
 import { forbidden, notFound } from '../lib/errors.js';

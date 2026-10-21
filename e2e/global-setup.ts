@@ -6,7 +6,7 @@ import pg from 'pg';
  */
 export default async function globalSetup(): Promise<void> {
   if (process.env.E2E_BASE_URL) return;
-  const url = process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_e2e';
+  const url = process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_e2e';
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {

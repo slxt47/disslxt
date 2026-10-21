@@ -1,6 +1,6 @@
-# Chat-MVP Implementation Plan
+# disslxt Implementation Plan
 
-Spec: /home/user/chat-mvp/docs/SPEC.md. Project root: /home/user/chat-mvp. Working name is **Chat-MVP**. The UI is in German, because the spec uses terms like "Ältere laden".
+Spec: /home/user/disslxt/docs/SPEC.md. Project root: /home/user/disslxt. Working name is **disslxt**. The UI is in German, because the spec uses terms like "Ältere laden".
 
 **Environment check (done):** I ran these as root.
 - Postgres 16 accepts connections on localhost:5432, but password auth fails for `postgres` because no password is set.
@@ -11,7 +11,7 @@ Spec: /home/user/chat-mvp/docs/SPEC.md. Project root: /home/user/chat-mvp. Worki
 ## 0. Key decisions
 | Topic | Choice | Why |
 |---|---|---|
-| Repo | pnpm 10 workspaces: `backend/`, `frontend/`, `shared/` (`@chat-mvp/*`) | The spec asks for this, and pnpm handles workspace links. |
+| Repo | pnpm 10 workspaces: `backend/`, `frontend/`, `shared/` (`@disslxt/*`) | The spec asks for this, and pnpm handles workspace links. |
 | Shared package | `shared` exports TS source (`"main":"src/index.ts"`). It has no build step. | Vite, tsx and vitest read TS directly, and the backend bundle (tsup) inlines it. |
 | Backend | Fastify 5, `@fastify/websocket` (based on `ws`), `@fastify/cookie`, `@fastify/helmet`, `@fastify/rate-limit` | One server for HTTP and WS, typed, built-in pino logging. |
 | ORM | **Drizzle ORM + drizzle-kit**, `pg` driver. SQL migrations are committed and applied with `drizzle-orm/node-postgres/migrator`. | No engine binary downloads (Prisma has them), so it works offline and in Docker. |
@@ -21,16 +21,16 @@ Spec: /home/user/chat-mvp/docs/SPEC.md. Project root: /home/user/chat-mvp. Worki
 | Validation | zod schemas in `shared/` for both FE and BE. Fastify validates with zod via a small `parse()` helper, not type-provider magic. | One source of truth. |
 | Realtime | Messages are sent over REST (POST). WS only carries server-to-client events plus subscribe/unsubscribe. In-memory rooms, single instance. | Simpler rate limiting and validation. 100 users per instance is fine in memory. |
 | Frontend | Vite + React 18 + react-router 6 + zustand, plain CSS (one `styles.css` with a 768px breakpoint) | Light, and the patterns are well known. |
-| Tests | Backend: vitest against a real Postgres DB `chat_mvp_test`, using `app.inject` plus a real `ws` client on port 0. Frontend: vitest + jsdom + @testing-library/react. E2E: Playwright (chromium, two browser contexts) against DB `chat_mvp_e2e`. | Covers the spec's test requirements and success criteria. |
+| Tests | Backend: vitest against a real Postgres DB `disslxt_test`, using `app.inject` plus a real `ws` client on port 0. Frontend: vitest + jsdom + @testing-library/react. E2E: Playwright (chromium, two browser contexts) against DB `disslxt_e2e`. | Covers the spec's test requirements and success criteria. |
 | Rate limiting | `@fastify/rate-limit` (global: false), configured per route and through env. | Standard, testable. |
 | XSS | React escaping only; `dangerouslySetInnerHTML` is banned by the ESLint rule `react/no-danger: error`. CSP comes from Caddy (static frontend) and helmet (API). | Covers the spec item. |
 | Logging | pino (Fastify logger), redacting `req.headers.cookie`, `password` and `authorization`. Uses `pino-pretty` only in dev. | |
 | Deploy | Docker Compose with `db` (postgres:16-alpine, no host port), `backend` and `caddy`. The Caddy image is built in multiple stages: Vite build, then served by Caddy with `tls internal`, proxying `/api/*` and `/ws`. | HTTPS locally without needing real certs. |
-| Open questions | Name "Chat-MVP"; self-hosted via Docker Compose; guests without an account can't read anything (every endpoint except register, login and health needs auth). | |
+| Open questions | Name "disslxt"; self-hosted via Docker Compose; guests without an account can't read anything (every endpoint except register, login and health needs auth). | |
 
 ## 1. Directory tree
 ```
-chat-mvp/
+disslxt/
 ├─ .gitignore                 node_modules, dist, .env, coverage, playwright-report, test-results, caddy data
 ├─ .prettierrc.json / .prettierignore
 ├─ .editorconfig
@@ -43,12 +43,12 @@ chat-mvp/
 ├─ eslint.config.js           flat config: ts-eslint recommended, react, react-hooks; react/no-danger: error; no-console warn (backend uses logger)
 ├─ docker-compose.yml         db, backend, caddy (prod-like, HTTPS)
 ├─ docker-compose.dev.yml     only db on host port ${DEV_DB_PORT:-5433} (optional; local PG is also fine)
-├─ scripts/setup-local-db.sh  idempotent: creates role chat/chat + DBs chat_mvp_dev, chat_mvp_test, chat_mvp_e2e via sudo -u postgres psql
+├─ scripts/setup-local-db.sh  idempotent: creates role chat/chat + DBs disslxt_dev, disslxt_test, disslxt_e2e via sudo -u postgres psql
 ├─ deploy/
 │  ├─ Caddyfile               {$SITE_ADDRESS:localhost} { tls internal; encode gzip; header CSP etc.; handle /api/* and /ws → reverse_proxy backend:3000; handle → root /srv, try_files {path} /index.html, file_server }
 │  └─ caddy.Dockerfile        stage1 node:22 + pnpm build frontend; stage2 caddy:2-alpine copy dist → /srv, Caddyfile
 ├─ shared/
-│  ├─ package.json            name @chat-mvp/shared, deps: zod
+│  ├─ package.json            name @disslxt/shared, deps: zod
 │  ├─ tsconfig.json
 │  └─ src/
 │     ├─ index.ts             re-exports
@@ -58,9 +58,9 @@ chat-mvp/
 │     ├─ constants.ts         MESSAGE_MAX_LEN=2000, PAGE_DEFAULT=50, PAGE_MAX=100, WS close codes
 │     └─ schemas.test.ts      validation unit tests
 ├─ backend/
-│  ├─ package.json            name @chat-mvp/backend; scripts dev (tsx watch), build (tsup), start, test, typecheck, db:generate, db:migrate
+│  ├─ package.json            name @disslxt/backend; scripts dev (tsx watch), build (tsup), start, test, typecheck, db:generate, db:migrate
 │  ├─ tsconfig.json
-│  ├─ tsup.config.ts          entry src/server.ts, format esm, noExternal [@chat-mvp/shared]
+│  ├─ tsup.config.ts          entry src/server.ts, format esm, noExternal [@disslxt/shared]
 │  ├─ drizzle.config.ts       schema ./src/db/schema.ts, out ./drizzle, dialect postgresql, url from DATABASE_URL
 │  ├─ drizzle/                generated SQL migrations + meta (committed)
 │  ├─ Dockerfile              multi-stage: build (pnpm install, build) → runtime node:22-slim, non-root, CMD node dist/server.js (migrates on boot)
@@ -105,10 +105,10 @@ chat-mvp/
 │     ├─ realtime.test.ts     ws auth, rooms, created/updated/deleted, presence, latency <300ms
 │     └─ password.test.ts
 ├─ frontend/
-│  ├─ package.json            react, react-dom, react-router-dom, zustand, @chat-mvp/shared; dev: vite, @vitejs/plugin-react, vitest, jsdom, @testing-library/react, @testing-library/user-event
+│  ├─ package.json            react, react-dom, react-router-dom, zustand, @disslxt/shared; dev: vite, @vitejs/plugin-react, vitest, jsdom, @testing-library/react, @testing-library/user-event
 │  ├─ tsconfig.json
 │  ├─ vite.config.ts          dev proxy /api → http://localhost:3000, /ws → ws://localhost:3000 (ws:true); vitest env jsdom
-│  ├─ index.html              <meta viewport>, title Chat-MVP
+│  ├─ index.html              <meta viewport>, title disslxt
 │  └─ src/
 │     ├─ main.tsx
 │     ├─ App.tsx              routes + AuthGate
@@ -136,7 +136,7 @@ chat-mvp/
 │     ├─ components/ConnectionBanner.tsx
 │     └─ __tests__/ Composer.test.tsx, MessageItem.test.tsx, backoff.test.ts, chatStore.test.ts, MessageList.test.tsx
 └─ e2e/
-   ├─ package.json            @chat-mvp/e2e, dep @playwright/test
+   ├─ package.json            @disslxt/e2e, dep @playwright/test
    ├─ playwright.config.ts    chromium only, baseURL http://localhost:5173, webServer: [backend (DATABASE_URL=E2E DB, PORT 3000, relaxed rate limits), frontend vite dev on 5173], workers 1
    ├─ global-setup.ts         migrate + truncate E2E DB
    ├─ helpers.ts              registerViaUi(page, user), uniqueEmail()
@@ -158,7 +158,7 @@ chat-mvp/
 - **guild_members**: `guild_id fk→guilds cascade`, `user_id fk→users cascade`, `joined_at default now()`. PK `(guild_id, user_id)`, index on `user_id`.
 - **channels**: `id uuid pk`, `guild_id fk→guilds cascade`, `name varchar(32) not null`, `created_at`. Unique `(guild_id, name)`, index on `guild_id`.
 - **messages**: `id bigint generated always as identity pk`, `channel_id uuid fk→channels cascade`, `author_id uuid fk→users`, `content text not null` (CHECK `char_length(content) between 1 and 2000`), `created_at timestamptz default now()`, `edited_at timestamptz null`. Index `messages_channel_id_id_idx (channel_id, id desc)` for pagination. Deletes are hard deletes.
-- **Migrations:** the coder runs `pnpm --filter @chat-mvp/backend db:generate` (drizzle-kit generate), which writes `backend/drizzle/0000_*.sql`, and commits it. The generated SQL must include `CREATE EXTENSION IF NOT EXISTS pgcrypto`, or rely on PG13+ built-in `gen_random_uuid` (PG16 has it). `runMigrations()` uses the drizzle migrator. It runs on backend boot, in vitest globalSetup, and in Playwright global-setup. There is also a manual command, `pnpm db:migrate`.
+- **Migrations:** the coder runs `pnpm --filter @disslxt/backend db:generate` (drizzle-kit generate), which writes `backend/drizzle/0000_*.sql`, and commits it. The generated SQL must include `CREATE EXTENSION IF NOT EXISTS pgcrypto`, or rely on PG13+ built-in `gen_random_uuid` (PG16 has it). `runMigrations()` uses the drizzle migrator. It runs on backend boot, in vitest globalSetup, and in Playwright global-setup. There is also a manual command, `pnpm db:migrate`.
 - Message ids appear as **strings** in JSON (bigint).
 
 ## 3. REST API
@@ -325,10 +325,10 @@ Abbreviations:
 15. 100 concurrent users per instance: BT `realtime.test.ts` "100 users in one guild/channel": register 100 users via services (bulk), open 100 WS connections, send 1 message, all 100 receive it within 1 s, no errors. INS: no per-user blocking work, pg pool max=20.
 16. Passwords only hashed (argon2/bcrypt): BT `password.test.ts` (hash starts with `$argon2id$`, verify true/false) plus a DB row check in `auth.test.ts`. INS: the password is never logged (redaction config).
 17. No secrets in the repo, config via env: CMD `git ls-files | grep -E '(^|/)\.env$'` returns nothing; `.env.example` exists; INS `config.ts` reads only from `process.env`; CMD `git grep -nEi '(password|secret)\s*[:=]\s*["'\''][^"'\'']{6,}' -- ':!*.test.ts' ':!.env.example' ':!e2e' ':!docs'` finds nothing except the documented dev defaults in docker-compose, which come via `${VAR:-default}`. Compose takes `POSTGRES_PASSWORD` from `.env` (copied from `.env.example`).
-18. Tests for auth and message logic: CMD `pnpm --filter @chat-mvp/backend test` is green and includes `auth.test.ts` and `messages.test.ts`.
+18. Tests for auth and message logic: CMD `pnpm --filter @disslxt/backend test` is green and includes `auth.test.ts` and `messages.test.ts`.
 
 **Phase 0**
-19. Git repo with `.gitignore`: CMD `git -C /home/user/chat-mvp rev-parse --is-inside-work-tree`; `.gitignore` contains node_modules, dist and .env.
+19. Git repo with `.gitignore`: CMD `git -C /home/user/disslxt rev-parse --is-inside-work-tree`; `.gitignore` contains node_modules, dist and .env.
 20. Monorepo with backend/, frontend/, shared/: INS `pnpm-workspace.yaml`; CMD `pnpm -r ls --depth -1` lists all of them.
 21. TypeScript, ESLint, Prettier: CMD `pnpm typecheck`, `pnpm lint` and `pnpm format:check` all exit 0.
 22. `docker-compose.yml` with PostgreSQL: INS service `db` is `postgres:16-alpine` with a healthcheck; CMD `docker compose config` is valid.
@@ -367,7 +367,7 @@ Abbreviations:
 47. XSS protection: BT `security.test.ts` (content `<img src=x onerror=alert(1)>` is stored verbatim); E2E `composer.spec.ts` (sending `<b>x</b><img src=x onerror="window.__xss=1">` renders it as literal text, `page.evaluate(()=>window.__xss)` is undefined, and there is no `<b>` element inside `message-content`). CMD `grep -rn dangerouslySetInnerHTML frontend/src` finds nothing. BT checks API responses carry helmet headers (`x-content-type-options: nosniff`, CSP). In Docker, `curl -skI https://localhost:8443/` shows a `content-security-policy` header.
 48. Error handling and logging: BT (an unknown route returns 404 JSON in the error shape; a forced 500, using a test-only route registered in the test app, returns `{error:{code:"INTERNAL"}}` with no stack); INS pino redact config; CMD `docker compose logs backend` shows JSON request logs.
 49. E2E test with two clients: E2E `realtime-chat.spec.ts` uses two `browser.newContext()`.
-50. Docker deployment with HTTPS: CMD `cp .env.example .env && docker compose up --build -d`, then `curl -sk https://localhost:8443/api/health` returns `{"status":"ok"}`; `curl -sk https://localhost:8443/` returns HTML containing "Chat-MVP"; a WSS check via a Node one-liner or the optional Playwright smoke test (`E2E_BASE_URL=https://localhost:8443 pnpm e2e:docker` with `ignoreHTTPSErrors`, running `realtime-chat.spec.ts` against Docker).
+50. Docker deployment with HTTPS: CMD `cp .env.example .env && docker compose up --build -d`, then `curl -sk https://localhost:8443/api/health` returns `{"status":"ok"}`; `curl -sk https://localhost:8443/` returns HTML containing "disslxt"; a WSS check via a Node one-liner or the optional Playwright smoke test (`E2E_BASE_URL=https://localhost:8443 pnpm e2e:docker` with `ignoreHTTPSErrors`, running `realtime-chat.spec.ts` against Docker).
 
 **Success criteria**
 51. Two users chat in realtime in two windows: E2E `realtime-chat.spec.ts`. A registers, creates a guild and copies the invite. B registers and joins via the invite. Both open #general. A sends and B sees it without reload; B replies and A sees it.
@@ -383,7 +383,7 @@ Abbreviations:
 **One-time local DB setup** (`scripts/setup-local-db.sh`, run as root):
 ```
 sudo -u postgres psql -v ON_ERROR_STOP=1 -c "DO \$\$BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='chat') THEN CREATE ROLE chat LOGIN PASSWORD 'chat' CREATEDB; END IF; END\$\$;"
-for db in chat_mvp_dev chat_mvp_test chat_mvp_e2e; do
+for db in disslxt_dev disslxt_test disslxt_e2e; do
   sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1 || sudo -u postgres createdb -O chat "$db"
 done
 ```
@@ -391,16 +391,16 @@ This is a local-only dev password and is documented in `.env.example`.
 
 **Env** (in `.env.example`, which root scripts load via `dotenv-cli` or explicit env):
 ```
-DATABASE_URL=postgres://chat:chat@localhost:5432/chat_mvp_dev
-TEST_DATABASE_URL=postgres://chat:chat@localhost:5432/chat_mvp_test
-E2E_DATABASE_URL=postgres://chat:chat@localhost:5432/chat_mvp_e2e
+DATABASE_URL=postgres://chat:chat@localhost:5432/disslxt_dev
+TEST_DATABASE_URL=postgres://chat:chat@localhost:5432/disslxt_test
+E2E_DATABASE_URL=postgres://chat:chat@localhost:5432/disslxt_e2e
 PORT=3000  HOST=0.0.0.0  LOG_LEVEL=info  COOKIE_SECURE=false  SESSION_TTL_DAYS=30
 ALLOWED_ORIGINS=http://localhost:5173
 RATE_LIMIT_LOGIN_MAX=10  RATE_LIMIT_LOGIN_WINDOW_MS=60000  RATE_LIMIT_MESSAGE_MAX=20  RATE_LIMIT_MESSAGE_WINDOW_MS=10000
 # docker compose:
-POSTGRES_USER=chat  POSTGRES_PASSWORD=change-me  POSTGRES_DB=chat_mvp  SITE_ADDRESS=localhost  HTTPS_PORT=8443  HTTP_PORT=8080
+POSTGRES_USER=chat  POSTGRES_PASSWORD=change-me  POSTGRES_DB=disslxt  SITE_ADDRESS=localhost  HTTPS_PORT=8443  HTTP_PORT=8080
 ```
-Backend vitest sets `DATABASE_URL=$TEST_DATABASE_URL`, falling back to `postgres://chat:chat@localhost:5432/chat_mvp_test`. Playwright's webServer starts the backend with `DATABASE_URL=$E2E_DATABASE_URL` (same fallback), `RATE_LIMIT_LOGIN_MAX=1000` and `RATE_LIMIT_MESSAGE_MAX=1000`.
+Backend vitest sets `DATABASE_URL=$TEST_DATABASE_URL`, falling back to `postgres://chat:chat@localhost:5432/disslxt_test`. Playwright's webServer starts the backend with `DATABASE_URL=$E2E_DATABASE_URL` (same fallback), `RATE_LIMIT_LOGIN_MAX=1000` and `RATE_LIMIT_MESSAGE_MAX=1000`.
 
 **Root `package.json` scripts:**
 ```
@@ -408,15 +408,15 @@ Backend vitest sets `DATABASE_URL=$TEST_DATABASE_URL`, falling back to `postgres
 "format": "prettier --write .",  "format:check": "prettier --check .",
 "typecheck": "pnpm -r --parallel typecheck",            # each pkg: tsc --noEmit
 "test": "pnpm -r --if-present test",                    # shared, backend (vitest run), frontend (vitest run)
-"e2e": "pnpm --filter @chat-mvp/e2e test",              # playwright test
+"e2e": "pnpm --filter @disslxt/e2e test",              # playwright test
 "dev": "pnpm -r --parallel dev",
 "build": "pnpm -r --if-present build",
-"db:migrate": "pnpm --filter @chat-mvp/backend db:migrate"
+"db:migrate": "pnpm --filter @disslxt/backend db:migrate"
 ```
 
 **Order to run:**
 ```
-cd /home/user/chat-mvp
+cd /home/user/disslxt
 bash scripts/setup-local-db.sh
 cp .env.example .env
 pnpm install
@@ -437,8 +437,8 @@ If the installed Chromium revision (1194) doesn't match the `@playwright/test` v
 - `pnpm.onlyBuiltDependencies` may need `esbuild` and `@node-rs/argon2` in the allowlist for pnpm 10.
 
 ### Critical Files for Implementation
-- /home/user/chat-mvp/backend/src/db/schema.ts
-- /home/user/chat-mvp/backend/src/app.ts
-- /home/user/chat-mvp/backend/src/realtime/hub.ts and /home/user/chat-mvp/backend/src/realtime/ws.route.ts
-- /home/user/chat-mvp/frontend/src/realtime/socket.ts and /home/user/chat-mvp/frontend/src/components/MessageList.tsx
-- /home/user/chat-mvp/docker-compose.yml, /home/user/chat-mvp/deploy/Caddyfile and /home/user/chat-mvp/e2e/playwright.config.ts
+- /home/user/disslxt/backend/src/db/schema.ts
+- /home/user/disslxt/backend/src/app.ts
+- /home/user/disslxt/backend/src/realtime/hub.ts and /home/user/disslxt/backend/src/realtime/ws.route.ts
+- /home/user/disslxt/frontend/src/realtime/socket.ts and /home/user/disslxt/frontend/src/components/MessageList.tsx
+- /home/user/disslxt/docker-compose.yml, /home/user/disslxt/deploy/Caddyfile and /home/user/disslxt/e2e/playwright.config.ts

@@ -1,4 +1,4 @@
-# Chat-MVP – Vorgabe (aus der HTML des Nutzers übernommen)
+# disslxt – Vorgabe (aus der HTML des Nutzers übernommen)
 
 Communities, Server, Kanäle, Echtzeit.
 

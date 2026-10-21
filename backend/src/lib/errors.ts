@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@chat-mvp/shared';
+import type { ErrorCode } from '@disslxt/shared';
 
 export class AppError extends Error {
   constructor(

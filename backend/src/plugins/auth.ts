@@ -1,7 +1,7 @@
 import cookie from '@fastify/cookie';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
-import type { UserDto } from '@chat-mvp/shared';
+import type { UserDto } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { unauthorized } from '../lib/errors.js';
 import type { AuthService } from '../services/auth.service.js';

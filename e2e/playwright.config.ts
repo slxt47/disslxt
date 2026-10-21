@@ -7,8 +7,8 @@ import { defineConfig, devices } from '@playwright/test';
  * reused, so E2E never hits the dev database or the real rate limits. Override the ports with
  * E2E_BACKEND_PORT / E2E_FRONTEND_PORT.
  *
- * Docker smoke run: `E2E_BASE_URL=https://localhost:8443 pnpm e2e:docker` uses the running
- * `docker compose` stack instead (no web servers, self-signed certificate accepted).
+ * Docker smoke run: `E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker` uses the deployed
+ * `docker compose` stack through the tunnel instead (no web servers; creates two test users).
  */
 const externalBaseUrl = process.env.E2E_BASE_URL;
 const backendPort = process.env.E2E_BACKEND_PORT ?? '3100';
@@ -16,7 +16,7 @@ const frontendPort = process.env.E2E_FRONTEND_PORT ?? '5174';
 const frontendOrigin = `http://localhost:${frontendPort}`;
 const baseURL = externalBaseUrl ?? frontendOrigin;
 const e2eDatabaseUrl =
-  process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_e2e';
+  process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_e2e';
 
 export default defineConfig({
   testDir: './tests',
@@ -44,7 +44,7 @@ export default defineConfig({
     : [
         {
           name: 'backend',
-          command: 'pnpm --filter @chat-mvp/backend exec tsx src/server.ts',
+          command: 'pnpm --filter @disslxt/backend exec tsx src/server.ts',
           cwd: '..',
           url: `http://127.0.0.1:${backendPort}/api/health`,
           // Fail if the port is taken instead of silently testing against another server.
@@ -67,7 +67,7 @@ export default defineConfig({
         },
         {
           name: 'frontend',
-          command: `pnpm --filter @chat-mvp/frontend exec vite --port ${frontendPort} --strictPort`,
+          command: `pnpm --filter @disslxt/frontend exec vite --port ${frontendPort} --strictPort`,
           cwd: '..',
           url: frontendOrigin,
           reuseExistingServer: false,

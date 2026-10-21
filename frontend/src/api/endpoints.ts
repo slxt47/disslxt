@@ -5,7 +5,7 @@ import type {
   MemberDto,
   MessageDto,
   UserDto,
-} from '@chat-mvp/shared';
+} from '@disslxt/shared';
 import { apiRequest } from './client';
 
 const enc = encodeURIComponent;

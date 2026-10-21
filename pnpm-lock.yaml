@@ -38,7 +38,7 @@ importers:
 
   backend:
     dependencies:
-      '@chat-mvp/shared':
+      '@disslxt/shared':
         specifier: workspace:*
         version: link:../shared
       '@fastify/cookie':
@@ -111,7 +111,7 @@ importers:
 
   frontend:
     dependencies:
-      '@chat-mvp/shared':
+      '@disslxt/shared':
         specifier: workspace:*
         version: link:../shared
       react:

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { createGuildSchema, uuidSchema } from '@chat-mvp/shared';
+import { createGuildSchema, uuidSchema } from '@disslxt/shared';
 import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 import { parse, parseParam } from '../lib/validate.js';

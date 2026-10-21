@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { MESSAGE_MAX_LEN, textLength } from '@chat-mvp/shared';
+import { MESSAGE_MAX_LEN, textLength } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
 
 export interface ComposerProps {

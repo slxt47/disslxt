@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { GuildDto } from '@chat-mvp/shared';
+import type { GuildDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useAuthStore } from '../store/auth';
@@ -145,7 +145,7 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
         </>
       ) : (
         <header className="sidebar-header">
-          <h2 className="guild-name">Chat-MVP</h2>
+          <h2 className="guild-name">disslxt</h2>
         </header>
       )}
       <footer className="user-footer">

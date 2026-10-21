@@ -1,4 +1,5 @@
-# Production-like stack: PostgreSQL + backend + Caddy (HTTPS via `tls internal`).
+# Production stack: PostgreSQL + backend + Caddy, published as plain HTTP on 127.0.0.1 only.
+# HTTPS is terminated by a Cloudflare Tunnel (cloudflared on the host -> http://localhost:${HTTP_PORT}).
 # Usage: cp .env.example .env && docker compose up --build -d
 # The db port is intentionally NOT published (the host may already run PostgreSQL on 5432).
 services:
@@ -8,7 +9,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chat}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
-      POSTGRES_DB: ${POSTGRES_DB:-chat_mvp}
+      POSTGRES_DB: ${POSTGRES_DB:-disslxt}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,14 +25,14 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-chat}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-chat_mvp}
+      DATABASE_URL: postgres://${POSTGRES_USER:-chat}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-disslxt}
       PORT: 3000
       HOST: 0.0.0.0
       LOG_LEVEL: ${LOG_LEVEL:-info}
       COOKIE_SECURE: 'true'
       TRUST_PROXY: 'true'
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
-      ALLOWED_ORIGINS: https://${SITE_ADDRESS:-localhost}:${HTTPS_PORT:-8443}
+      ALLOWED_ORIGINS: ${PUBLIC_URL:?PUBLIC_URL must be set, e.g. https://disslxt.slxt.org}
       RATE_LIMIT_LOGIN_MAX: ${RATE_LIMIT_LOGIN_MAX:-10}
       RATE_LIMIT_LOGIN_WINDOW_MS: ${RATE_LIMIT_LOGIN_WINDOW_MS:-60000}
       RATE_LIMIT_MESSAGE_MAX: ${RATE_LIMIT_MESSAGE_MAX:-20}
@@ -57,12 +58,9 @@ services:
       context: .
       dockerfile: deploy/caddy.Dockerfile
     restart: unless-stopped
-    environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
-      HTTPS_PORT: ${HTTPS_PORT:-8443}
     ports:
-      - '${HTTPS_PORT:-8443}:443'
-      - '${HTTP_PORT:-8080}:80'
+      # Loopback only: the app must not be reachable except through the tunnel.
+      - '127.0.0.1:${HTTP_PORT:-8091}:80'
     volumes:
       - caddy_data:/data
       - caddy_config:/config

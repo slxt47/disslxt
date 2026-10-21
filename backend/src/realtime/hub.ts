@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws';
-import type { PresenceStatus, WsServerMessage } from '@chat-mvp/shared';
+import type { PresenceStatus, WsServerMessage } from '@disslxt/shared';
 
 /** One connected WebSocket (a browser tab). */
 export interface Client {

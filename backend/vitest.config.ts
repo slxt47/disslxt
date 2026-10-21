@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
 const testDatabaseUrl =
-  process.env.TEST_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_test';
+  process.env.TEST_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_test';
 
 export default defineConfig({
   test: {

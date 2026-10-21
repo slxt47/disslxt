@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { UserDto } from '@chat-mvp/shared';
+import type { UserDto } from '@disslxt/shared';
 import { ApiRequestError, onUnauthorized } from '../api/client';
 import { api } from '../api/endpoints';
 

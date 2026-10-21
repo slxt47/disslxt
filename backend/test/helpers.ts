@@ -2,7 +2,7 @@ import type { AddressInfo } from 'node:net';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import WebSocket from 'ws';
-import type { UserDto, WsServerMessage } from '@chat-mvp/shared';
+import type { UserDto, WsServerMessage } from '@disslxt/shared';
 import { buildApp, type BuildAppOptions } from '../src/app.js';
 import { loadConfig, type Config } from '../src/config.js';
 import { createDb, type DbHandle } from '../src/db/client.js';
@@ -11,7 +11,7 @@ import { hashPassword } from '../src/lib/password.js';
 import { randomToken, sha256 } from '../src/lib/tokens.js';
 
 export const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_test';
+  process.env.TEST_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_test';
 
 export const ALLOWED_TEST_ORIGIN = 'http://allowed.example';
 

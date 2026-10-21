@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
-import { WS_CLOSE, wsClientMessageSchema, type WsClientMessage } from '@chat-mvp/shared';
+import { WS_CLOSE, wsClientMessageSchema, type WsClientMessage } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { AppError } from '../lib/errors.js';
 import { isAllowedOrigin, requestHost, requestOrigin } from '../lib/origin.js';

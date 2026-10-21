@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { loginSchema } from '@chat-mvp/shared';
+import { loginSchema } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { useAuthStore } from '../store/auth';
 

@@ -5,6 +5,6 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/chat_mvp_dev',
+    url: process.env.DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_dev',
   },
 });

@@ -1,4 +1,4 @@
-import type { MessageDto } from '@chat-mvp/shared';
+import type { MessageDto } from '@disslxt/shared';
 
 export const CHANNEL = '11111111-1111-4111-8111-111111111111';
 export const ME = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', username: 'alice' };

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGE_MAX_LEN } from '@chat-mvp/shared';
+import { MESSAGE_MAX_LEN } from '@disslxt/shared';
 import { MessageItem } from '../components/MessageItem';
 import { ME, msg } from './fixtures';
 

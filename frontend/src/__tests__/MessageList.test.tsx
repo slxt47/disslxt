@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { MessageDto } from '@chat-mvp/shared';
+import type { MessageDto } from '@disslxt/shared';
 import { MessageList, type MessageListProps } from '../components/MessageList';
 import { CHANNEL, ME, msg } from './fixtures';
 

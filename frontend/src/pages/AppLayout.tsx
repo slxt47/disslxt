@@ -121,7 +121,7 @@ export function AppLayout() {
               >
                 ☰
               </button>
-              <h1 className="chat-title">{guild ? guild.name : 'Chat-MVP'}</h1>
+              <h1 className="chat-title">{guild ? guild.name : 'disslxt'}</h1>
             </header>
             <ConnectionBanner />
             {guilds.length === 0 ? (
