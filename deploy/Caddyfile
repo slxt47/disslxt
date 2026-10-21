@@ -1,4 +1,19 @@
 # Chat-MVP reverse proxy: HTTPS via Caddy's local CA (`tls internal`), static SPA, /api + /ws → backend.
+# SITE_ADDRESS may be a hostname or a bare IP (e.g. 46.225.187.29); HTTPS_PORT is the host port
+# mapped to :443, used for the HTTP → HTTPS redirect.
+{
+	# Browsers and curl send no SNI when connecting to an IP address; without a default SNI Caddy
+	# finds no certificate and aborts the handshake ("tlsv1 alert internal error").
+	default_sni {$SITE_ADDRESS:localhost}
+	# Caddy's own redirect would point at port 443 inside the container; the http:// block below
+	# redirects to the published HTTPS port instead.
+	auto_https disable_redirects
+}
+
+http:// {
+	redir https://{$SITE_ADDRESS:localhost}:{$HTTPS_PORT:8443}{uri} permanent
+}
+
 {$SITE_ADDRESS:localhost} {
 	tls internal
 	encode zstd gzip

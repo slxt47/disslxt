@@ -106,9 +106,14 @@ docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.
 curl --cacert caddy-root.crt https://localhost:8443/api/health
 ```
 
-Die Weiterleitung von `http://localhost:8080` zeigt auf den Standardport 443; direkt
-`https://localhost:8443` verwenden. Für einen anderen Hostnamen `SITE_ADDRESS` (und ggf.
-`HTTPS_PORT`) in `.env` setzen – erlaubte Origins werden daraus abgeleitet.
+`http://…:8080` leitet auf `https://$SITE_ADDRESS:$HTTPS_PORT` weiter.
+
+**Auf einem Server (Zugriff von außen):** In `.env` `SITE_ADDRESS` auf die öffentliche IP oder den
+Hostnamen setzen, unter dem die App aufgerufen wird, z. B. `SITE_ADDRESS=46.225.187.29`. Caddy
+stellt nur für diese Adresse ein Zertifikat aus; mit `SITE_ADDRESS=localhost` bricht ein Zugriff
+über die IP mit `tlsv1 alert internal error` ab. Erlaubte Origins werden daraus abgeleitet.
+Wer die Standardports will (und 80/443 auf dem Host frei sind): `HTTPS_PORT=443`, `HTTP_PORT=80`.
+Nach Änderungen an `.env`: `docker compose up -d --build`.
 
 Optionaler E2E-Smoke-Test gegen den laufenden Stack (akzeptiert das selbstsignierte Zertifikat):
 
