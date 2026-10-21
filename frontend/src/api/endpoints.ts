@@ -4,6 +4,7 @@ import type {
   InvitePreviewDto,
   MemberDto,
   MessageDto,
+  PushConfigDto,
   UserDto,
 } from '@disslxt/shared';
 import { apiRequest } from './client';
@@ -56,4 +57,13 @@ export const api = {
   editMessage: (messageId: string, content: string) =>
     apiRequest<{ message: MessageDto }>('PATCH', `/messages/${enc(messageId)}`, { content }),
   deleteMessage: (messageId: string) => apiRequest<void>('DELETE', `/messages/${enc(messageId)}`),
+
+  pushConfig: () => apiRequest<PushConfigDto>('GET', '/push/config'),
+  subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    apiRequest<{ status: string }>('POST', '/push/subscriptions', sub),
+  unsubscribePush: (endpoint: string) =>
+    apiRequest<void>('DELETE', '/push/subscriptions', { endpoint }),
+  testPush: () => apiRequest<{ delivered: number }>('POST', '/push/test'),
+  setGuildMuted: (guildId: string, muted: boolean) =>
+    apiRequest<{ muted: boolean }>('PUT', `/guilds/${enc(guildId)}/notifications`, { muted }),
 };

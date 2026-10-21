@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { UserDto } from '@disslxt/shared';
 import { ApiRequestError, onUnauthorized } from '../api/client';
 import { api } from '../api/endpoints';
+import { detachPushSubscription } from '../pwa/push';
 
 export type AuthStatus = 'unknown' | 'authenticated' | 'guest';
 
@@ -56,6 +57,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   logout: async () => {
+    // While the session still exists: a logged-out device must not receive this user's pushes.
+    await detachPushSubscription().catch(() => undefined);
     try {
       await api.logout();
     } catch {

@@ -132,3 +132,45 @@ export const inviteCodeSchema = z
   .regex(/^[A-Za-z0-9]{1,16}$/, 'Ungültiger Einladungscode');
 
 export const uuidSchema = z.guid();
+
+/**
+ * A browser push subscription (PushSubscription.toJSON()). The server POSTs to `endpoint`, so
+ * only the push services of the major browsers are accepted (no requests to arbitrary hosts).
+ */
+export const PUSH_SERVICE_HOSTS = [
+  'fcm.googleapis.com',
+  'updates.push.services.mozilla.com',
+  'web.push.apple.com',
+  '.push.apple.com',
+  '.notify.windows.com',
+] as const;
+
+export function isPushServiceUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || url.port !== '' || url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return PUSH_SERVICE_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) : host === h));
+}
+
+const base64url = (min: number, max: number) =>
+  z
+    .string()
+    .min(min)
+    .max(max)
+    .regex(/^[A-Za-z0-9_-]+=*$/, 'Ungültiger Schlüssel');
+
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().max(2048).refine(isPushServiceUrl, 'Unbekannter Push-Dienst'),
+  keys: z.object({ p256dh: base64url(80, 100), auth: base64url(16, 32) }),
+});
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionSchema>;
+
+export const pushUnsubscribeSchema = z.object({ endpoint: z.string().max(2048) });
+
+export const guildNotificationsSchema = z.object({ muted: z.boolean() });
+export type GuildNotificationsInput = z.infer<typeof guildNotificationsSchema>;

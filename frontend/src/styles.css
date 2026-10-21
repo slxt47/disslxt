@@ -1253,3 +1253,173 @@ label {
     padding: 32px 22px 24px;
   }
 }
+
+/* ==========================================================================
+   Settings, install guide, banners
+   ========================================================================== */
+.sidebar-header {
+  gap: 8px;
+  justify-content: space-between;
+}
+.icon-btn.muted-on {
+  color: var(--text-tertiary);
+}
+.footer-actions {
+  display: flex;
+  gap: 2px;
+}
+.settings-section {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--separator);
+}
+.settings-section:last-of-type {
+  border-bottom: 0;
+}
+.settings-section h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.settings-section .btn {
+  justify-self: start;
+}
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.settings-hint {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+}
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 400;
+}
+.switch-row small {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+/* iOS-style switch on a native checkbox (keeps keyboard and screen-reader behaviour). */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--fill-strong);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  transition: transform var(--dur) var(--ease-out);
+}
+.switch:checked {
+  background: var(--accent);
+}
+.switch:checked::after {
+  transform: translateX(20px);
+}
+.switch:focus,
+.switch:focus-visible {
+  border: 0;
+  box-shadow: var(--focus-ring);
+}
+input[type='range'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent);
+}
+input[type='range']:focus {
+  box-shadow: none;
+}
+
+.install-guide {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  list-style: none;
+  counter-reset: step;
+}
+.install-guide li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9375rem;
+}
+.step-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-sm);
+}
+.step-icon.app {
+  background: transparent;
+  box-shadow: none;
+}
+.step-icon img {
+  border-radius: 7px;
+}
+
+.install-banner {
+  position: fixed;
+  top: calc(66px + var(--safe-top));
+  right: calc(12px + var(--safe-right));
+  left: calc(12px + var(--safe-left));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 460px;
+  margin-left: auto;
+  padding: 12px 8px 12px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  animation: rise-in var(--dur-slow) var(--ease-out);
+}
+.install-banner img {
+  border-radius: 9px;
+}
+.install-banner p {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.install-banner strong {
+  color: var(--text);
+  font-size: 0.9375rem;
+}

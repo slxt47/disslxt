@@ -7,6 +7,8 @@ import { ChatView } from '../components/ChatView';
 import { ConnectionBanner } from '../components/ConnectionBanner';
 import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
+import { InstallBanner } from '../components/InstallBanner';
+import { SettingsDialog } from '../components/SettingsDialog';
 import { Icon } from '../components/Icon';
 import { MemberList } from '../components/MemberList';
 import { ServerList } from '../components/ServerList';
@@ -22,6 +24,7 @@ export function AppLayout() {
   const channels = useChatStore((s) => (guildId ? s.channelsByGuild[guildId] : undefined));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [creatingGuild, setCreatingGuild] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const guild = guildId ? (guilds.find((g) => g.id === guildId) ?? null) : null;
   const channel = channelId ? (channels?.find((c) => c.id === channelId) ?? null) : null;
@@ -98,6 +101,10 @@ export function AppLayout() {
           guild={guild}
           activeChannelId={channelId}
           onNavigate={() => setDrawerOpen(false)}
+          onOpenSettings={() => {
+            setDrawerOpen(false);
+            setSettingsOpen(true);
+          }}
         />
       </div>
       {drawerOpen && (
@@ -148,6 +155,8 @@ export function AppLayout() {
 
       {guild && <MemberList guildId={guild.id} />}
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      <InstallBanner onShowGuide={() => setSettingsOpen(true)} />
       <ErrorToast />
     </div>
   );

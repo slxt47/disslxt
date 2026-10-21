@@ -188,6 +188,58 @@ müsste er zusätzlich ins SPF und eigene DKIM-Schlüssel bekommen).
 **Lokal:** `MAIL_TRANSPORT=log` hält Mails im Speicher; abrufbar unter
 `GET /api/dev/mails` (existiert nur außerhalb von Produktion und nur mit diesem Transport).
 
+## Mitteilungen (Web Push) und App-Installation
+
+disslxt ist eine installierbare Web-App (PWA): Manifest, Icons (inkl. `apple-touch-icon` und
+maskierbarem Icon) und ein handgeschriebener Service Worker (`frontend/public/sw.js`). Der
+Service Worker cacht nur die App-Hülle und die gehashten Assets, nie `/api` oder `/ws`.
+
+**Wann kommt eine Mitteilung?**
+
+| Ereignis                               | Wer bekommt sie                | Stummgeschalteter Server |
+| -------------------------------------- | ------------------------------ | ------------------------ |
+| Neue Nachricht                         | alle Mitglieder außer Autor:in | nein                     |
+| `@name`-Erwähnung                      | die erwähnte Person            | **ja**, kommt trotzdem   |
+| Jemand tritt per Einladung bei         | Besitzer:in des Servers        | nein                     |
+| Erste Person betritt einen Sprachkanal | alle anderen Mitglieder        | nein                     |
+
+Wer einen Kanal gerade in einem **sichtbaren** Tab offen hat, bekommt dafür keine Mitteilung (der
+Client meldet die Sichtbarkeit über die WebSocket). Mehrere Nachrichten eines Kanals ersetzen
+sich auf dem Gerät (ein Eintrag pro Kanal). Abos, die der Push-Dienst als erloschen meldet
+(404/410), werden gelöscht. Beim Abmelden wird das Abo des Geräts vom Konto getrennt.
+
+**Einrichtung:**
+
+1. Schlüssel erzeugen und in `.env` übernehmen: `pnpm vapid:generate >> .env`
+   (optional `VAPID_SUBJECT=mailto:no-reply@deine-domain`). Ohne Schlüssel läuft die App, nur
+   Mitteilungen sind aus. Neue Schlüssel machen alle bestehenden Abos ungültig.
+2. `docker compose up -d --build`.
+3. In der App: Zahnrad unten links → **Mitteilungen aktivieren**. Die Berechtigung wird
+   ausschließlich nach diesem Klick abgefragt (Pflicht auf iOS, in Safari und Firefox).
+   „Testmitteilung senden“ prüft die ganze Kette.
+
+**HTTPS ist Pflicht.** Service Worker, Push, Mikrofon und Spracherkennung funktionieren nur in
+einem sicheren Kontext (HTTPS oder `localhost`). In Produktion übernimmt das der Cloudflare
+Tunnel; über `http://<server-ip>` würde nichts davon gehen.
+
+**Sicherheit:** Der Server sendet nur an Endpunkte der bekannten Push-Dienste (Google FCM,
+Mozilla, Apple, Microsoft) und nimmt keine beliebigen URLs an (kein SSRF). Inhalte sind per
+Web-Push-Verschlüsselung (RFC 8291) Ende-zu-Ende verschlüsselt; der Push-Dienst sieht sie nicht.
+
+**iPhone/iPad (iOS/iPadOS 16.4+):**
+
+- Push gibt es **nur** für Web-Apps auf dem Home-Bildschirm, nicht in Safari selbst. Die App
+  erkennt Safari auf iOS und zeigt einmalig einen Hinweis sowie in den Einstellungen eine
+  3-Schritt-Anleitung: _Teilen → Zum Home-Bildschirm → von dort öffnen und Mitteilungen
+  aktivieren_.
+- Vom Home-Bildschirm gestartet läuft disslxt im Vollbild ohne Browserleiste, mit eigenem Icon,
+  Safe-Area-Abständen (Notch, Home-Indicator) und Sheets statt Popups.
+- Wurde die Abfrage einmal abgelehnt, lässt sie sich nur unter _Einstellungen › Mitteilungen ›
+  disslxt_ wieder erlauben; die App sagt das an der Stelle.
+
+**Lokal/E2E:** `PUSH_TRANSPORT=memory` zeichnet Pushes auf statt sie zu senden
+(`GET /api/dev/pushes`, nur außerhalb von Produktion).
+
 ## Konfiguration (Env-Variablen)
 
 | Variable                                              | Default                                            | Beschreibung                                                                                                               |
@@ -218,6 +270,9 @@ müsste er zusätzlich ins SPF und eigene DKIM-Schlüssel bekommen).
 | `MAIL_MAX_PER_ADDRESS_PER_HOUR`                       | `3`                                                | Mails pro Empfängeradresse und Stunde                                                                                      |
 | `RATE_LIMIT_MAIL_MAX` / `_WINDOW_MS`                  | `5` / `900000`                                     | Registrierung/„Erneut senden“ pro IP                                                                                       |
 | `HTTP_PORT`                                           | `8091`                                             | lokaler Port von Caddy (nur `127.0.0.1`), Ziel des Tunnels                                                                 |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`              | –                                                  | Web-Push-Schlüssel (`pnpm vapid:generate`); leer = Mitteilungen aus                                                        |
+| `VAPID_SUBJECT`                                       | `PUBLIC_URL`                                       | Kontakt für die Push-Dienste (`mailto:` oder `https:`)                                                                     |
+| `PUSH_TRANSPORT`                                      | `webpush`                                          | `memory` zeichnet nur auf (Dev/E2E), in Produktion verboten                                                                |
 
 Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
@@ -232,4 +287,4 @@ Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
 Alle Endpunkte unter `/api`, JSON, Session-Cookie `sid` (httpOnly, SameSite=Lax). Fehlerformat:
 `{ "error": { "code", "message", "details?" } }`. Echtzeit über `GET /ws` (Server→Client-Events,
-Client sendet nur `subscribe`/`unsubscribe`/`ping`). Details: `docs/PLAN.md` §3.
+Client sendet nur `subscribe`/`unsubscribe`/`ping`/`visibility`). Details: `docs/PLAN.md` §3.

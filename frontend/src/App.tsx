@@ -6,10 +6,12 @@ import { LoginPage } from './pages/LoginPage';
 import { NotFound } from './pages/NotFound';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { ServiceWorkerBridge } from './pwa/ServiceWorkerBridge';
 import { RealtimeProvider } from './realtime/RealtimeProvider';
 import { safeNext } from './navigation';
 import { useAuthStore } from './store/auth';
 import { useChatStore } from './store/chat';
+import { usePushStore } from './store/push';
 
 function Loading() {
   return (
@@ -32,6 +34,7 @@ export function RequireAuth() {
   }
   return (
     <RealtimeProvider>
+      <ServiceWorkerBridge />
       <Outlet />
     </RealtimeProvider>
   );
@@ -77,7 +80,10 @@ export function App() {
 
   // Drop all cached chat data when the session ends.
   useEffect(() => {
-    if (status === 'guest') useChatStore.getState().reset();
+    if (status === 'guest') {
+      useChatStore.getState().reset();
+      usePushStore.getState().reset();
+    }
   }, [status]);
 
   return (

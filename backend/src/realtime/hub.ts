@@ -10,6 +10,8 @@ export interface Client {
   guildIds: Set<string>;
   /** The single channel this socket is subscribed to (if any) and its guild. */
   channel: { id: string; guildId: string } | null;
+  /** The tab is in the foreground (reported by the client; assumed until told otherwise). */
+  visible: boolean;
   isAlive: boolean;
 }
 
@@ -37,6 +39,14 @@ export class Hub {
 
   isOnline(userId: string): boolean {
     return (this.socketsByUser.get(userId)?.size ?? 0) > 0;
+  }
+
+  /** True if one of the user's tabs shows this channel in the foreground (no push needed). */
+  isViewingChannel(userId: string, channelId: string): boolean {
+    for (const client of this.socketsByUser.get(userId) ?? []) {
+      if (client.visible && client.channel?.id === channelId) return true;
+    }
+    return false;
   }
 
   /** Registers a socket and joins it to the given guild rooms. Broadcasts presence on 0→1. */

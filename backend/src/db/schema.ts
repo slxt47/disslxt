@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   char,
   check,
   index,
@@ -141,6 +142,38 @@ export const messages = pgTable(
     check('messages_content_len_chk', sql`char_length(${t.content}) between 1 and 2000`),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
   ],
+);
+
+/** One row per browser/device that allowed notifications. */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique('push_subscriptions_endpoint_uq'),
+    p256dh: varchar('p256dh', { length: 128 }).notNull(),
+    auth: varchar('auth', { length: 64 }).notNull(),
+    userAgent: varchar('user_agent', { length: 300 }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('push_subscriptions_user_id_idx').on(t.userId)],
+);
+
+/** Per-user, per-guild notification preferences (a row only exists once something was set). */
+export const guildNotificationSettings = pgTable(
+  'guild_notification_settings',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    guildId: uuid('guild_id')
+      .notNull()
+      .references(() => guilds.id, { onDelete: 'cascade' }),
+    muted: boolean('muted').notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.guildId] })],
 );
 
 export type User = typeof users.$inferSelect;

@@ -53,6 +53,10 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       EMAIL_VERIFICATION_TTL_HOURS: ${EMAIL_VERIFICATION_TTL_HOURS:-24}
       MAIL_MAX_PER_ADDRESS_PER_HOUR: ${MAIL_MAX_PER_ADDRESS_PER_HOUR:-3}
+      # Web Push; generate with `pnpm vapid:generate`. Empty = notifications switched off.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     depends_on:
       db:
         condition: service_healthy

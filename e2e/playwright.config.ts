@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -15,6 +16,11 @@ const backendPort = process.env.E2E_BACKEND_PORT ?? '3100';
 const frontendPort = process.env.E2E_FRONTEND_PORT ?? '5174';
 const frontendOrigin = `http://localhost:${frontendPort}`;
 const baseURL = externalBaseUrl ?? frontendOrigin;
+// Throwaway VAPID keys per run; pushes are recorded by the backend (PUSH_TRANSPORT=memory) and
+// read back through /api/dev/pushes, nothing goes to a real push service.
+const vapid = createRequire(new URL('../backend/package.json', import.meta.url))(
+  'web-push',
+).generateVAPIDKeys() as { publicKey: string; privateKey: string };
 const e2eDatabaseUrl =
   process.env.E2E_DATABASE_URL ?? 'postgres://chat:chat@localhost:5432/disslxt_e2e';
 
@@ -70,6 +76,9 @@ export default defineConfig({
             // Mails stay in memory and are read back via /api/dev/mails.
             MAIL_TRANSPORT: 'log',
             PUBLIC_URL: frontendOrigin,
+            VAPID_PUBLIC_KEY: vapid.publicKey,
+            VAPID_PRIVATE_KEY: vapid.privateKey,
+            PUSH_TRANSPORT: 'memory',
           },
         },
         {

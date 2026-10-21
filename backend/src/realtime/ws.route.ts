@@ -93,6 +93,7 @@ export async function wsRoutes(
         sessionHash: sha256(token),
         guildIds: new Set(guildIds),
         channel: null,
+        visible: true,
         isAlive: true,
       };
       socket.on('pong', () => {
@@ -121,6 +122,9 @@ export async function wsRoutes(
     switch (msg.type) {
       case 'ping':
         sendTo(client, { type: 'pong' });
+        return;
+      case 'visibility':
+        client.visible = msg.data.visible;
         return;
       case 'unsubscribe':
         hub.unsubscribe(client, msg.data.channelId);

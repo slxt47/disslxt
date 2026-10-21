@@ -37,7 +37,7 @@ function isApiError(body: unknown): body is ApiError {
  * Throws ApiRequestError with the server's `{error:{code,message,details}}`.
  */
 export async function apiRequest<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
 ): Promise<T> {

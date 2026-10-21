@@ -14,11 +14,13 @@ import { isUniqueViolation } from '../lib/pgErrors.js';
 import { inviteCode } from '../lib/tokens.js';
 import type { Hub } from '../realtime/hub.js';
 import { toChannelDto, toGuildDto } from './dto.js';
+import type { PushService } from './push.service.js';
 
 export class GuildService {
   constructor(
     private readonly db: Database,
     private readonly hub: Hub,
+    private readonly push: PushService,
   ) {}
 
   /** Creates a guild with the creator as member and a #general channel. */
@@ -149,6 +151,7 @@ export class GuildService {
           data: { guildId: guild.id, userId: user.id, status: 'online' },
         });
       }
+      this.push.memberJoined(guild.id, user);
     }
     return toGuildDto(guild);
   }

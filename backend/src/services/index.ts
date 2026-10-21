@@ -7,12 +7,15 @@ import { AuthService } from './auth.service.js';
 import { ChannelService } from './channel.service.js';
 import { GuildService } from './guild.service.js';
 import { MessageService } from './message.service.js';
+import { PushService } from './push.service.js';
+import type { PushSender } from '../lib/push.js';
 
 export interface Services {
   auth: AuthService;
   guilds: GuildService;
   channels: ChannelService;
   messages: MessageService;
+  push: PushService;
 }
 
 export function createServices(
@@ -21,10 +24,12 @@ export function createServices(
   config: Config,
   mailer: Mailer,
   log: FastifyBaseLogger,
+  pushSender: PushSender | null,
 ): Services {
   const auth = new AuthService(db, config, mailer, log);
-  const guilds = new GuildService(db, hub);
+  const push = new PushService(db, hub, config, pushSender, log);
+  const guilds = new GuildService(db, hub, push);
   const channels = new ChannelService(db, hub, guilds);
-  const messages = new MessageService(db, hub, guilds, channels);
-  return { auth, guilds, channels, messages };
+  const messages = new MessageService(db, hub, guilds, channels, push);
+  return { auth, guilds, channels, messages, push };
 }

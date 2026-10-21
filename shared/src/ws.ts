@@ -5,6 +5,8 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('subscribe'), data: z.object({ channelId: z.guid() }) }),
   z.object({ type: z.literal('unsubscribe'), data: z.object({ channelId: z.guid() }) }),
   z.object({ type: z.literal('ping'), data: z.unknown().optional() }),
+  // Whether the tab is in the foreground; a visible tab on a channel gets no push for it.
+  z.object({ type: z.literal('visibility'), data: z.object({ visible: z.boolean() }) }),
 ]);
 export type WsClientMessage = z.infer<typeof wsClientMessageSchema>;
 

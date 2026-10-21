@@ -7,6 +7,7 @@ import type { Hub } from '../realtime/hub.js';
 import type { ChannelService } from './channel.service.js';
 import { toMessageDto } from './dto.js';
 import type { GuildService } from './guild.service.js';
+import type { PushService } from './push.service.js';
 
 export class MessageService {
   constructor(
@@ -14,6 +15,7 @@ export class MessageService {
     private readonly hub: Hub,
     private readonly guilds: GuildService,
     private readonly channels: ChannelService,
+    private readonly push: PushService,
   ) {}
 
   async create(
@@ -29,6 +31,7 @@ export class MessageService {
     if (!row) throw new Error('insert returned no row');
     const message = toMessageDto(row, user);
     this.hub.publishToChannel(channelId, { type: 'message.created', data: { message } });
+    this.push.messageCreated(message);
     return message;
   }
 

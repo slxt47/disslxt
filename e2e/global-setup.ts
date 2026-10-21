@@ -11,7 +11,7 @@ export default async function globalSetup(): Promise<void> {
   await client.connect();
   try {
     await client.query(
-      'TRUNCATE messages, channels, guild_members, guilds, sessions, users, pending_registrations, mail_log RESTART IDENTITY CASCADE',
+      'TRUNCATE messages, channels, guild_members, guilds, sessions, users, pending_registrations, mail_log, push_subscriptions, guild_notification_settings RESTART IDENTITY CASCADE',
     );
   } finally {
     await client.end();

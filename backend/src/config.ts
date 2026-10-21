@@ -51,6 +51,13 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(15 * 60_000),
+  // Web Push (VAPID). Without both keys push is switched off; the rest of the app still works.
+  VAPID_PUBLIC_KEY: z.string().default(''),
+  VAPID_PRIVATE_KEY: z.string().default(''),
+  // Contact for the push services (mailto: or https:), defaults to PUBLIC_URL.
+  VAPID_SUBJECT: z.string().default(''),
+  // 'memory' records pushes instead of sending them (E2E); rejected in production.
+  PUSH_TRANSPORT: z.enum(['webpush', 'memory']).default('webpush'),
 });
 
 export interface MailConfig {
@@ -59,6 +66,13 @@ export interface MailConfig {
   from: string;
   verificationTtlHours: number;
   maxPerAddressPerHour: number;
+}
+
+export interface PushConfig {
+  publicKey: string;
+  privateKey: string;
+  subject: string;
+  transport: 'webpush' | 'memory';
 }
 
 export interface Config {
@@ -82,6 +96,8 @@ export interface Config {
   wsHeartbeatMs: number;
   publicUrl: string;
   mail: MailConfig;
+  /** null = push disabled (no VAPID keys). */
+  push: PushConfig | null;
 }
 
 /** Parses configuration from environment variables. Throws on invalid input. */
@@ -95,6 +111,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (e.NODE_ENV === 'production') {
     const missing = [
       ...(e.MAIL_TRANSPORT !== 'smtp' ? ['MAIL_TRANSPORT=smtp'] : []),
+      ...(e.PUSH_TRANSPORT !== 'webpush' ? ['PUSH_TRANSPORT=webpush'] : []),
       ...(['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM', 'PUBLIC_URL'] as const).filter(
         (k) => !env[k],
       ),
@@ -102,6 +119,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     if (missing.length > 0) {
       throw new Error(`Invalid configuration: production requires ${missing.join(', ')}`);
     }
+  }
+  if (!!e.VAPID_PUBLIC_KEY !== !!e.VAPID_PRIVATE_KEY) {
+    throw new Error('Invalid configuration: set both VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY');
   }
   return {
     nodeEnv: e.NODE_ENV,
@@ -136,6 +156,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       verificationTtlHours: e.EMAIL_VERIFICATION_TTL_HOURS,
       maxPerAddressPerHour: e.MAIL_MAX_PER_ADDRESS_PER_HOUR,
     },
+    push: e.VAPID_PUBLIC_KEY
+      ? {
+          publicKey: e.VAPID_PUBLIC_KEY,
+          privateKey: e.VAPID_PRIVATE_KEY,
+          subject: e.VAPID_SUBJECT || e.PUBLIC_URL,
+          transport: e.PUSH_TRANSPORT,
+        }
+      : null,
   };
 }
 

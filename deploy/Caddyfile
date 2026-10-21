@@ -44,8 +44,17 @@
 	handle {
 		# CSP3 'self' already covers same-origin wss:// in current browsers; wss://{host} is
 		# listed explicitly for older ones.
-		header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{host}; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# worker-src: /sw.js; media-src blob:: preview of a voice message before sending.
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{host}; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# Microphone for dictation, voice messages and voice channels; nothing else.
+		header Permissions-Policy "microphone=(self), camera=(), geolocation=(), payment=()"
 		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		# Always revalidate the shell, the service worker and the manifest, so a deploy is picked
+		# up on the next start (the service worker itself updates on every check).
+		@revalidate not path /assets/* /icons/*
+		header @revalidate Cache-Control "no-cache"
+		header /icons/* Cache-Control "public, max-age=86400"
+		header /manifest.webmanifest Content-Type "application/manifest+json"
 		root * /srv
 		try_files {path} /index.html
 		file_server
