@@ -134,6 +134,16 @@ describe('upload', () => {
     expect(await readdir(dir)).toEqual([]);
   });
 
+  it('guests are turned away before the upload is read (401, not 413)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/channels/${channelId}/voice-messages`,
+      headers: { 'content-type': 'audio/webm' },
+      payload: Buffer.concat([WEBM, Buffer.alloc(VOICE_MAX_BYTES)]),
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
   it('needs a session and guild membership', async () => {
     const anon = await app.inject({
       method: 'POST',

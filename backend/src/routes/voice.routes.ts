@@ -40,6 +40,9 @@ export async function voiceRoutes(
   app.post<{ Params: { channelId: string }; Querystring: { durationMs?: string } }>(
     '/channels/:channelId/voice-messages',
     {
+      // Check the session before the (up to 5 MB) body is read, not only in preHandler: guests
+      // must not be able to make the server buffer uploads.
+      onRequest: app.requireAuth,
       bodyLimit: VOICE_MAX_BYTES,
       config: {
         rateLimit: {
@@ -89,10 +92,24 @@ export async function voiceRoutes(
   );
 
   // Fresh per call (Cloudflare credentials are short-lived); only for logged-in users.
-  app.get('/voice/ice-servers', async (req, reply) => {
-    reply.header('Cache-Control', 'no-store');
-    return { iceServers: await opts.services.ice.servers() };
-  });
+  app.get(
+    '/voice/ice-servers',
+    {
+      // TURN credentials cost relay bandwidth; a client needs them once per join.
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: 60_000,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      return { iceServers: await opts.services.ice.servers() };
+    },
+  );
 
   app.get<{ Params: { messageId: string } }>('/voice-messages/:messageId', async (req, reply) => {
     const messageId = parseParam(messageIdSchema, req.params.messageId, () =>

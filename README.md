@@ -300,6 +300,28 @@ Ohne TURN zeigt die App bei gescheiterter Verbindung einen Hinweis darauf.
 Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
 Gerät; `/theme-init.js` setzt die Wahl vor dem ersten Zeichnen, damit nichts hell aufblitzt.
 
+## Backup & Wiederherstellung
+
+`scripts/backup.sh` sichert die Datenbank (`pg_dump`, Custom-Format) und das Volume `uploads`
+(Sprachnachrichten) nach `~/disslxt-backups` und behält je die 14 neuesten
+(`BACKUP_DIR`, `BACKUP_KEEP` zum Anpassen). Täglich um 3:30 Uhr per Cron (ohne sudo):
+
+```sh
+(crontab -l 2>/dev/null; echo '30 3 * * * cd ~/disslxt && scripts/backup.sh >> ~/disslxt-backups/backup.log 2>&1') | crontab -
+```
+
+Die Sicherungen liegen auf demselben Server – für echte Ausfallsicherheit zusätzlich woanders
+hin kopieren (z. B. Storage Box per `rsync`).
+
+**Wiederherstellen** (überschreibt den aktuellen Stand):
+
+```sh
+docker compose stop backend
+docker compose exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner' < ~/disslxt-backups/db-<zeit>.dump
+docker compose run --rm --no-deps -T --entrypoint sh backend -c 'rm -rf /data/uploads/* && tar xzf - -C /data/uploads' < ~/disslxt-backups/uploads-<zeit>.tar.gz
+docker compose up -d
+```
+
 ## Konfiguration (Env-Variablen)
 
 | Variable                                              | Default                                            | Beschreibung                                                                                                               |
