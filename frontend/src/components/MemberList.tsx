@@ -1,4 +1,5 @@
 import { useChatStore } from '../store/chat';
+import { Avatar } from './Icon';
 
 export function MemberList({ guildId }: { guildId: string }) {
   const members = useChatStore((s) => s.membersByGuild[guildId]);
@@ -17,7 +18,10 @@ export function MemberList({ guildId }: { guildId: string }) {
             data-testid={`member-${m.username}`}
             data-online={m.online ? 'true' : 'false'}
           >
-            <span className="presence-dot" aria-hidden="true" />
+            <span className="member-avatar">
+              <Avatar name={m.username} size="sm" />
+              <span className="presence-dot" aria-hidden="true" />
+            </span>
             <span className="member-name">{m.username}</span>
             <span className="sr-only">{m.online ? 'online' : 'offline'}</span>
           </li>

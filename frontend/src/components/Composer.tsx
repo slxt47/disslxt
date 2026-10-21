@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { MESSAGE_MAX_LEN, textLength } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
+import { Icon } from './Icon';
 
 export interface ComposerProps {
   channelName: string;
@@ -88,8 +89,10 @@ export function Composer({ channelName, onSend }: ComposerProps) {
           className="btn primary composer-send"
           data-testid="composer-send"
           disabled={!canSend}
+          aria-label="Senden"
+          title="Senden"
         >
-          Senden
+          <Icon name="send" size={20} />
         </button>
       </div>
       {length > COUNTER_THRESHOLD && (

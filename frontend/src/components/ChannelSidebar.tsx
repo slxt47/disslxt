@@ -6,6 +6,7 @@ import { api } from '../api/endpoints';
 import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 import { CreateChannelDialog } from './CreateChannelDialog';
+import { Avatar, Icon } from './Icon';
 
 export interface ChannelSidebarProps {
   guild: GuildDto | null;
@@ -78,7 +79,7 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
                   title="Kanal erstellen"
                   onClick={() => setCreating(true)}
                 >
-                  +
+                  <Icon name="plus" size={18} />
                 </button>
               )}
             </div>
@@ -92,7 +93,9 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
                     aria-current={c.id === activeChannelId ? 'page' : undefined}
                     onClick={onNavigate}
                   >
-                    <span aria-hidden="true">#</span> {c.name}
+                    <Icon name="hash" size={16} />
+                    <span className="sr-only">#</span>
+                    {c.name}
                   </Link>
                 </li>
               ))}
@@ -108,6 +111,7 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
               data-testid="copy-invite-button"
               onClick={() => void copyInvite(guild.inviteCode)}
             >
+              <Icon name={copied ? 'check' : 'copy'} size={16} />
               {copied ? 'Kopiert!' : 'Link kopieren'}
             </button>
           </div>
@@ -149,11 +153,20 @@ export function ChannelSidebar({ guild, activeChannelId, onNavigate }: ChannelSi
         </header>
       )}
       <footer className="user-footer">
-        <span className="current-user" data-testid="current-user">
-          {user?.username}
+        <span className="who">
+          <Avatar name={user?.username ?? '?'} size="sm" />
+          <span className="current-user" data-testid="current-user">
+            {user?.username}
+          </span>
         </span>
-        <button className="btn small" data-testid="logout-button" onClick={() => void onLogout()}>
-          Abmelden
+        <button
+          className="icon-btn"
+          data-testid="logout-button"
+          aria-label="Abmelden"
+          title="Abmelden"
+          onClick={() => void onLogout()}
+        >
+          <Icon name="logout" size={20} />
         </button>
       </footer>
     </div>

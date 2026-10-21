@@ -7,6 +7,7 @@ import { ChatView } from '../components/ChatView';
 import { ConnectionBanner } from '../components/ConnectionBanner';
 import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
+import { Icon } from '../components/Icon';
 import { MemberList } from '../components/MemberList';
 import { ServerList } from '../components/ServerList';
 import { activeView } from '../realtime/RealtimeProvider';
@@ -119,7 +120,7 @@ export function AppLayout() {
                 aria-label="Menü öffnen"
                 onClick={() => setDrawerOpen(true)}
               >
-                ☰
+                <Icon name="menu" />
               </button>
               <h1 className="chat-title">{guild ? guild.name : 'disslxt'}</h1>
             </header>

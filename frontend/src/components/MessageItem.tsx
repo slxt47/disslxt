@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { MESSAGE_MAX_LEN, textLength, type MessageDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { isSubmitKey } from './Composer';
+import { Avatar, Icon } from './Icon';
 
 export interface MessageItemProps {
   message: MessageDto;
@@ -85,6 +86,7 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
 
   return (
     <li className={`message${isOwn ? ' own' : ''}`} data-testid={`message-${message.id}`}>
+      <Avatar name={message.author.username} />
       <div className="message-meta">
         <span className="message-author" data-testid="message-author">
           {message.author.username}
@@ -177,10 +179,10 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
             title="Bearbeiten"
             onClick={startEdit}
           >
-            ✎
+            <Icon name="edit" size={18} />
           </button>
           <button
-            className="icon-btn"
+            className="icon-btn danger"
             data-testid="message-delete"
             aria-label="Löschen"
             title="Löschen"
@@ -189,7 +191,7 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
               setMode('confirm-delete');
             }}
           >
-            🗑
+            <Icon name="trash" size={18} />
           </button>
         </div>
       )}

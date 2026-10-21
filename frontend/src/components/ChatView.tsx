@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 import { Composer } from './Composer';
 import { ConnectionBanner } from './ConnectionBanner';
+import { Icon } from './Icon';
 import { MessageList } from './MessageList';
 
 const EMPTY: never[] = [];
@@ -101,10 +102,12 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
           aria-label="Menü öffnen"
           onClick={onOpenMenu}
         >
-          ☰
+          <Icon name="menu" />
         </button>
         <h1 className="chat-title" data-testid="channel-title">
-          <span aria-hidden="true">#</span> {channel.name}
+          <Icon name="hash" size={18} />
+          <span className="sr-only">#</span>
+          {channel.name}
         </h1>
       </header>
       <ConnectionBanner />
