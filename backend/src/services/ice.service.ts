@@ -7,9 +7,10 @@ export interface IceServer {
   credential?: string;
 }
 
-const CLOUDFLARE_TTL_S = 6 * 60 * 60;
+/** Short enough that TURN really stops soon after the monthly limit is reached. */
+const CLOUDFLARE_TTL_S = 2 * 60 * 60;
 /** Generated Cloudflare credentials are reused this long (well inside their TTL). */
-const CACHE_MS = 60 * 60 * 1000;
+const CACHE_MS = 30 * 60 * 1000;
 
 /**
  * ICE servers for WebRTC. STUN finds the public address; TURN relays the audio when two peers
@@ -21,17 +22,32 @@ const CACHE_MS = 60 * 60 * 1000;
  */
 export class IceService {
   private cache: { servers: IceServer[]; until: number } | null = null;
+  private warnedExhausted = false;
 
   constructor(
     private readonly config: Pick<Config, 'ice'>,
     private readonly log: FastifyBaseLogger,
     private readonly fetchImpl: typeof fetch = fetch,
+    /** True once this month's TURN quota is used up; then only STUN is handed out. */
+    private readonly quotaExhausted: () => Promise<boolean> = async () => false,
   ) {}
+
+  get turnConfigured(): boolean {
+    return !!(this.config.ice.cloudflare || this.config.ice.static);
+  }
 
   async servers(): Promise<IceServer[]> {
     const stun: IceServer[] = this.config.ice.stunUrls.length
       ? [{ urls: this.config.ice.stunUrls }]
       : [];
+    if (this.turnConfigured && (await this.quotaExhausted())) {
+      if (!this.warnedExhausted) {
+        this.warnedExhausted = true;
+        this.log.warn('monthly TURN limit reached: handing out STUN only until next month');
+      }
+      return stun;
+    }
+    this.warnedExhausted = false;
     return [...stun, ...(await this.turn())];
   }
 

@@ -67,6 +67,8 @@ services:
       TURN_URLS: ${TURN_URLS:-}
       TURN_USERNAME: ${TURN_USERNAME:-}
       TURN_CREDENTIAL: ${TURN_CREDENTIAL:-}
+      # TURN stops for the rest of the month at this much relayed traffic (Cloudflare: 1000 GB free).
+      TURN_MONTHLY_LIMIT_GB: ${TURN_MONTHLY_LIMIT_GB:-900}
     volumes:
       - uploads:/data/uploads
     depends_on:

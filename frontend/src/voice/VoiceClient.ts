@@ -11,6 +11,49 @@ export interface VoiceDeps {
   createAudio: () => HTMLAudioElement;
   /** Optional: speaking indicator. Missing in tests / old browsers. */
   createAudioContext?: () => AudioContext;
+  /** Optional: receives bytes relayed through TURN since the last call (monthly quota). */
+  reportTurnUsage?: (bytes: number) => void;
+}
+
+/** How often relayed traffic is measured and reported while in a call. */
+export const TURN_METER_INTERVAL_MS = 15_000;
+
+/**
+ * Bytes sent + received over the selected candidate pair(s) of a connection whose local side is a
+ * TURN relay, keyed by pair id (the counters restart when another pair gets selected).
+ */
+export async function relayedBytes(pc: RTCPeerConnection): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const stats = await pc.getStats();
+  const selected = new Set<string>();
+  stats.forEach((s: { type: string; selectedCandidatePairId?: string }) => {
+    if (s.type === 'transport' && s.selectedCandidatePairId)
+      selected.add(s.selectedCandidatePairId);
+  });
+  stats.forEach(
+    (s: {
+      type: string;
+      id: string;
+      nominated?: boolean;
+      selected?: boolean;
+      state?: string;
+      localCandidateId?: string;
+      bytesSent?: number;
+      bytesReceived?: number;
+    }) => {
+      if (s.type !== 'candidate-pair') return;
+      // Chrome/Safari name the pair in the transport stats; Firefox flags it on the pair.
+      const inUse =
+        selected.size > 0
+          ? selected.has(s.id)
+          : s.selected === true || (s.nominated && s.state === 'succeeded');
+      if (!inUse || !s.localCandidateId) return;
+      const local = stats.get(s.localCandidateId) as { candidateType?: string } | undefined;
+      if (local?.candidateType !== 'relay') return;
+      out.set(s.id, (s.bytesSent ?? 0) + (s.bytesReceived ?? 0));
+    },
+  );
+  return out;
 }
 
 const MIC_ERRORS: Record<string, string> = {
@@ -31,6 +74,8 @@ interface Link {
   pending: RTCIceCandidateInit[];
   audio: HTMLAudioElement;
   analyser?: AnalyserNode;
+  /** Relayed bytes already reported, per candidate pair. */
+  reported: Map<string, number>;
 }
 
 /**
@@ -45,6 +90,7 @@ export class VoiceClient {
   private audioContext: AudioContext | null = null;
   private localAnalyser: AnalyserNode | null = null;
   private levelTimer: ReturnType<typeof setInterval> | null = null;
+  private meterTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private readonly deps: VoiceDeps) {}
 
@@ -121,6 +167,11 @@ export class VoiceClient {
           peers: Object.fromEntries(ev.data.peers.map((p) => [p.peerId, peerState(p)])),
         });
         if (state.muted) this.deps.send({ type: 'voice.mute', data: { muted: true } });
+        if (this.deps.reportTurnUsage && !this.meterTimer) {
+          this.meterTimer = setInterval(() => {
+            for (const link of this.links.values()) void this.meter(link);
+          }, TURN_METER_INTERVAL_MS);
+        }
         for (const peer of ev.data.peers) void this.offerTo(peer.peerId);
         return;
       }
@@ -214,7 +265,7 @@ export class VoiceClient {
     if (existing) return existing;
     const pc = this.deps.createPeerConnection({ iceServers: this.iceServers });
     const audio = this.deps.createAudio();
-    const link: Link = { peerId, pc, initiator, pending: [], audio };
+    const link: Link = { peerId, pc, initiator, pending: [], audio, reported: new Map() };
     this.links.set(peerId, link);
     for (const track of this.local?.getTracks() ?? []) pc.addTrack(track, this.local!);
 
@@ -260,6 +311,21 @@ export class VoiceClient {
     for (const t of this.local?.getAudioTracks() ?? []) t.enabled = !muted;
   }
 
+  /** Reports the relayed bytes of one connection since its last report. */
+  private async meter(link: Link): Promise<void> {
+    if (!this.deps.reportTurnUsage) return;
+    let delta = 0;
+    try {
+      for (const [pair, total] of await relayedBytes(link.pc)) {
+        delta += Math.max(0, total - (link.reported.get(pair) ?? 0));
+        link.reported.set(pair, total);
+      }
+    } catch {
+      return;
+    }
+    if (delta > 0) this.deps.reportTurnUsage(delta);
+  }
+
   private closeLink(peerId: string): void {
     const link = this.links.get(peerId);
     if (!link) return;
@@ -267,7 +333,12 @@ export class VoiceClient {
     link.pc.onicecandidate = null;
     link.pc.ontrack = null;
     link.pc.onconnectionstatechange = null;
-    link.pc.close();
+    if (this.deps.reportTurnUsage) {
+      // Last measurement before closing, so the final seconds of a relayed call count too.
+      void this.meter(link).finally(() => link.pc.close());
+    } else {
+      link.pc.close();
+    }
     link.audio.srcObject = null;
     link.audio.remove();
   }
@@ -282,6 +353,8 @@ export class VoiceClient {
     this.local = null;
     if (this.levelTimer) clearInterval(this.levelTimer);
     this.levelTimer = null;
+    if (this.meterTimer) clearInterval(this.meterTimer);
+    this.meterTimer = null;
     this.localAnalyser = null;
     void this.audioContext?.close().catch(() => undefined);
     this.audioContext = null;

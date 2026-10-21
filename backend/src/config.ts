@@ -71,6 +71,9 @@ const envSchema = z.object({
   TURN_URLS: z.string().default(''),
   TURN_USERNAME: z.string().default(''),
   TURN_CREDENTIAL: z.string().default(''),
+  // TURN is switched off for the rest of the month once this much was relayed (Cloudflare: first
+  // 1000 GB free; the default keeps a margin for credentials still in use and unmeasured traffic).
+  TURN_MONTHLY_LIMIT_GB: z.coerce.number().positive().default(900),
 });
 
 export interface MailConfig {
@@ -115,6 +118,7 @@ export interface Config {
     stunUrls: string[];
     cloudflare: { keyId: string; apiToken: string } | null;
     static: { urls: string[]; username: string; credential: string } | null;
+    monthlyLimitBytes: number;
   };
   voice: {
     /** Absolute directory for voice message files. */
@@ -196,6 +200,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       static: e.TURN_URLS
         ? { urls: list(e.TURN_URLS), username: e.TURN_USERNAME, credential: e.TURN_CREDENTIAL }
         : null,
+      monthlyLimitBytes: Math.round(e.TURN_MONTHLY_LIMIT_GB * 1e9),
     },
     voice: {
       dir: resolve(e.UPLOAD_DIR, 'voice'),

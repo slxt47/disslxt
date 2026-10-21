@@ -11,6 +11,7 @@ import { InstallBanner } from '../components/InstallBanner';
 import { SettingsDialog } from '../components/SettingsDialog';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { SpeechSettings } from '../components/SpeechSettings';
+import { VoiceSettings } from '../components/VoiceSettings';
 import { VoiceChannelView } from '../components/VoiceChannelView';
 import { loadVoiceState } from '../voice/voiceState';
 import { Icon } from '../components/Icon';
@@ -178,6 +179,7 @@ export function AppLayout() {
             <>
               <AppearanceSettings />
               <SpeechSettings />
+              <VoiceSettings />
             </>
           }
         />

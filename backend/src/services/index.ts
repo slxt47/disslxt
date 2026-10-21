@@ -9,6 +9,7 @@ import { GuildService } from './guild.service.js';
 import { MessageService } from './message.service.js';
 import { IceService } from './ice.service.js';
 import { PushService } from './push.service.js';
+import { TurnUsageService } from './turnUsage.service.js';
 import type { PushSender } from '../lib/push.js';
 
 export interface Services {
@@ -18,6 +19,7 @@ export interface Services {
   messages: MessageService;
   push: PushService;
   ice: IceService;
+  turnUsage: TurnUsageService;
 }
 
 export function createServices(
@@ -33,6 +35,7 @@ export function createServices(
   const guilds = new GuildService(db, hub, push);
   const channels = new ChannelService(db, hub, guilds);
   const messages = new MessageService(db, hub, guilds, channels, push, config.voice.dir);
-  const ice = new IceService(config, log);
-  return { auth, guilds, channels, messages, push, ice };
+  const turnUsage = new TurnUsageService(db, config.ice.monthlyLimitBytes);
+  const ice = new IceService(config, log, fetch, async () => (await turnUsage.status()).exhausted);
+  return { auth, guilds, channels, messages, push, ice, turnUsage };
 }

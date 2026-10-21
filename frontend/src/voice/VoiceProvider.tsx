@@ -40,6 +40,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         return audio;
       },
       createAudioContext: AudioCtx ? () => new AudioCtx() : undefined,
+      reportTurnUsage: (bytes) => void api.reportTurnUsage(bytes).catch(() => undefined),
     });
     const offEvent = realtime.onEvent((ev) => c.handle(ev));
     const offReady = realtime.onReady(({ reconnect }) => {

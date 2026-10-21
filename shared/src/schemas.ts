@@ -136,6 +136,9 @@ export const inviteCodeSchema = z
 
 export const uuidSchema = z.guid();
 
+/** Bytes relayed through TURN since the client's last report. */
+export const turnUsageReportSchema = z.object({ bytes: z.number().int().min(0).max(1e10) });
+
 /**
  * A browser push subscription (PushSubscription.toJSON()). The server POSTs to `endpoint`, so
  * only the push services of the major browsers are accepted (no requests to arbitrary hosts).

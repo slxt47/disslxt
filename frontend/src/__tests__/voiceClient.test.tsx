@@ -54,6 +54,11 @@ class FakePC {
   restartIce() {
     this.restarted = true;
   }
+  /** Simulated WebRTC stats (set per test). */
+  static statsFn: (() => RTCStatsReport) | null = null;
+  async getStats() {
+    return FakePC.statsFn?.() ?? (new Map() as unknown as RTCStatsReport);
+  }
   close() {
     this.closed = true;
   }
@@ -351,5 +356,98 @@ describe('VoiceChannelView', () => {
     expect(setMuted).toHaveBeenCalledWith(true);
     await userEvent.click(screen.getByTestId('voice-leave'));
     expect(leave).toHaveBeenCalled();
+  });
+});
+
+describe('TURN metering', () => {
+  /** Minimal RTCStatsReport: Map with forEach/get. */
+  const report = (entries: Record<string, unknown>[]) =>
+    new Map(entries.map((e) => [e.id as string, e])) as unknown as RTCStatsReport;
+
+  it('relayedBytes counts only the selected pair whose local side is a TURN relay', async () => {
+    const { relayedBytes } = await import('../voice/VoiceClient');
+    const pc = (stats: RTCStatsReport) =>
+      ({ getStats: async () => stats }) as unknown as RTCPeerConnection;
+    const relay = report([
+      { id: 't', type: 'transport', selectedCandidatePairId: 'p1' },
+      {
+        id: 'p1',
+        type: 'candidate-pair',
+        localCandidateId: 'l1',
+        bytesSent: 300,
+        bytesReceived: 700,
+      },
+      {
+        id: 'p2',
+        type: 'candidate-pair',
+        localCandidateId: 'l2',
+        bytesSent: 9999,
+        bytesReceived: 9999,
+      },
+      { id: 'l1', type: 'local-candidate', candidateType: 'relay' },
+      { id: 'l2', type: 'local-candidate', candidateType: 'relay' },
+    ]);
+    expect([...(await relayedBytes(pc(relay)))]).toEqual([['p1', 1000]]);
+    const direct = report([
+      { id: 't', type: 'transport', selectedCandidatePairId: 'p1' },
+      {
+        id: 'p1',
+        type: 'candidate-pair',
+        localCandidateId: 'l1',
+        bytesSent: 300,
+        bytesReceived: 700,
+      },
+      { id: 'l1', type: 'local-candidate', candidateType: 'host' },
+    ]);
+    expect(await relayedBytes(pc(direct))).toEqual(new Map());
+    // Firefox: no transport stats, the pair is flagged itself.
+    const firefox = report([
+      {
+        id: 'p1',
+        type: 'candidate-pair',
+        selected: true,
+        localCandidateId: 'l1',
+        bytesSent: 5,
+        bytesReceived: 5,
+      },
+      { id: 'l1', type: 'local-candidate', candidateType: 'relay' },
+    ]);
+    expect([...(await relayedBytes(pc(firefox)))]).toEqual([['p1', 10]]);
+  });
+
+  it('reports only the growth since the last report, also when leaving', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { client, deps } = setup();
+    const reported: number[] = [];
+    deps.reportTurnUsage = (b) => reported.push(b);
+    let sent = 1000;
+    FakePC.statsFn = () =>
+      report([
+        { id: 't', type: 'transport', selectedCandidatePairId: 'p1' },
+        {
+          id: 'p1',
+          type: 'candidate-pair',
+          localCandidateId: 'l1',
+          bytesSent: sent,
+          bytesReceived: 0,
+        },
+        { id: 'l1', type: 'local-candidate', candidateType: 'relay' },
+      ]);
+    await client.join(CH, GUILD);
+    client.handle({
+      type: 'voice.joined',
+      data: { channelId: CH, peerId: 'self-peer-1', peers: [peer('peer-bob-1', 'bob')] },
+    });
+    await flush();
+    await act(async () => vi.advanceTimersByTime(15_000));
+    sent = 4000;
+    await act(async () => vi.advanceTimersByTime(15_000));
+    sent = 4500;
+    client.leave();
+    await flush();
+    expect(reported).toEqual([1000, 3000, 500]);
+    vi.useRealTimers();
+    FakePC.statsFn = null;
+    expect(FakePC.all[0]!.closed).toBe(true);
   });
 });

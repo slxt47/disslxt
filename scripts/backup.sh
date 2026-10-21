@@ -3,8 +3,22 @@
 #   scripts/backup.sh                  → ~/disslxt-backups, keeps the newest 14 of each
 #   BACKUP_DIR=/mnt/x BACKUP_KEEP=30 scripts/backup.sh
 # Restore: see README, "Backup & Wiederherstellung".
+# Runs nightly from cron (04:00 local = 02:00/03:00 UTC), before the server backup at 03:30 UTC,
+# which packs ~/disslxt-backups onto the Storage Box with the rest of the home directory.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# Optional failure alert via the server's ntfy (topic "backup"), as the nightly server backup does.
+NTFY_SEND=${NTFY_SEND:-$HOME/ntfy/scripts/ntfy-send.sh}
+on_error() {
+  local line=$1
+  echo "backup FAILED (line $line)" >&2
+  if [ -x "$NTFY_SEND" ]; then
+    "$NTFY_SEND" backup "disslxt-Backup fehlgeschlagen" high "warning" \
+      "scripts/backup.sh ist in Zeile $line abgebrochen. Log: ~/disslxt-backups/backup.log" || true
+  fi
+}
+trap 'on_error $LINENO' ERR
 
 dest=${BACKUP_DIR:-$HOME/disslxt-backups}
 keep=${BACKUP_KEEP:-14}

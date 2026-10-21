@@ -7,6 +7,7 @@ import type {
   MemberDto,
   MessageDto,
   PushConfigDto,
+  TurnUsageDto,
   UserDto,
 } from '@disslxt/shared';
 import { apiRequest, apiUpload } from './client';
@@ -50,6 +51,8 @@ export const api = {
       `/guilds/${enc(guildId)}/voice`,
     ),
   iceServers: () => apiRequest<{ iceServers: RTCIceServer[] }>('GET', '/voice/ice-servers'),
+  reportTurnUsage: (bytes: number) => apiRequest<void>('POST', '/voice/turn-usage', { bytes }),
+  turnUsage: () => apiRequest<TurnUsageDto>('GET', '/voice/turn-usage'),
 
   listMessages: (channelId: string, opts: { before?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();

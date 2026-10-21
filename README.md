@@ -295,6 +295,17 @@ kann dieser Server selbst kein TURN anbieten. Optionen:
 
 Ohne TURN zeigt die App bei gescheiterter Verbindung einen Hinweis darauf.
 
+**Monatliches TURN-Limit:** Jeder Browser misst während eines Anrufs alle 15 s, wie viele Bytes
+tatsächlich über TURN gelaufen sind (WebRTC-Statistik des gewählten Kandidatenpaars, nur wenn die
+eigene Seite ein Relay-Kandidat ist; direkte Verbindungen zählen nicht) und meldet sie dem
+Server. Der summiert pro Kalendermonat (UTC). Ab `TURN_MONTHLY_LIMIT_GB` (Standard 900, unter den
+1000 GB gratis) gibt es bis Monatsende nur noch STUN; Sprachkanäle laufen dann weiter, wo eine
+direkte Verbindung möglich ist. Ausgegebene Zugangsdaten gelten höchstens 2 h, laufende Relays
+enden also bald nach Erreichen der Grenze. Der Stand steht in den Einstellungen unter
+„Sprachkanäle“. Gesendet und empfangen zählen beide – das liegt eher über dem, was Cloudflare
+abrechnet. Getestet mit einem echten Anruf nur über Cloudflare-Relay
+(`e2e/tests/turn-relay.spec.ts`, läuft mit `E2E_CLOUDFLARE_TURN_KEY_ID`/`_API_TOKEN`).
+
 ## Darstellung (Dark Mode)
 
 Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
@@ -361,6 +372,7 @@ docker compose up -d
 | `VOICE_STUN_URLS`                                     | `stun:stun.cloudflare.com:3478`                    | STUN-Server für Sprachkanäle (kommagetrennt)                                                                               |
 | `CLOUDFLARE_TURN_KEY_ID` / `_API_TOKEN`               | –                                                  | Cloudflare Realtime TURN (kurzlebige Zugangsdaten per API)                                                                 |
 | `TURN_URLS` / `TURN_USERNAME` / `TURN_CREDENTIAL`     | –                                                  | eigener TURN-Server (z. B. coturn)                                                                                         |
+| `TURN_MONTHLY_LIMIT_GB`                               | `900`                                              | ab dieser Relay-Menge pro Monat kein TURN mehr (nur STUN)                                                                  |
 
 Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 

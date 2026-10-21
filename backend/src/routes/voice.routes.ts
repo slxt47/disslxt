@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   messageIdSchema,
+  turnUsageReportSchema,
   uuidSchema,
   VOICE_MAX_BYTES,
   VOICE_MAX_SECONDS,
@@ -11,7 +12,7 @@ import {
 } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { AppError, notFound } from '../lib/errors.js';
-import { parseParam } from '../lib/validate.js';
+import { parse, parseParam } from '../lib/validate.js';
 import { isBadInput, sniffAudio, type Transcoder } from '../lib/voice.js';
 import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
@@ -110,6 +111,31 @@ export async function voiceRoutes(
       return { iceServers: await opts.services.ice.servers() };
     },
   );
+
+  // Clients report the bytes they relayed through TURN (see VoiceClient); counted per month.
+  app.post(
+    '/voice/turn-usage',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: 60_000,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { bytes } = parse(turnUsageReportSchema, req.body);
+      await opts.services.turnUsage.add(bytes);
+      return reply.status(204).send();
+    },
+  );
+
+  app.get('/voice/turn-usage', async () => ({
+    ...(await opts.services.turnUsage.status()),
+    configured: opts.services.ice.turnConfigured,
+  }));
 
   app.get<{ Params: { messageId: string } }>('/voice-messages/:messageId', async (req, reply) => {
     const messageId = parseParam(messageIdSchema, req.params.messageId, () =>

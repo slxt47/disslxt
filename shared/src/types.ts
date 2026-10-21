@@ -64,6 +64,16 @@ export interface MemberDto {
   online: boolean;
 }
 
+export interface TurnUsageDto {
+  /** Calendar month (UTC), "YYYY-MM". */
+  month: string;
+  usedBytes: number;
+  limitBytes: number;
+  exhausted: boolean;
+  /** A TURN server is set up at all. */
+  configured: boolean;
+}
+
 export interface PushConfigDto {
   /** False when the server has no VAPID keys configured. */
   enabled: boolean;
