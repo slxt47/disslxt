@@ -4,6 +4,7 @@ import {
   EMAIL_MAX_LEN,
   GUILD_NAME_MAX_LEN,
   MESSAGE_MAX_LEN,
+  NEXT_PATH_MAX_LEN,
   PAGE_DEFAULT,
   PAGE_MAX,
   PASSWORD_MAX_LEN,
@@ -32,12 +33,31 @@ export const passwordSchema = z
   .min(PASSWORD_MIN_LEN, `Passwort muss mindestens ${PASSWORD_MIN_LEN} Zeichen haben`)
   .max(PASSWORD_MAX_LEN, `Passwort darf höchstens ${PASSWORD_MAX_LEN} Zeichen haben`);
 
+/**
+ * In-app path to continue at after the e-mail is confirmed (e.g. an invite link). Only plain
+ * same-origin paths are accepted, so a confirmation can never redirect off-site.
+ */
+export const nextPathSchema = z
+  .string()
+  .max(NEXT_PATH_MAX_LEN)
+  .regex(/^\/(?![/\\])[A-Za-z0-9/_\-.~%?=&]*$/, 'Ungültiges Weiterleitungsziel');
+
 export const registerSchema = z.object({
   email: emailSchema,
   username: usernameSchema,
   password: passwordSchema,
+  next: nextPathSchema.optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+/** Token from the confirmation link: 32 random bytes, base64url (43 chars). */
+export const verifyEmailSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Ungültiger Bestätigungslink'),
+});
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+export const resendVerificationSchema = z.object({ email: emailSchema });
+export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
 
 export const loginSchema = z.object({
   email: emailSchema,

@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${DEV_DB_PASSWORD:-chat}
       POSTGRES_DB: disslxt_dev
     ports:
-      - '${DEV_DB_PORT:-5433}:5432'
+      - '127.0.0.1:${DEV_DB_PORT:-5433}:5432'
     volumes:
       - dev_db_data:/var/lib/postgresql/data
     healthcheck:

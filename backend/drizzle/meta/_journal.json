@@ -8,6 +8,13 @@
       "when": 1792508860429,
       "tag": "0000_rich_supernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792571743432,
+      "tag": "0001_email_verification",
+      "breakpoints": true
     }
   ]
 }

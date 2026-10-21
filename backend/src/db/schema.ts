@@ -23,9 +23,47 @@ export const users = pgTable(
     email: varchar('email', { length: 254 }).notNull(),
     username: varchar('username', { length: 32 }).notNull(),
     passwordHash: text('password_hash').notNull(),
+    // Accounts are only created once the address is confirmed, so this is always set for new
+    // users; the migration backfills accounts that existed before verification was introduced.
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('users_email_lower_uq').on(sql`lower(${t.email})`)],
+);
+
+/**
+ * A registration waiting for its e-mail confirmation. The user row is only created when the
+ * link is used, from the data stored here, so an unconfirmed sign-up can never squat an address
+ * or set the password of somebody else's future account.
+ */
+export const pendingRegistrations = pgTable(
+  'pending_registrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: varchar('email', { length: 254 }).notNull(),
+    username: varchar('username', { length: 32 }).notNull(),
+    passwordHash: text('password_hash').notNull(),
+    tokenHash: char('token_hash', { length: 64 })
+      .notNull()
+      .unique('pending_registrations_token_uq'),
+    nextPath: varchar('next_path', { length: 200 }),
+    createdAt: createdAt(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('pending_registrations_email_idx').on(sql`lower(${t.email})`)],
+);
+
+/** One row per e-mail sent to an address; backs the per-address limit against mail bombing. */
+export const mailLog = pgTable(
+  'mail_log',
+  {
+    id: bigint('id', { mode: 'bigint' }).primaryKey().generatedAlwaysAsIdentity(),
+    /** sha256 of the lowercased address, so the log itself holds no plain addresses. */
+    addressHash: char('address_hash', { length: 64 }).notNull(),
+    kind: varchar('kind', { length: 32 }).notNull(),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('mail_log_address_sent_idx').on(t.addressHash, t.sentAt)],
 );
 
 export const sessions = pgTable(
@@ -106,6 +144,7 @@ export const messages = pgTable(
 );
 
 export type User = typeof users.$inferSelect;
+export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type Guild = typeof guilds.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
 export type Message = typeof messages.$inferSelect;

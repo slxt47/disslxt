@@ -6,6 +6,7 @@ import {
   invitePath,
   newUserPage,
   registerViaUi,
+  confirmViaMail,
   uniqueUser,
 } from '../helpers';
 
@@ -25,8 +26,10 @@ test('a logged-out user follows an invite link, registers and joins the guild', 
   await b.page.getByTestId('to-register').click();
   await expect(b.page).toHaveURL(/\/register\?next=/);
   await fillRegisterForm(b.page, b.user);
+  await expect(b.page.getByTestId('check-inbox')).toBeVisible();
+  await confirmViaMail(b.page, b.user.email);
 
-  // Back on the invite page after registering.
+  // Back on the invite page after confirming the e-mail.
   await expect(b.page).toHaveURL(new RegExp(`${invite}$`));
   await expect(b.page.getByTestId('invite-guild-name')).toHaveText('Einladungs-Server');
   await expect(b.page.getByTestId('invite-member-count')).toHaveText('1 Mitglied');

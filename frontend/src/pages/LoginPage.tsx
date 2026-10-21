@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { loginSchema } from '@disslxt/shared';
-import { errorMessage } from '../api/client';
+import { ApiRequestError, errorMessage } from '../api/client';
+import { CheckInbox } from '../components/CheckInbox';
 import { useAuthStore } from '../store/auth';
 
 export function LoginPage() {
@@ -11,10 +12,12 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unverified, setUnverified] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setUnverified(null);
     const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => i.message).join(' · '));
@@ -25,7 +28,11 @@ export function LoginPage() {
       await login(parsed.data.email, parsed.data.password);
       // GuestOnly redirects to ?next= once the store says "authenticated".
     } catch (err) {
-      setError(errorMessage(err));
+      if (err instanceof ApiRequestError && err.code === 'EMAIL_NOT_VERIFIED') {
+        setUnverified(parsed.data.email);
+      } else {
+        setError(errorMessage(err));
+      }
       setBusy(false);
     }
   }
@@ -60,6 +67,13 @@ export function LoginPage() {
           <p className="form-error" role="alert" data-testid="form-error">
             {error}
           </p>
+        )}
+        {unverified && (
+          <CheckInbox
+            email={unverified}
+            justSent={false}
+            intro="Dein Konto ist noch nicht aktiviert. Den Bestätigungslink haben wir geschickt an"
+          />
         )}
         <button className="btn primary" type="submit" data-testid="login-submit" disabled={busy}>
           {busy ? 'Anmelden…' : 'Anmelden'}

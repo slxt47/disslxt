@@ -11,8 +11,12 @@ import { apiRequest } from './client';
 const enc = encodeURIComponent;
 
 export const api = {
-  register: (input: { email: string; username: string; password: string }) =>
-    apiRequest<{ user: UserDto }>('POST', '/auth/register', input),
+  register: (input: { email: string; username: string; password: string; next?: string }) =>
+    apiRequest<{ status: 'verification_sent' }>('POST', '/auth/register', input),
+  verifyEmail: (token: string) =>
+    apiRequest<{ user: UserDto; next: string | null }>('POST', '/auth/verify-email', { token }),
+  resendVerification: (email: string) =>
+    apiRequest<{ status: 'verification_sent' }>('POST', '/auth/resend-verification', { email }),
   login: (input: { email: string; password: string }) =>
     apiRequest<{ user: UserDto }>('POST', '/auth/login', input),
   logout: () => apiRequest<void>('POST', '/auth/logout'),

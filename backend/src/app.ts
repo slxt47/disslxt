@@ -5,6 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import type { Config } from './config.js';
 import type { Database } from './db/client.js';
 import { AppError } from './lib/errors.js';
+import { createMailer, MemoryMailer, type Mailer } from './lib/mailer.js';
 import authPlugin from './plugins/auth.js';
 import errorHandler from './plugins/errorHandler.js';
 import security from './plugins/security.js';
@@ -22,6 +23,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     hub: Hub;
     services: Services;
+    mailer: Mailer;
   }
 }
 
@@ -30,6 +32,8 @@ export interface BuildAppOptions {
   db: Database;
   /** Override the logger (e.g. `false` in tests). Defaults to pino configured from config. */
   logger?: FastifyServerOptions['logger'];
+  /** Override the mail transport (tests pass a MemoryMailer to read the sent mails). */
+  mailer?: Mailer;
   /** Hook to register extra routes before the app is ready (used by tests). */
   extraRoutes?: (app: FastifyInstance) => void | Promise<void>;
 }
@@ -45,6 +49,7 @@ export function loggerOptions(config: Config): FastifyServerOptions['logger'] {
         'password',
         '*.password',
         'body.password',
+        'body.token',
       ],
       censor: '[REDACTED]',
     },
@@ -67,9 +72,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
   const hub = new Hub();
-  const services = createServices(db, hub, config);
+  const mailer = opts.mailer ?? createMailer(config.mail, app.log);
+  const services = createServices(db, hub, config, mailer, app.log);
   app.decorate('hub', hub);
   app.decorate('services', services);
+  app.decorate('mailer', mailer);
+  app.addHook('onClose', async () => mailer.close());
 
   app.addHook('onRequest', async (req, reply) => {
     reply.header('x-request-id', req.id);
@@ -105,6 +113,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     async (api) => {
       await api.register(healthRoutes, { db });
       await api.register(authRoutes, { services, config, hub });
+      // Local development / E2E only: read captured mails instead of a real inbox. Never
+      // registered in production, where the in-memory transport is rejected anyway.
+      if (config.nodeEnv !== 'production' && mailer instanceof MemoryMailer) {
+        api.get('/dev/mails', async () => ({ mails: mailer.sent }));
+      }
       // Everything below requires a valid session.
       await api.register(async (protectedApi) => {
         protectedApi.addHook('preHandler', protectedApi.requireAuth);

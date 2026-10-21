@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { registerSchema } from '@disslxt/shared';
-import { ApiRequestError, errorMessage } from '../api/client';
+import { safeNext } from '../navigation';
+import { errorMessage } from '../api/client';
+import { CheckInbox } from '../components/CheckInbox';
 import { useAuthStore } from '../store/auth';
 
 export function RegisterPage() {
@@ -12,6 +14,7 @@ export function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -23,15 +26,36 @@ export function RegisterPage() {
     }
     setBusy(true);
     try {
-      await register(parsed.data.email, parsed.data.username, parsed.data.password);
-    } catch (err) {
-      setError(
-        err instanceof ApiRequestError && err.code === 'EMAIL_TAKEN'
-          ? 'Diese E-Mail-Adresse ist bereits registriert'
-          : errorMessage(err),
+      const next = safeNext(location.search);
+      await register(
+        parsed.data.email,
+        parsed.data.username,
+        parsed.data.password,
+        next === '/' ? undefined : next,
       );
+      setSentTo(parsed.data.email);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
       setBusy(false);
     }
+  }
+
+  if (sentTo) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card" aria-labelledby="inbox-title">
+          <h1 id="inbox-title">Bestätige deine E-Mail</h1>
+          <CheckInbox email={sentTo} />
+          <p className="auth-switch">
+            Schon bestätigt?{' '}
+            <Link to={`/login${location.search}`} data-testid="to-login">
+              Anmelden
+            </Link>
+          </p>
+        </section>
+      </main>
+    );
   }
 
   return (

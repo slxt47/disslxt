@@ -48,13 +48,13 @@ describe('login / register rate limit (per IP)', () => {
     expect(Number(res.headers['retry-after'])).toBeLessThanOrEqual(60);
   });
 
-  it('register is limited too', async () => {
-    const app = await make({ rateLimit: { loginMax: 3 } });
+  it('register is limited by the mail limit', async () => {
+    const app = await make({ rateLimit: { mailMax: 3 } });
     for (let i = 0; i < 3; i++) {
       const res = await req(app, 'POST', '/api/auth/register', {
         payload: { email: `r${i}@example.com`, username: `r_user_${i}`, password: 'password123' },
       });
-      expect(res.statusCode).toBe(201);
+      expect(res.statusCode).toBe(202);
     }
     const res = await req(app, 'POST', '/api/auth/register', {
       payload: { email: 'r9@example.com', username: 'r_user_9', password: 'password123' },

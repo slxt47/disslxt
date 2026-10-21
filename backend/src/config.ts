@@ -29,7 +29,37 @@ const envSchema = z.object({
   RATE_LIMIT_MESSAGE_MAX: z.coerce.number().int().positive().default(20),
   RATE_LIMIT_MESSAGE_WINDOW_MS: z.coerce.number().int().positive().default(10_000),
   WS_HEARTBEAT_MS: z.coerce.number().int().positive().default(30_000),
+  PUBLIC_URL: z
+    .url()
+    .refine((u) => !u.endsWith('/'), 'PUBLIC_URL must not end with a slash')
+    .default('http://localhost:5173'),
+  // 'log' keeps mails in memory and logs them; it exists for tests and local development only
+  // and is rejected in production.
+  MAIL_TRANSPORT: z.enum(['smtp', 'log']).default('log'),
+  SMTP_HOST: z.string().default(''),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  // false = STARTTLS on 587 (iCloud); true = implicit TLS on 465.
+  SMTP_SECURE: bool.default(false),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  MAIL_FROM: z.string().default(''),
+  EMAIL_VERIFICATION_TTL_HOURS: z.coerce.number().positive().max(168).default(24),
+  MAIL_MAX_PER_ADDRESS_PER_HOUR: z.coerce.number().int().positive().default(3),
+  RATE_LIMIT_MAIL_MAX: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_MAIL_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60_000),
 });
+
+export interface MailConfig {
+  transport: 'smtp' | 'log';
+  smtp: { host: string; port: number; secure: boolean; user: string; pass: string };
+  from: string;
+  verificationTtlHours: number;
+  maxPerAddressPerHour: number;
+}
 
 export interface Config {
   nodeEnv: 'development' | 'test' | 'production';
@@ -46,8 +76,12 @@ export interface Config {
     loginWindowMs: number;
     messageMax: number;
     messageWindowMs: number;
+    mailMax: number;
+    mailWindowMs: number;
   };
   wsHeartbeatMs: number;
+  publicUrl: string;
+  mail: MailConfig;
 }
 
 /** Parses configuration from environment variables. Throws on invalid input. */
@@ -58,6 +92,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Invalid configuration: ${msg}`);
   }
   const e = parsed.data;
+  if (e.NODE_ENV === 'production') {
+    const missing = [
+      ...(e.MAIL_TRANSPORT !== 'smtp' ? ['MAIL_TRANSPORT=smtp'] : []),
+      ...(['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM', 'PUBLIC_URL'] as const).filter(
+        (k) => !env[k],
+      ),
+    ];
+    if (missing.length > 0) {
+      throw new Error(`Invalid configuration: production requires ${missing.join(', ')}`);
+    }
+  }
   return {
     nodeEnv: e.NODE_ENV,
     databaseUrl: e.DATABASE_URL,
@@ -73,8 +118,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       loginWindowMs: e.RATE_LIMIT_LOGIN_WINDOW_MS,
       messageMax: e.RATE_LIMIT_MESSAGE_MAX,
       messageWindowMs: e.RATE_LIMIT_MESSAGE_WINDOW_MS,
+      mailMax: e.RATE_LIMIT_MAIL_MAX,
+      mailWindowMs: e.RATE_LIMIT_MAIL_WINDOW_MS,
     },
     wsHeartbeatMs: e.WS_HEARTBEAT_MS,
+    publicUrl: e.PUBLIC_URL,
+    mail: {
+      transport: e.MAIL_TRANSPORT,
+      smtp: {
+        host: e.SMTP_HOST,
+        port: e.SMTP_PORT,
+        secure: e.SMTP_SECURE,
+        user: e.SMTP_USER,
+        pass: e.SMTP_PASS,
+      },
+      from: e.MAIL_FROM,
+      verificationTtlHours: e.EMAIL_VERIFICATION_TTL_HOURS,
+      maxPerAddressPerHour: e.MAIL_MAX_PER_ADDRESS_PER_HOUR,
+    },
   };
 }
 

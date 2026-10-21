@@ -32,10 +32,47 @@ export async function fillRegisterForm(page: Page, user: TestUser): Promise<void
   await page.getByTestId('register-submit').click();
 }
 
+interface CapturedMail {
+  to: string;
+  subject: string;
+  text: string;
+}
+
+/**
+ * Path of the newest confirmation link sent to `email`, read from the backend's dev mailbox
+ * (MAIL_TRANSPORT=log; the endpoint does not exist in production).
+ */
+export async function verificationLinkPath(page: Page, email: string): Promise<string> {
+  let link: string | undefined;
+  await expect
+    .poll(async () => {
+      const res = await page.request.get('/api/dev/mails');
+      expect(res.ok(), 'dev mailbox missing: backend must run with MAIL_TRANSPORT=log').toBe(true);
+      const { mails } = (await res.json()) as { mails: CapturedMail[] };
+      const mail = mails
+        .filter((m) => m.to === email.toLowerCase() && m.subject.startsWith('Bestätige'))
+        .at(-1);
+      link = mail?.text.match(/https?:\/\/\S+\/verify-email#token=[\w-]{43}/)?.[0];
+      return link;
+    })
+    .toBeTruthy();
+  const url = new URL(link!);
+  return `${url.pathname}${url.hash}`;
+}
+
+/** Opens the confirmation link from the mail and activates the account (logs in). */
+export async function confirmViaMail(page: Page, email: string): Promise<void> {
+  await page.goto(await verificationLinkPath(page, email));
+  await page.getByTestId('verify-submit').click();
+  await expect(page).not.toHaveURL(/\/verify-email/);
+}
+
+/** Full sign-up: form → "check your inbox" → link from the mail → logged in. */
 export async function registerViaUi(page: Page, user: TestUser): Promise<void> {
   await page.goto('/register');
   await fillRegisterForm(page, user);
-  await expect(page).not.toHaveURL(/\/register/);
+  await expect(page.getByTestId('check-inbox')).toBeVisible();
+  await confirmViaMail(page, user.email);
 }
 
 export async function loginViaUi(page: Page, user: TestUser): Promise<void> {

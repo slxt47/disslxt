@@ -6,7 +6,7 @@
   "scripts": {
     "test": "playwright test",
     "typecheck": "tsc --noEmit",
-    "test:docker": "E2E_BASE_URL=${E2E_BASE_URL:?set E2E_BASE_URL to the PUBLIC_URL of the stack} playwright test tests/realtime-chat.spec.ts --grep \"two users chat\""
+    "test:docker": "E2E_BASE_URL=${E2E_BASE_URL:?set E2E_BASE_URL to the PUBLIC_URL of the stack} playwright test tests/smoke.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "~1.56.1",

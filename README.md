@@ -115,29 +115,109 @@ Optionaler E2E-Smoke-Test gegen den laufenden Stack über den Tunnel (legt zwei 
 E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker
 ```
 
+## E-Mail und Registrierung mit Bestätigung
+
+Neue Konten entstehen erst, wenn die E-Mail-Adresse bestätigt ist:
+
+1. `POST /api/auth/register` speichert die Registrierung als **ausstehend** (Tabelle
+   `pending_registrations`, Passwort nur als argon2id-Hash) und schickt einen Link
+   `PUBLIC_URL/verify-email#token=…`. Antwort immer `202`, ohne Cookie.
+2. Die Seite `/verify-email` nimmt das Token sofort aus der Adresszeile und löst es erst nach
+   einem Klick ein (`POST /api/auth/verify-email`). Link-Scanner von Mailprogrammen können es
+   so nicht verbrauchen. Erst jetzt wird das Konto angelegt; der Nutzer ist danach angemeldet und
+   landet dort, wo er herkam (z. B. auf einer Einladung).
+3. Login vor der Bestätigung → `403 EMAIL_NOT_VERIFIED` (nur mit richtigem Passwort; sonst
+   dieselbe Antwort wie bei unbekannten Adressen). Die Oberfläche bietet „Erneut senden“ an
+   (`POST /api/auth/resend-verification`).
+
+**Schutz gegen Missbrauch**
+
+- Links sind einmalig, laufen nach `EMAIL_VERIFICATION_TTL_HOURS` (24 h) ab, in der DB liegt nur
+  der SHA-256-Hash. „Erneut senden“ macht den vorherigen Link ungültig.
+- Keine Rückschlüsse, welche Adressen registriert sind: Registrierung und „Erneut senden“
+  antworten immer gleich. Ist die Adresse schon vergeben, bekommt nur deren Inhaber eine Mail
+  „Du hast schon ein Konto“.
+- Keine Übernahme durch Vorab-Registrierung: Jeder Link gehört zu genau der Registrierung, die
+  ihn ausgelöst hat (inklusive Passwort). Bestätigt der echte Inhaber seinen Link, verfallen alle
+  anderen.
+- Rate-Limits: pro IP `RATE_LIMIT_MAIL_MAX` pro `RATE_LIMIT_MAIL_WINDOW_MS` (5 / 15 min), pro
+  Empfängeradresse `MAIL_MAX_PER_ADDRESS_PER_HOUR` (3 / h, Tabelle `mail_log`, nur
+  Adress-Hashes). Darüber hinaus wird still nichts mehr verschickt.
+- Der Versand läuft im Hintergrund mit 3 Versuchen; ein SMTP-Ausfall verzögert keine Antwort und
+  verrät nichts über die Adresse. Beim Start prüft das Backend die SMTP-Verbindung und loggt
+  `smtp connection ok` bzw. einen Fehler.
+- Konten, die vor Einführung der Bestätigung existierten, gelten als bestätigt (Migration 0001).
+
+**Versand über iCloud+ (Produktion)**
+
+`slxt.org` ist bereits als eigene Domain in iCloud+ eingerichtet; die DNS-Einträge stimmen
+(Stand 21.10.2026 geprüft):
+
+| Eintrag | Wert                                                            |
+| ------- | --------------------------------------------------------------- |
+| MX      | `mx01.mail.icloud.com`, `mx02.mail.icloud.com`                  |
+| SPF     | `v=spf1 a:my.slxt.org include:icloud.com ~all`                  |
+| DKIM    | `sig1._domainkey` → `sig1.dkim.slxt.org.at.icloudmailadmin.com` |
+| DMARC   | `v=DMARC1; p=reject; pct=100`                                   |
+
+Apple signiert ausgehende Mails mit DKIM, SPF passt; damit besteht DMARC. Weil DMARC auf
+`reject` steht, **muss `MAIL_FROM` eine Adresse sein, die in deinem iCloud-Konto existiert**
+(z. B. eine neu angelegte `noreply@slxt.org` unter icloud.com → Einstellungen → Eigene
+E-Mail-Domain), sonst weisen Empfänger die Mails ab. Optional für Berichte:
+`rua=mailto:dmarc@slxt.org` im DMARC-Eintrag ergänzen.
+
+Einrichtung:
+
+1. App-spezifisches Passwort erzeugen: account.apple.com → Anmeldung und Sicherheit →
+   App-spezifische Passwörter (setzt Zwei-Faktor-Authentifizierung voraus).
+2. In `.env` (nie ins Repository):
+
+   ```bash
+   SMTP_USER=deine-apple-id@icloud.com   # die primäre iCloud-Adresse, auch bei eigener Domain
+   SMTP_PASS=xxxx-xxxx-xxxx-xxxx          # das App-spezifische Passwort
+   MAIL_FROM="disslxt <noreply@slxt.org>"
+   ```
+
+3. `docker compose up -d --build`, dann `docker compose logs backend | grep smtp`.
+
+Grenzen von iCloud+: ca. 1.000 Empfänger pro Tag, kein Bounce-Webhook, Apple kann Konten bei
+Massenversand sperren. Für mehr Volumen nur die `SMTP_*`-Variablen auf einen Versanddienst
+umstellen; der Code bleibt gleich. Ein eigener Postfix ist nicht nötig (und mit `p=reject`
+müsste er zusätzlich ins SPF und eigene DKIM-Schlüssel bekommen).
+
+**Lokal:** `MAIL_TRANSPORT=log` hält Mails im Speicher; abrufbar unter
+`GET /api/dev/mails` (existiert nur außerhalb von Produktion und nur mit diesem Transport).
+
 ## Konfiguration (Env-Variablen)
 
-| Variable                                              | Default                                            | Beschreibung                                                                           |
-| ----------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                        | – (Pflicht)                                        | PostgreSQL-URL                                                                         |
-| `TEST_DATABASE_URL`                                   | `postgres://chat:chat@localhost:5432/disslxt_test` | DB für Backend-Tests                                                                   |
-| `E2E_DATABASE_URL`                                    | `postgres://chat:chat@localhost:5432/disslxt_e2e`  | DB für Playwright (wird vor jedem Lauf geleert)                                        |
-| `E2E_BASE_URL`                                        | –                                                  | Playwright gegen eine laufende Instanz statt eigener Dev-Server                        |
-| `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`              | `3100` / `5174`                                    | Ports der von Playwright gestarteten Server                                            |
-| `API_PROXY_TARGET`                                    | `http://127.0.0.1:3000`                            | Backend-Ziel des Vite-Proxys (`/api`, `/ws`)                                           |
-| `NODE_ENV`                                            | `development`                                      | `development` (pino-pretty), `test`, `production`                                      |
-| `PORT` / `HOST`                                       | `3000` / `0.0.0.0`                                 | Listen-Adresse                                                                         |
-| `LOG_LEVEL`                                           | `info`                                             | pino Log-Level                                                                         |
-| `COOKIE_SECURE`                                       | `false`                                            | `Secure`-Flag für das Session-Cookie                                                   |
-| `TRUST_PROXY`                                         | `false`                                            | hinter Reverse-Proxy (Caddy) auf `true`                                                |
-| `SESSION_TTL_DAYS`                                    | `30`                                               | Session-Lebensdauer                                                                    |
-| `ALLOWED_ORIGINS`                                     | –                                                  | zusätzlich erlaubte Origins (kommagetrennt); Same-Origin ist immer erlaubt             |
-| `RATE_LIMIT_LOGIN_MAX` / `_WINDOW_MS`                 | `10` / `60000`                                     | Login/Registrierung pro IP                                                             |
-| `RATE_LIMIT_MESSAGE_MAX` / `_WINDOW_MS`               | `20` / `10000`                                     | Nachrichten pro Nutzer                                                                 |
-| `WS_HEARTBEAT_MS`                                     | `30000`                                            | Server-Ping-Intervall für WebSockets                                                   |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | –                                                  | nur Docker Compose                                                                     |
-| `PUBLIC_URL`                                          | – (Pflicht für Compose)                            | öffentliche HTTPS-Adresse, z. B. `https://disslxt.slxt.org`; einziger erlaubter Origin |
-| `HTTP_PORT`                                           | `8091`                                             | lokaler Port von Caddy (nur `127.0.0.1`), Ziel des Tunnels                             |
+| Variable                                              | Default                                            | Beschreibung                                                                                                               |
+| ----------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                        | – (Pflicht)                                        | PostgreSQL-URL                                                                                                             |
+| `TEST_DATABASE_URL`                                   | `postgres://chat:chat@localhost:5432/disslxt_test` | DB für Backend-Tests                                                                                                       |
+| `E2E_DATABASE_URL`                                    | `postgres://chat:chat@localhost:5432/disslxt_e2e`  | DB für Playwright (wird vor jedem Lauf geleert)                                                                            |
+| `E2E_BASE_URL`                                        | –                                                  | Playwright gegen eine laufende Instanz statt eigener Dev-Server                                                            |
+| `E2E_BACKEND_PORT` / `E2E_FRONTEND_PORT`              | `3100` / `5174`                                    | Ports der von Playwright gestarteten Server                                                                                |
+| `API_PROXY_TARGET`                                    | `http://127.0.0.1:3000`                            | Backend-Ziel des Vite-Proxys (`/api`, `/ws`)                                                                               |
+| `NODE_ENV`                                            | `development`                                      | `development` (pino-pretty), `test`, `production`                                                                          |
+| `PORT` / `HOST`                                       | `3000` / `0.0.0.0`                                 | Listen-Adresse                                                                                                             |
+| `LOG_LEVEL`                                           | `info`                                             | pino Log-Level                                                                                                             |
+| `COOKIE_SECURE`                                       | `false`                                            | `Secure`-Flag für das Session-Cookie                                                                                       |
+| `TRUST_PROXY`                                         | `false`                                            | hinter Reverse-Proxy (Caddy) auf `true`                                                                                    |
+| `SESSION_TTL_DAYS`                                    | `30`                                               | Session-Lebensdauer                                                                                                        |
+| `ALLOWED_ORIGINS`                                     | –                                                  | zusätzlich erlaubte Origins (kommagetrennt); Same-Origin ist immer erlaubt                                                 |
+| `RATE_LIMIT_LOGIN_MAX` / `_WINDOW_MS`                 | `10` / `60000`                                     | Login/Bestätigung pro IP                                                                                                   |
+| `RATE_LIMIT_MESSAGE_MAX` / `_WINDOW_MS`               | `20` / `10000`                                     | Nachrichten pro Nutzer                                                                                                     |
+| `WS_HEARTBEAT_MS`                                     | `30000`                                            | Server-Ping-Intervall für WebSockets                                                                                       |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | –                                                  | nur Docker Compose                                                                                                         |
+| `PUBLIC_URL`                                          | `http://localhost:5173`                            | öffentliche HTTPS-Adresse, z. B. `https://disslxt.slxt.org`; Basis für Mail-Links und einziger erlaubter Origin in Compose |
+| `MAIL_TRANSPORT`                                      | `log`                                              | `smtp` (Pflicht in Produktion) oder `log` (Mails im Speicher, nur Dev/Test)                                                |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE`             | – / `587` / `false`                                | SMTP-Server; `false` = STARTTLS (erzwungen), `true` = TLS auf 465                                                          |
+| `SMTP_USER` / `SMTP_PASS`                             | –                                                  | Zugangsdaten (iCloud: Apple-ID-Adresse + App-spezifisches Passwort)                                                        |
+| `MAIL_FROM`                                           | –                                                  | Absender, z. B. `disslxt <noreply@slxt.org>`                                                                               |
+| `EMAIL_VERIFICATION_TTL_HOURS`                        | `24`                                               | Gültigkeit der Bestätigungslinks (max. 168)                                                                                |
+| `MAIL_MAX_PER_ADDRESS_PER_HOUR`                       | `3`                                                | Mails pro Empfängeradresse und Stunde                                                                                      |
+| `RATE_LIMIT_MAIL_MAX` / `_WINDOW_MS`                  | `5` / `900000`                                     | Registrierung/„Erneut senden“ pro IP                                                                                       |
+| `HTTP_PORT`                                           | `8091`                                             | lokaler Port von Caddy (nur `127.0.0.1`), Ziel des Tunnels                                                                 |
 
 Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
@@ -145,8 +225,8 @@ Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
 - **Name:** Arbeitstitel „disslxt“ (kein Markenname).
 - **Betrieb:** self-hosted per Docker Compose.
-- **Gäste:** ohne Account kann nichts gelesen werden; alle Endpunkte außer Registrierung, Login
-  und Health erfordern eine Session.
+- **Gäste:** ohne Account kann nichts gelesen werden; alle Endpunkte außer Registrierung,
+  Bestätigung, Login und Health erfordern eine Session.
 
 ## API-Überblick
 

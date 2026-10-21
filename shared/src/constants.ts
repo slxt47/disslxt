@@ -9,6 +9,7 @@ export const USERNAME_MAX_LEN = 32;
 export const PASSWORD_MIN_LEN = 8;
 export const PASSWORD_MAX_LEN = 128;
 export const EMAIL_MAX_LEN = 254;
+export const NEXT_PATH_MAX_LEN = 200;
 export const DEFAULT_CHANNEL_NAME = 'general';
 
 /** WebSocket close codes used by the server. */

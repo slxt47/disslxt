@@ -1,5 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-import { loginSchema, registerSchema } from '@disslxt/shared';
+import {
+  loginSchema,
+  registerSchema,
+  resendVerificationSchema,
+  verifyEmailSchema,
+} from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { currentUser, SESSION_COOKIE } from '../plugins/auth.js';
 import { WS_CLOSE } from '@disslxt/shared';
@@ -20,11 +25,34 @@ export async function authRoutes(
     },
   };
 
-  app.post('/auth/register', { config: loginLimit }, async (req, reply) => {
+  // Per IP; mails per address are limited separately in the service (MAIL_MAX_PER_ADDRESS_PER_HOUR).
+  const mailLimit = {
+    rateLimit: {
+      max: opts.config.rateLimit.mailMax,
+      timeWindow: opts.config.rateLimit.mailWindowMs,
+    },
+  };
+
+  // Same answer whether or not the address is taken; no session before the e-mail is confirmed.
+  app.post('/auth/register', { config: mailLimit }, async (req, reply) => {
     const input = parse(registerSchema, req.body);
-    const { user, token } = await auth.register(input);
-    app.setSessionCookie(reply, token);
-    return reply.status(201).send({ user });
+    await auth.register(input);
+    return reply.status(202).send({ status: 'verification_sent' });
+  });
+
+  // POST, not GET: link scanners in mail clients fetch links but do not submit forms, so they
+  // cannot burn the token. A successful confirmation logs the user in.
+  app.post('/auth/verify-email', { config: loginLimit }, async (req, reply) => {
+    const { token } = parse(verifyEmailSchema, req.body);
+    const { user, token: sessionToken, next } = await auth.verifyEmail(token);
+    app.setSessionCookie(reply, sessionToken);
+    return { user, next };
+  });
+
+  app.post('/auth/resend-verification', { config: mailLimit }, async (req, reply) => {
+    const { email } = parse(resendVerificationSchema, req.body);
+    await auth.resendVerification(email);
+    return reply.status(202).send({ status: 'verification_sent' });
   });
 
   app.post('/auth/login', { config: loginLimit }, async (req, reply) => {

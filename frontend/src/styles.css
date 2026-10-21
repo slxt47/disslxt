@@ -158,6 +158,22 @@ label {
   background: rgba(218, 55, 60, 0.15);
   color: #ff9a9d;
 }
+.form-info {
+  color: var(--text);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.check-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.check-inbox p {
+  margin: 0;
+}
+
 .form-error.small {
   padding: 4px 8px;
   font-size: 0.85rem;

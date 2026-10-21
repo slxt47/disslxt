@@ -2,6 +2,7 @@ import { buildApp } from './app.js';
 import { loadConfig, loadDotEnv } from './config.js';
 import { createDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
+import { SmtpMailer } from './lib/mailer.js';
 
 async function main(): Promise<void> {
   loadDotEnv();
@@ -30,6 +31,15 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
 
   await app.listen({ port: config.port, host: config.host });
+
+  // Surface wrong SMTP credentials right away instead of at the first sign-up. Not fatal: chat
+  // keeps working while mail is down, and sends are retried.
+  if (app.mailer instanceof SmtpMailer) {
+    app.mailer.verify().then(
+      () => app.log.info({ host: config.mail.smtp.host }, 'smtp connection ok'),
+      (err: unknown) => app.log.error({ err }, 'smtp connection check failed'),
+    );
+  }
 }
 
 main().catch((err: unknown) => {

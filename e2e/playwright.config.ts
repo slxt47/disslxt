@@ -7,8 +7,8 @@ import { defineConfig, devices } from '@playwright/test';
  * reused, so E2E never hits the dev database or the real rate limits. Override the ports with
  * E2E_BACKEND_PORT / E2E_FRONTEND_PORT.
  *
- * Docker smoke run: `E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker` uses the deployed
- * `docker compose` stack through the tunnel instead (no web servers; creates two test users).
+ * Docker smoke run: `E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker` runs the read-only
+ * smoke spec against the deployed stack through the tunnel (no web servers, no accounts created).
  */
 const externalBaseUrl = process.env.E2E_BASE_URL;
 const backendPort = process.env.E2E_BACKEND_PORT ?? '3100';
@@ -20,6 +20,8 @@ const e2eDatabaseUrl =
 
 export default defineConfig({
   testDir: './tests',
+  // The smoke spec targets a deployed stack only; local runs cover the same ground and more.
+  testIgnore: externalBaseUrl ? [] : ['smoke.spec.ts'],
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -63,6 +65,11 @@ export default defineConfig({
             ALLOWED_ORIGINS: frontendOrigin,
             RATE_LIMIT_LOGIN_MAX: '1000',
             RATE_LIMIT_MESSAGE_MAX: '1000',
+            RATE_LIMIT_MAIL_MAX: '1000',
+            MAIL_MAX_PER_ADDRESS_PER_HOUR: '1000',
+            // Mails stay in memory and are read back via /api/dev/mails.
+            MAIL_TRANSPORT: 'log',
+            PUBLIC_URL: frontendOrigin,
           },
         },
         {
