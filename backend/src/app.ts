@@ -20,6 +20,7 @@ import { healthRoutes } from './routes/health.js';
 import { inviteRoutes } from './routes/invite.routes.js';
 import { messageRoutes } from './routes/message.routes.js';
 import { pushRoutes } from './routes/push.routes.js';
+import { fileRoutes } from './routes/file.routes.js';
 import { voiceRoutes } from './routes/voice.routes.js';
 import { createServices, type Services } from './services/index.js';
 
@@ -152,6 +153,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         await protectedApi.register(channelRoutes, { services });
         await protectedApi.register(messageRoutes, { services, config });
         await protectedApi.register(pushRoutes, { services, config });
+        await protectedApi.register(fileRoutes, { services, config });
         await protectedApi.register(voiceRoutes, {
           services,
           config,

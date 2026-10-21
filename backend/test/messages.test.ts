@@ -63,6 +63,7 @@ describe('POST /api/channels/:channelId/messages', () => {
       kind: 'text',
       content: 'Hallo Welt',
       audio: null,
+      file: null,
       createdAt: expect.any(String),
       editedAt: null,
     });

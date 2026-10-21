@@ -158,7 +158,11 @@ export class PushService {
       const text =
         message.kind === 'voice'
           ? `${message.author.username}: 🎤 Sprachnachricht`
-          : truncate(`${message.author.username}: ${message.content}`);
+          : message.kind === 'file'
+            ? truncate(
+                `${message.author.username}: ${message.file?.isImage ? '🖼️ Bild' : '📎'} ${message.file?.name ?? ''}`,
+              )
+            : truncate(`${message.author.username}: ${message.content}`);
 
       const plain: string[] = [];
       const mentions: string[] = [];

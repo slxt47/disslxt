@@ -916,6 +916,8 @@ label {
 }
 .message > .form-error,
 .message > .voice-player,
+.message > .file-image,
+.message > .file-card,
 .message > .message-edit,
 .message > .message-confirm,
 .message > .message-content,
@@ -1921,4 +1923,146 @@ select:focus {
   background: var(--success);
   transform-origin: left center;
   transition: transform 80ms linear;
+}
+
+/* --- Shared files --- */
+.file-image {
+  display: block;
+  justify-self: start;
+  width: fit-content;
+  max-width: min(360px, 100%);
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--fill);
+  box-shadow: var(--shadow-sm);
+}
+.file-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: start;
+  width: min(340px, 100%);
+  margin-top: 4px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.file-card:hover {
+  background: var(--fill);
+  text-decoration: none;
+}
+.file-card > .icon {
+  color: var(--accent-text);
+}
+.file-icon {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.file-ext {
+  position: absolute;
+  bottom: 6px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.file-meta {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.file-name {
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-size {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+.upload-queue {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 16px;
+  list-style: none;
+}
+.upload-queue li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--radius);
+  background: var(--fill);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  animation: rise-in var(--dur) var(--ease-out);
+}
+.upload-queue li.failed {
+  background: var(--danger-soft);
+}
+.upload-name {
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-progress {
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--fill-strong);
+}
+.upload-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 120ms linear;
+}
+.upload-error {
+  flex: 1;
+  color: var(--danger);
+}
+.chat-view.dragging .message-list-wrap,
+.chat-view.dragging .composer {
+  opacity: 0.4;
+}
+.drop-overlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 5;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  border: 2px dashed var(--accent-text);
+  border-radius: var(--radius-xl);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+  pointer-events: none;
+  animation: fade-in var(--dur-fast) var(--ease-out);
 }

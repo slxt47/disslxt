@@ -12,6 +12,7 @@ export function msg(id: number | string, overrides: Partial<MessageDto> = {}): M
     kind: 'text',
     content: `Nachricht ${id}`,
     audio: null,
+    file: null,
     createdAt: '2026-10-20T12:00:00.000Z',
     editedAt: null,
     ...overrides,

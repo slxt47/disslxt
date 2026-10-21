@@ -18,6 +18,10 @@ export const DEFAULT_CHANNEL_NAME = 'general';
  *  upload grows with the room. Six keeps it workable on phones. */
 export const VOICE_CHANNEL_MAX_PARTICIPANTS = 6;
 
+/** Shared files: largest upload accepted. */
+export const FILE_MAX_BYTES = 25 * 1024 * 1024;
+export const FILE_NAME_MAX_LEN = 200;
+
 /** Voice messages: longest recording and largest upload accepted. */
 export const VOICE_MAX_SECONDS = 120;
 export const VOICE_MAX_BYTES = 5 * 1024 * 1024;

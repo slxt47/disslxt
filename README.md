@@ -306,6 +306,44 @@ enden also bald nach Erreichen der Grenze. Der Stand steht in den Einstellungen 
 abrechnet. Getestet mit einem echten Anruf nur über Cloudflare-Relay
 (`e2e/tests/turn-relay.spec.ts`, läuft mit `E2E_CLOUDFLARE_TURN_KEY_ID`/`_API_TOKEN`).
 
+## Dateien teilen
+
+Büroklammer im Eingabefeld, Datei in den Chat ziehen oder ein Bild einfügen (Strg/Cmd+V).
+Mehrere Dateien gleichzeitig, mit Fortschritt und Abbrechen; maximal **25 MB** pro Datei.
+
+**Sicherheit:** Gespeichert wird unter einem Zufallsnamen in `UPLOAD_DIR/files` (Volume
+`uploads`). Name und Typ vom Client zählen nicht: Nur echte Bilder (PNG, JPEG, GIF, WebP – an den
+ersten Bytes erkannt) werden im Chat angezeigt. Alles andere, auch SVG, HTML und PDF, wird nur
+als Download ausgeliefert (`application/octet-stream`, `Content-Disposition: attachment`,
+`Content-Security-Policy: default-src 'none'; sandbox`, `nosniff`). Eine hochgeladene Datei
+kann so nie als Seite auf disslxt laufen. Dateinamen werden bereinigt (keine Pfade, keine
+Steuer- oder Richtungszeichen wie in `rechnung‮fdp.exe`). Abrufen nur für Mitglieder; Löschen
+der Nachricht oder des Servers entfernt die Datei.
+
+## Server verlassen und löschen
+
+Mitglieder: „Server verlassen“ unten in der Kanalleiste. Besitzer:innen können ihren Server
+nicht verlassen, aber **löschen** – nach Eingabe des Servernamens. Das entfernt Kanäle,
+Nachrichten, Sprachnachrichten und Dateien für alle; laufende Sprachanrufe enden, alle
+Mitglieder sehen es sofort.
+
+## Passwort-Regeln
+
+Für neue Passwörter (bestehende funktionieren weiter): mindestens 10 Zeichen; 3 von 4
+Zeichenarten (klein, groß, Ziffer, Sonderzeichen) oder eine Passphrase ab 16 Zeichen; kein
+häufiges Passwort (auch nicht mit angehängten Ziffern/Zeichen, keine Tastatur- oder
+Zahlenfolgen); enthält weder Benutzernamen noch den Namensteil der E-Mail; kein Zeichen 4× in
+Folge. Dieselbe Prüfung läuft im Browser (Checkliste mit Stärke-Anzeige beim Registrieren) und
+auf dem Server (`shared/src/password.ts`).
+
+## Audio-Geräte im Sprachkanal
+
+„Beitreten“ öffnet zuerst ein Menü: Mikrofon wählen (mit Live-Pegel), Ausgabe wählen
+(Lautsprecher/Kopfhörer), Testton. Die Wahl wird pro Gerät gemerkt. Im Anruf öffnet das
+Zahnrad dasselbe Menü; Änderungen greifen sofort (Mikrofon per `replaceTrack`, ohne neu zu
+verbinden). Die **Ausgabe** wählen können nur Chrome, Edge und Firefox (`setSinkId`); Safari
+und iOS lassen das nicht zu – dort entscheidet das System (iPhone: Kontrollzentrum/AirPlay).
+
 ## Darstellung (Dark Mode)
 
 Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro

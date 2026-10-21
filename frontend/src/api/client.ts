@@ -62,6 +62,54 @@ export function apiUpload<T>(path: string, body: Blob, contentType: string): Pro
   });
 }
 
+/**
+ * Uploads raw bytes with upload progress (fetch has no upload progress, XHR does).
+ * Errors are the same ApiRequestError as everywhere else; aborting rejects with code ABORTED.
+ */
+export function apiUploadWithProgress<T>(
+  path: string,
+  body: Blob,
+  onProgress: (fraction: number) => void,
+  signal?: AbortSignal,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('accept', 'application/json');
+    xhr.setRequestHeader('content-type', 'application/octet-stream');
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) onProgress(ev.loaded / ev.total);
+    };
+    xhr.onerror = () =>
+      reject(new ApiRequestError(0, 'NETWORK_ERROR', 'Keine Verbindung zum Server'));
+    xhr.onabort = () => reject(new ApiRequestError(0, 'ABORTED', 'Abgebrochen'));
+    xhr.onload = () => {
+      let data: unknown;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
+      } catch {
+        data = undefined;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as T);
+        return;
+      }
+      const err = isApiError(data)
+        ? new ApiRequestError(xhr.status, data.error.code, data.error.message, data.error.details)
+        : new ApiRequestError(
+            xhr.status,
+            'HTTP_ERROR',
+            xhr.status === 413 ? 'Die Datei ist zu groß (max. 25 MB)' : `Fehler ${xhr.status}`,
+          );
+      if (xhr.status === 401 && err.code === 'UNAUTHORIZED') unauthorizedListener?.();
+      reject(err);
+    };
+    signal?.addEventListener('abort', () => xhr.abort());
+    xhr.send(body);
+  });
+}
+
 async function send<T>(path: string, init: RequestInit): Promise<T> {
   let res: Response;
   try {

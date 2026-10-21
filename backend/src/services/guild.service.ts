@@ -1,6 +1,6 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, asc, count, eq, isNotNull } from 'drizzle-orm';
+import { and, asc, count, eq, isNotNull, or } from 'drizzle-orm';
 import {
   DEFAULT_CHANNEL_NAME,
   type ChannelDto,
@@ -24,7 +24,7 @@ export class GuildService {
     private readonly hub: Hub,
     private readonly push: PushService,
     /** Where uploaded files of messages live (removed together with the guild). */
-    private readonly uploads: { voiceDir: string },
+    private readonly uploads: { voiceDir: string; fileDir: string },
   ) {}
 
   /**
@@ -38,14 +38,22 @@ export class GuildService {
       throw new AppError('BAD_REQUEST', 400, 'Der eingegebene Name stimmt nicht überein');
     }
     const files = await this.db
-      .select({ audioKey: messages.audioKey })
+      .select({ audioKey: messages.audioKey, fileKey: messages.fileKey })
       .from(messages)
       .innerJoin(channels, eq(channels.id, messages.channelId))
-      .where(and(eq(channels.guildId, guildId), isNotNull(messages.audioKey)));
+      .where(
+        and(
+          eq(channels.guildId, guildId),
+          or(isNotNull(messages.audioKey), isNotNull(messages.fileKey)),
+        ),
+      );
     await this.db.delete(guilds).where(eq(guilds.id, guildId));
     this.hub.removeGuild(guildId);
     await Promise.all(
-      files.map((f) => rm(join(this.uploads.voiceDir, f.audioKey!), { force: true })),
+      files.flatMap((f) => [
+        ...(f.audioKey ? [rm(join(this.uploads.voiceDir, f.audioKey), { force: true })] : []),
+        ...(f.fileKey ? [rm(join(this.uploads.fileDir, f.fileKey), { force: true })] : []),
+      ]),
     );
   }
 

@@ -10,7 +10,7 @@ import type {
   TurnUsageDto,
   UserDto,
 } from '@disslxt/shared';
-import { apiRequest, apiUpload } from './client';
+import { apiRequest, apiUpload, apiUploadWithProgress } from './client';
 
 const enc = encodeURIComponent;
 
@@ -80,6 +80,19 @@ export const api = {
       audio,
       // The server checks the bytes; the type only has to name an audio container.
       audio.type.split(';')[0] || 'audio/webm',
+    ),
+
+  sendFile: (
+    channelId: string,
+    file: File,
+    onProgress: (f: number) => void,
+    signal?: AbortSignal,
+  ) =>
+    apiUploadWithProgress<{ message: MessageDto }>(
+      `/channels/${enc(channelId)}/files?name=${enc(file.name)}`,
+      file,
+      onProgress,
+      signal,
     ),
 
   pushConfig: () => apiRequest<PushConfigDto>('GET', '/push/config'),

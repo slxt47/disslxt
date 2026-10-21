@@ -20,7 +20,60 @@ export class MessageService {
     private readonly push: PushService,
     /** Directory of voice message files (deleted together with their message). */
     private readonly voiceDir: string,
+    /** Directory of shared files (deleted together with their message). */
+    private readonly fileDir: string,
   ) {}
+
+  /** Stores a file message whose file is already in the file directory. */
+  async createFile(
+    user: Pick<UserDto, 'id' | 'username'>,
+    channelId: string,
+    file: { key: string; name: string; size: number; mime: string },
+  ): Promise<MessageDto> {
+    const [row] = await this.db
+      .insert(messages)
+      .values({
+        channelId,
+        authorId: user.id,
+        kind: 'file',
+        content: '',
+        fileKey: file.key,
+        fileName: file.name,
+        fileSize: file.size,
+        fileMime: file.mime,
+      })
+      .returning();
+    if (!row) throw new Error('insert returned no row');
+    const message = toMessageDto(row, user);
+    this.hub.publishToChannel(channelId, { type: 'message.created', data: { message } });
+    this.push.messageCreated(message);
+    return message;
+  }
+
+  /** Stored file of a message, for members of its guild only (404 / 403 otherwise). */
+  async sharedFile(
+    userId: string,
+    messageId: string,
+  ): Promise<{ path: string; mime: string; name: string }> {
+    const [row] = await this.db
+      .select({
+        fileKey: messages.fileKey,
+        fileMime: messages.fileMime,
+        fileName: messages.fileName,
+        guildId: channels.guildId,
+      })
+      .from(messages)
+      .innerJoin(channels, eq(channels.id, messages.channelId))
+      .where(and(eq(messages.id, BigInt(messageId)), eq(messages.kind, 'file')))
+      .limit(1);
+    if (!row?.fileKey) throw notFound('Datei nicht gefunden');
+    await this.guilds.assertMember(userId, row.guildId);
+    return {
+      path: join(this.fileDir, row.fileKey),
+      mime: row.fileMime ?? 'application/octet-stream',
+      name: row.fileName ?? 'datei',
+    };
+  }
 
   /** Stores a voice message whose file is already in the voice directory. */
   async createVoice(
@@ -112,6 +165,9 @@ export class MessageService {
     if (msg.kind === 'voice') {
       throw new AppError('BAD_REQUEST', 400, 'Sprachnachrichten können nicht bearbeitet werden');
     }
+    if (msg.kind === 'file') {
+      throw new AppError('BAD_REQUEST', 400, 'Dateien können nicht bearbeitet werden');
+    }
     const [row] = await this.db
       .update(messages)
       .set({ content, editedAt: new Date() })
@@ -131,6 +187,7 @@ export class MessageService {
       .returning({ id: messages.id });
     if (deleted.length === 0) throw notFound('Nachricht nicht gefunden');
     if (msg.audioKey) await rm(join(this.voiceDir, msg.audioKey), { force: true });
+    if (msg.fileKey) await rm(join(this.fileDir, msg.fileKey), { force: true });
     this.hub.publishToChannel(msg.channelId, {
       type: 'message.deleted',
       data: { id: msg.id.toString(), channelId: msg.channelId },
@@ -146,6 +203,7 @@ export class MessageService {
         channelId: messages.channelId,
         kind: messages.kind,
         audioKey: messages.audioKey,
+        fileKey: messages.fileKey,
         guildId: channels.guildId,
       })
       .from(messages)
