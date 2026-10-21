@@ -1,5 +1,8 @@
 import type { VoicePeerDto, VoiceSignal, WsClientMessage, WsServerMessage } from '@disslxt/shared';
 import { patchPeer, useVoiceStore } from '../store/voice';
+import { audioConstraints } from './devices';
+
+type SinkAudio = HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
 
 /** Browser APIs the client needs; injectable so the logic can be tested without WebRTC. */
 export interface VoiceDeps {
@@ -91,11 +94,18 @@ export class VoiceClient {
   private localAnalyser: AnalyserNode | null = null;
   private levelTimer: ReturnType<typeof setInterval> | null = null;
   private meterTimer: ReturnType<typeof setInterval> | null = null;
+  /** Speaker chosen in the device menu ('' = system default). */
+  private outputId = '';
 
   constructor(private readonly deps: VoiceDeps) {}
 
   /** Joins a voice channel. Must run from a click: microphone and audio playback need it (iOS). */
-  async join(channelId: string, guildId: string): Promise<void> {
+  async join(
+    channelId: string,
+    guildId: string,
+    devices: { inputId?: string; outputId?: string } = {},
+  ): Promise<void> {
+    this.outputId = devices.outputId ?? '';
     const state = useVoiceStore.getState();
     if (state.channelId === channelId && state.status !== 'idle') return;
     if (state.channelId) this.leave();
@@ -104,10 +114,7 @@ export class VoiceClient {
     this.startLevels();
     try {
       [this.local, this.iceServers] = await Promise.all([
-        this.deps.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        }),
+        this.deps.getUserMedia({ audio: audioConstraints(devices.inputId ?? ''), video: false }),
         this.deps.iceServers().catch(() => [{ urls: 'stun:stun.cloudflare.com:3478' }]),
       ]);
     } catch (err) {
@@ -140,6 +147,36 @@ export class VoiceClient {
     if (useVoiceStore.getState().status === 'connected') {
       this.deps.send({ type: 'voice.mute', data: { muted } });
     }
+  }
+
+  /** Plays everyone through another speaker/headset (where the browser allows choosing). */
+  async setOutputDevice(outputId: string): Promise<void> {
+    this.outputId = outputId;
+    await Promise.all(
+      [...this.links.values()].map((l) =>
+        (l.audio as SinkAudio).setSinkId?.(outputId).catch(() => undefined),
+      ),
+    );
+  }
+
+  /** Switches the microphone mid-call: the new track replaces the old one on every connection. */
+  async setInputDevice(inputId: string): Promise<void> {
+    if (!this.local) return;
+    const next = await this.deps.getUserMedia({ audio: audioConstraints(inputId), video: false });
+    const track = next.getAudioTracks()[0];
+    if (!track) return;
+    track.enabled = !useVoiceStore.getState().muted;
+    await Promise.all(
+      [...this.links.values()].map((l) =>
+        l.pc
+          .getSenders()
+          .find((s) => s.track?.kind === 'audio')
+          ?.replaceTrack(track),
+      ),
+    );
+    this.local.getTracks().forEach((t) => t.stop());
+    this.local = next;
+    this.watchLocal();
   }
 
   /** The WebSocket came back: the server forgot us, so join again with the same microphone. */
@@ -265,6 +302,7 @@ export class VoiceClient {
     if (existing) return existing;
     const pc = this.deps.createPeerConnection({ iceServers: this.iceServers });
     const audio = this.deps.createAudio();
+    if (this.outputId) void (audio as SinkAudio).setSinkId?.(this.outputId).catch(() => undefined);
     const link: Link = { peerId, pc, initiator, pending: [], audio, reported: new Map() };
     this.links.set(peerId, link);
     for (const track of this.local?.getTracks() ?? []) pc.addTrack(track, this.local!);

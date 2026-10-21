@@ -39,8 +39,10 @@ test('a call relayed through TURN connects and is counted against the monthly qu
   await a.page.getByTestId('channel-name-input').fill('relay');
   await a.page.getByTestId('create-channel-submit').click();
   await a.page.getByTestId('voice-join').click();
+  await a.page.getByTestId('voice-setup-join').click();
   await b.page.getByTestId('channel-item-relay').click();
   await b.page.getByTestId('voice-join').click();
+  await b.page.getByTestId('voice-setup-join').click();
   await expect(a.page.getByTestId(`voice-tile-${b.user.username}`)).toHaveAttribute(
     'data-connection',
     'connected',

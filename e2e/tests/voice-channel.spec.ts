@@ -24,14 +24,19 @@ test('two people talk in a voice channel over a real WebRTC connection', async (
   // B sees it appear live in the channel list.
   await expect(b.page.getByTestId('channel-item-lounge')).toBeVisible();
 
-  // A joins; B's sidebar shows A in the channel without B being in it.
+  // A joins through the device menu: microphones are listed, the level meter reacts.
   await a.page.getByTestId('voice-join').click();
+  await expect(a.page.getByTestId('voice-input-select').locator('option')).not.toHaveCount(1);
+  await expect(a.page.getByTestId('mic-level')).toHaveAttribute('data-active', 'true');
+  await expect(a.page.getByTestId('voice-output-select')).toBeVisible();
+  await a.page.getByTestId('voice-setup-join').click();
   await expect(a.page.getByTestId('voice-stage')).toHaveAttribute('data-status', 'connected');
   await expect(b.page.getByTestId(`voice-participant-${a.user.username}`)).toBeVisible();
 
   // B joins: both ends reach the WebRTC "connected" state.
   await b.page.getByTestId('channel-item-lounge').click();
   await b.page.getByTestId('voice-join').click();
+  await b.page.getByTestId('voice-setup-join').click();
   await expect(a.page.getByTestId(`voice-tile-${b.user.username}`)).toHaveAttribute(
     'data-connection',
     'connected',
@@ -55,6 +60,17 @@ test('two people talk in a voice channel over a real WebRTC connection', async (
       }),
     )
     .toBe('live');
+
+  // Switching the microphone mid-call keeps the connection.
+  await a.page.getByTestId('voice-devices').click();
+  const mics = a.page.getByTestId('voice-input-select');
+  const other = await mics.locator('option').nth(1).getAttribute('value');
+  await mics.selectOption(other!);
+  await a.page.keyboard.press('Escape');
+  await expect(b.page.getByTestId(`voice-tile-${a.user.username}`)).toHaveAttribute(
+    'data-connection',
+    'connected',
+  );
 
   // Mute is visible to the other side.
   await a.page.getByTestId('voice-mute').click();

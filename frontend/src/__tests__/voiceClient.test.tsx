@@ -298,6 +298,48 @@ describe('VoiceClient', () => {
     expect(deps.getUserMedia).toHaveBeenCalledTimes(1);
   });
 
+  it('switching the microphone mid-call replaces the track on every connection', async () => {
+    const { client, track, deps } = setup();
+    await client.join(CH, GUILD, { inputId: 'mic-a' });
+    expect(vi.mocked(deps.getUserMedia).mock.calls[0]![0]).toMatchObject({
+      audio: { deviceId: { ideal: 'mic-a' } },
+    });
+    client.handle({
+      type: 'voice.joined',
+      data: { channelId: CH, peerId: 'self-peer-1', peers: [peer('peer-bob-1', 'bob')] },
+    });
+    await flush();
+    const replaceTrack = vi.fn(async () => undefined);
+    (FakePC.all[0] as unknown as { getSenders: () => unknown[] }).getSenders = () => [
+      { track: { kind: 'audio' }, replaceTrack },
+    ];
+    const newTrack = { enabled: true, stop: vi.fn(), kind: 'audio' };
+    vi.mocked(deps.getUserMedia).mockResolvedValueOnce({
+      getTracks: () => [newTrack],
+      getAudioTracks: () => [newTrack],
+    } as unknown as MediaStream);
+    client.setMuted(true);
+    await client.setInputDevice('mic-b');
+    expect(replaceTrack).toHaveBeenCalledWith(newTrack);
+    expect(newTrack.enabled).toBe(false); // stays muted
+    expect(track.stop).toHaveBeenCalled(); // old microphone released
+  });
+
+  it('the chosen speaker is applied to every participant’s audio', async () => {
+    const { client, audios } = setup();
+    await client.join(CH, GUILD, { outputId: 'spk-1' });
+    client.handle({
+      type: 'voice.joined',
+      data: { channelId: CH, peerId: 'self-peer-1', peers: [peer('peer-bob-1', 'bob')] },
+    });
+    await flush();
+    expect(audios).toHaveLength(1);
+    const setSinkId = vi.fn(async () => undefined);
+    (audios[0] as unknown as { setSinkId: typeof setSinkId }).setSinkId = setSinkId;
+    await client.setOutputDevice('spk-2');
+    expect(setSinkId).toHaveBeenCalledWith('spk-2');
+  });
+
   it('voice.state keeps the participant list of every channel', () => {
     const { client } = setup();
     client.handle({
@@ -323,6 +365,17 @@ describe('VoiceChannelView', () => {
     vi.spyOn(provider, 'voiceSupported').mockReturnValue(true);
     useAuthStore.setState({ user: { id: 'me', email: 'm@x', username: 'me' } });
     useVoiceStore.setState({ participants: { [CH]: [peer('peer-bob-1', 'bob', true)] } });
+    const stop = vi.fn();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop }] })),
+        enumerateDevices: vi.fn(async () => [
+          { kind: 'audioinput', deviceId: 'mic-usb', label: 'USB-Mikrofon' },
+          { kind: 'audiooutput', deviceId: 'spk-1', label: 'Kopfhörer' },
+        ]),
+      },
+    });
     render(
       <MemoryRouter>
         <VoiceChannelView channel={channel} onOpenMenu={() => {}} />
@@ -330,7 +383,15 @@ describe('VoiceChannelView', () => {
     );
     expect(screen.getByTestId('voice-tile-bob').textContent).toContain('Im Kanal');
     await userEvent.click(screen.getByTestId('voice-join'));
-    expect(join).toHaveBeenCalledWith(CH, GUILD);
+    // The device menu comes first; the microphone list fills once permission is there.
+    const select = await screen.findByTestId('voice-input-select');
+    expect(await screen.findByText('USB-Mikrofon')).toBeTruthy();
+    await userEvent.selectOptions(select, 'mic-usb');
+    await userEvent.click(screen.getByTestId('voice-setup-join'));
+    expect(join).toHaveBeenCalledWith(CH, GUILD, { inputId: 'mic-usb', outputId: '' });
+    expect(stop).toHaveBeenCalled(); // preview microphone released
+    // @ts-expect-error test cleanup of the faked property
+    delete navigator.mediaDevices;
   });
 
   it('inside: own tile, mute and leave', async () => {
