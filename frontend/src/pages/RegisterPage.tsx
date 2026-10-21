@@ -4,6 +4,7 @@ import { registerSchema } from '@disslxt/shared';
 import { safeNext } from '../navigation';
 import { errorMessage } from '../api/client';
 import { CheckInbox } from '../components/CheckInbox';
+import { PasswordChecklist } from '../components/PasswordChecklist';
 import { useAuthStore } from '../store/auth';
 
 export function RegisterPage() {
@@ -21,7 +22,15 @@ export function RegisterPage() {
     setError(null);
     const parsed = registerSchema.safeParse({ email, username, password });
     if (!parsed.success) {
-      setError(parsed.error.issues.map((i) => i.message).join(' · '));
+      // Password rules are already listed under the field; name only the other problems.
+      const other = parsed.error.issues.filter((i) => i.path[0] !== 'password');
+      const pw = parsed.error.issues.some((i) => i.path[0] === 'password');
+      setError(
+        [
+          ...other.map((i) => i.message),
+          ...(pw ? ['Das Passwort erfüllt noch nicht alle Regeln'] : []),
+        ].join(' · '),
+      );
       return;
     }
     setBusy(true);
@@ -92,9 +101,13 @@ export function RegisterPage() {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            aria-describedby="password-rules"
             required
           />
         </label>
+        <div id="password-rules">
+          <PasswordChecklist password={password} context={{ username, email }} />
+        </div>
         {error && (
           <p className="form-error" role="alert" data-testid="form-error">
             {error}

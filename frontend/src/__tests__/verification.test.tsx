@@ -133,7 +133,7 @@ describe('RegisterPage', () => {
     renderAt('/register?next=%2Finvite%2FAbC', <RegisterPage />);
     await userEvent.type(screen.getByTestId('email'), 'Alice@Example.com');
     await userEvent.type(screen.getByTestId('username'), 'alice');
-    await userEvent.type(screen.getByTestId('password'), 'correct horse');
+    await userEvent.type(screen.getByTestId('password'), 'Correct-Horse-7');
     await userEvent.click(screen.getByTestId('register-submit'));
 
     expect(await screen.findByTestId('check-inbox')).toBeTruthy();
@@ -141,7 +141,7 @@ describe('RegisterPage', () => {
     expect(register).toHaveBeenCalledWith({
       email: 'alice@example.com',
       username: 'alice',
-      password: 'correct horse',
+      password: 'Correct-Horse-7',
       next: '/invite/AbC',
     });
     expect(useAuthStore.getState().status).toBe('guest');

@@ -52,12 +52,16 @@ describe('login / register rate limit (per IP)', () => {
     const app = await make({ rateLimit: { mailMax: 3 } });
     for (let i = 0; i < 3; i++) {
       const res = await req(app, 'POST', '/api/auth/register', {
-        payload: { email: `r${i}@example.com`, username: `r_user_${i}`, password: 'password123' },
+        payload: {
+          email: `r${i}@example.com`,
+          username: `r_user_${i}`,
+          password: 'Kaffee-Hase-77',
+        },
       });
       expect(res.statusCode).toBe(202);
     }
     const res = await req(app, 'POST', '/api/auth/register', {
-      payload: { email: 'r9@example.com', username: 'r_user_9', password: 'password123' },
+      payload: { email: 'r9@example.com', username: 'r_user_9', password: 'Kaffee-Hase-77' },
     });
     expect(res.statusCode).toBe(429);
     expect(res.json().error.code).toBe('RATE_LIMITED');

@@ -28,7 +28,7 @@ afterEach(async () => {
 });
 afterAll(closeDb);
 
-const creds = { email: 'Alice@Example.com', username: 'alice', password: 'correct horse' };
+const creds = { email: 'Alice@Example.com', username: 'alice', password: 'Correct-Horse-7' };
 const register = (a: FastifyInstance, payload: Record<string, unknown> = creds) =>
   req(a, 'POST', '/api/auth/register', { payload });
 const verify = (a: FastifyInstance, token: string) =>
@@ -144,7 +144,7 @@ describe('abuse protection', () => {
     const res = await register(app, {
       ...creds,
       email: 'ALICE@example.com',
-      password: 'evil pw 123',
+      password: 'Evil-Pw-123x',
     });
     expect(res.statusCode).toBe(202);
     expect(res.json()).toEqual({ status: 'verification_sent' });
@@ -162,7 +162,7 @@ describe('abuse protection', () => {
 
   it('a squatted sign-up cannot hijack the account: each link carries its own password', async () => {
     // Attacker registers the victim's address first, with the attacker's password.
-    await register(app, { ...creds, username: 'attacker', password: 'attacker pw 1' });
+    await register(app, { ...creds, username: 'attacker', password: 'Fremdes-Pw-91' });
     const attackerToken = verificationToken(app, creds.email);
     // Victim registers for real and confirms their own (newer) link.
     await register(app);

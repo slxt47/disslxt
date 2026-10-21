@@ -1816,3 +1816,62 @@ input[type='range']:focus {
   margin-top: 6px;
   padding: 0 2px;
 }
+
+/* --- Password policy checklist --- */
+.pw-check {
+  display: grid;
+  gap: 8px;
+  margin-top: -6px;
+  animation: fade-in var(--dur) var(--ease-out);
+}
+.pw-meter {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.pw-meter span {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill-strong);
+  transition: background-color var(--dur) var(--ease-out);
+}
+.pw-meter span.on.s1 {
+  background: var(--danger);
+}
+.pw-meter span.on.s2 {
+  background: #c27c0e;
+}
+.pw-meter span.on.s3,
+.pw-meter span.on.s4 {
+  background: var(--success);
+}
+.pw-level {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.pw-check ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pw-check li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.pw-check li .icon {
+  margin-top: 1px;
+  color: var(--danger);
+}
+.pw-check li.ok {
+  color: var(--text-tertiary);
+}
+.pw-check li.ok .icon {
+  color: var(--success);
+}

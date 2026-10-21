@@ -6,7 +6,9 @@ export const GUILD_NAME_MAX_LEN = 100;
 export const CHANNEL_NAME_MAX_LEN = 32;
 export const USERNAME_MIN_LEN = 3;
 export const USERNAME_MAX_LEN = 32;
-export const PASSWORD_MIN_LEN = 8;
+export const PASSWORD_MIN_LEN = 10;
+/** From this length any password counts as a passphrase (no character-class rule). */
+export const PASSWORD_PASSPHRASE_LEN = 16;
 export const PASSWORD_MAX_LEN = 128;
 export const EMAIL_MAX_LEN = 254;
 export const NEXT_PATH_MAX_LEN = 200;

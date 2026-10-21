@@ -19,7 +19,7 @@ export function uniqueUser(prefix: string): TestUser {
   counter += 1;
   const suffix = `${Date.now().toString(36)}${counter}${Math.floor(Math.random() * 1e4)}`;
   const username = `${prefix}_${suffix}`.slice(0, 32);
-  return { email: `${username.toLowerCase()}@example.test`, username, password: 'passwort123' };
+  return { email: `${username.toLowerCase()}@example.test`, username, password: 'Tr0cken-Blume-7' };
 }
 
 export const uniqueEmail = (prefix = 'user') => uniqueUser(prefix).email;

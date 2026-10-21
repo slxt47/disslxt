@@ -12,6 +12,7 @@ import {
   USERNAME_MAX_LEN,
   USERNAME_MIN_LEN,
 } from './constants.js';
+import { passwordProblems } from './password.js';
 import { MESSAGE_DISALLOWED_CHARS, NAME_DISALLOWED_CHARS, textLength } from './text.js';
 
 export const emailSchema = z
@@ -42,12 +43,18 @@ export const nextPathSchema = z
   .max(NEXT_PATH_MAX_LEN)
   .regex(/^\/(?![/\\])[A-Za-z0-9/_\-.~%?=&]*$/, 'Ungültiges Weiterleitungsziel');
 
-export const registerSchema = z.object({
-  email: emailSchema,
-  username: usernameSchema,
-  password: passwordSchema,
-  next: nextPathSchema.optional(),
-});
+export const registerSchema = z
+  .object({
+    email: emailSchema,
+    username: usernameSchema,
+    password: passwordSchema,
+    next: nextPathSchema.optional(),
+  })
+  .superRefine((v, ctx) => {
+    for (const message of passwordProblems(v.password, { username: v.username, email: v.email })) {
+      ctx.addIssue({ code: 'custom', path: ['password'], message });
+    }
+  });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 /** Token from the confirmation link: 32 random bytes, base64url (43 chars). */

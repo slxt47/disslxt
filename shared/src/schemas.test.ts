@@ -14,7 +14,7 @@ import { GUILD_NAME_MAX_LEN, MESSAGE_MAX_LEN, PAGE_DEFAULT } from './constants.j
 import { textLength } from './text.js';
 
 describe('registerSchema', () => {
-  const valid = { email: 'Alice@Example.com ', username: 'alice_1', password: 'secret123' };
+  const valid = { email: 'Alice@Example.com ', username: 'alice_1', password: 'Tr0ckenBlume!' };
 
   it('accepts valid input and lowercases/trims the email', () => {
     const r = registerSchema.parse(valid);
@@ -33,11 +33,12 @@ describe('registerSchema', () => {
     },
   );
 
-  it('enforces password length 8–128', () => {
-    expect(registerSchema.safeParse({ ...valid, password: '1234567' }).success).toBe(false);
-    expect(registerSchema.safeParse({ ...valid, password: '12345678' }).success).toBe(true);
-    expect(registerSchema.safeParse({ ...valid, password: 'x'.repeat(128) }).success).toBe(true);
-    expect(registerSchema.safeParse({ ...valid, password: 'x'.repeat(129) }).success).toBe(false);
+  it('enforces password length 10–128', () => {
+    expect(registerSchema.safeParse({ ...valid, password: 'Tr0cken!B' }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...valid, password: 'Tr0cken!Bl' }).success).toBe(true);
+    const long = 'Ab1!xyz-'.repeat(16);
+    expect(registerSchema.safeParse({ ...valid, password: long }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...valid, password: `${long}x` }).success).toBe(false);
   });
 
   it('reports field paths on failure', () => {
@@ -152,7 +153,7 @@ describe('D3: control characters', () => {
   it('channel names and usernames reject control chars', () => {
     expect(createChannelSchema.safeParse({ name: 'a\u0000b' }).success).toBe(false);
     expect(createChannelSchema.safeParse({ name: 'a\u007fb' }).success).toBe(false);
-    const base = { email: 'a@example.com', password: 'secret123' };
+    const base = { email: 'a@example.com', password: 'Tr0ckenBlume!' };
     expect(registerSchema.safeParse({ ...base, username: 'ab\u0000c' }).success).toBe(false);
     expect(registerSchema.safeParse({ ...base, username: 'abc\n' }).success).toBe(true); // trimmed
     expect(registerSchema.safeParse({ ...base, username: 'ab\u0001c' }).success).toBe(false);
