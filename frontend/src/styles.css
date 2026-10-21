@@ -1811,3 +1811,8 @@ input[type='range']:focus {
 .quota-bar span.full {
   background: var(--danger);
 }
+
+.sidebar-note {
+  margin-top: 6px;
+  padding: 0 2px;
+}

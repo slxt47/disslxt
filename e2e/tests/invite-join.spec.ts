@@ -7,6 +7,7 @@ import {
   newUserPage,
   registerViaUi,
   confirmViaMail,
+  twoUsersInGuild,
   uniqueUser,
 } from '../helpers';
 
@@ -67,4 +68,18 @@ test('an invalid invite code shows an error', async ({ page }) => {
   await registerViaUi(page, uniqueUser('lost'));
   await page.goto('/invite/doesNotExist1');
   await expect(page.getByTestId('invite-invalid')).toBeVisible();
+});
+
+test('the owner deletes a server; the member sees it disappear live', async ({ browser }) => {
+  const { a, b, guild } = await twoUsersInGuild(browser, 'Kurzlebig');
+  await a.page.getByTestId('delete-guild-button').click();
+  const confirm = a.page.getByTestId('delete-guild-confirm');
+  await expect(confirm).toBeDisabled();
+  await a.page.getByTestId('delete-guild-name').fill('Kurzlebig');
+  await confirm.click();
+  await expect(a.page.getByTestId('empty-state')).toBeVisible();
+  await expect(b.page.getByTestId(`guild-item-${guild.guildId}`)).toHaveCount(0);
+  await expect(b.page.getByTestId('empty-state')).toBeVisible();
+  await a.context.close();
+  await b.context.close();
 });

@@ -65,6 +65,9 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/** Deleting a guild needs its name typed again, so it cannot happen by a stray click. */
+export const deleteGuildSchema = z.object({ name: z.string().max(200) });
+
 export const createGuildSchema = z.object({
   name: z
     .string()

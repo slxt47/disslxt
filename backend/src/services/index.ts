@@ -32,7 +32,7 @@ export function createServices(
 ): Services {
   const auth = new AuthService(db, config, mailer, log);
   const push = new PushService(db, hub, config, pushSender, log);
-  const guilds = new GuildService(db, hub, push);
+  const guilds = new GuildService(db, hub, push, { voiceDir: config.voice.dir });
   const channels = new ChannelService(db, hub, guilds);
   const messages = new MessageService(db, hub, guilds, channels, push, config.voice.dir);
   const turnUsage = new TurnUsageService(db, config.ice.monthlyLimitBytes);

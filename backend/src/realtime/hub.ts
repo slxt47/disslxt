@@ -131,6 +131,17 @@ export class Hub {
     }
   }
 
+  /** The guild was deleted: tell its members, then drop every socket from it (and its voice). */
+  removeGuild(guildId: string): void {
+    this.publishToGuild(guildId, { type: 'guild.deleted', data: { guildId } });
+    for (const client of [...(this.guildRooms.get(guildId) ?? [])]) {
+      if (client.voice?.guildId === guildId) this.leaveVoice(client, 'left');
+      if (client.channel?.guildId === guildId) this.unsubscribe(client);
+      client.guildIds.delete(guildId);
+    }
+    this.guildRooms.delete(guildId);
+  }
+
   // --- Live voice ------------------------------------------------------------------------------
 
   voicePeers(channelId: string): VoicePeerDto[] {

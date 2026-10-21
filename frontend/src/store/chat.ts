@@ -204,6 +204,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       case 'channel.created':
         s.addChannel(event.data.channel);
         return;
+      case 'guild.deleted':
+        s.removeGuild(event.data.guildId);
+        return;
       case 'member.joined': {
         const { guildId, member } = event.data;
         const list = s.membersByGuild[guildId];

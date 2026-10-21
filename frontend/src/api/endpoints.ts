@@ -31,6 +31,8 @@ export const api = {
     apiRequest<{ guild: GuildDto; channels: ChannelDto[] }>('POST', '/guilds', { name }),
   getGuild: (guildId: string) => apiRequest<{ guild: GuildDto }>('GET', `/guilds/${enc(guildId)}`),
   leaveGuild: (guildId: string) => apiRequest<void>('POST', `/guilds/${enc(guildId)}/leave`),
+  deleteGuild: (guildId: string, name: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}`, { name }),
   listMembers: (guildId: string) =>
     apiRequest<{ members: MemberDto[] }>('GET', `/guilds/${enc(guildId)}/members`),
 
