@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import type { ChannelDto } from '@disslxt/shared';
 import { useAuthStore } from '../store/auth';
 import { useVoiceStore, type VoicePeerState } from '../store/voice';
 import { useVoice, voiceSupported } from '../voice/VoiceProvider';
 import { ConnectionBanner } from './ConnectionBanner';
 import { Avatar, Icon } from './Icon';
+import { VoiceSetupDialog } from './VoiceSetupDialog';
 
 const EMPTY: never[] = [];
 
@@ -33,6 +35,7 @@ export function VoiceChannelView({
   const error = useVoiceStore((s) => s.error);
   const participants = useVoiceStore((s) => s.participants[channel.id] ?? EMPTY);
   const here = inChannelId === channel.id;
+  const [setup, setSetup] = useState<'join' | 'call' | null>(null);
   const supported = voiceSupported();
 
   // Inside the channel the live peer list is authoritative; outside, the guild-wide list.
@@ -136,6 +139,15 @@ export function VoiceChannelView({
               <Icon name={muted ? 'mic-off' : 'mic'} size={22} />
             </button>
             <button
+              className="btn round"
+              data-testid="voice-devices"
+              aria-label="Audio-Geräte"
+              title="Audio-Geräte"
+              onClick={() => setSetup('call')}
+            >
+              <Icon name="gear" size={22} />
+            </button>
+            <button
               className="btn round danger"
               data-testid="voice-leave"
               aria-label="Verlassen"
@@ -150,13 +162,21 @@ export function VoiceChannelView({
             className="btn primary"
             data-testid="voice-join"
             disabled={!voice}
-            onClick={() => void voice?.join(channel.id, channel.guildId)}
+            onClick={() => setSetup('join')}
           >
             <Icon name="headphones" size={20} />
             {inChannelId ? 'Hierher wechseln' : 'Beitreten'}
           </button>
         )}
       </footer>
+      {setup && (
+        <VoiceSetupDialog
+          mode={setup}
+          channelName={channel.name}
+          onJoin={(devices) => void voice?.join(channel.id, channel.guildId, devices)}
+          onClose={() => setSetup(null)}
+        />
+      )}
     </section>
   );
 }

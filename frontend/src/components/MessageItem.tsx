@@ -4,6 +4,7 @@ import { errorMessage } from '../api/client';
 import { speak, spokenText, ttsSupported } from '../speech/tts';
 import { usePrefs } from '../store/prefs';
 import { isSubmitKey } from './Composer';
+import { FileAttachment } from './FileAttachment';
 import { VoicePlayer } from './VoicePlayer';
 import { Avatar, Icon } from './Icon';
 
@@ -150,6 +151,8 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
         </div>
       ) : message.kind === 'voice' && message.audio ? (
         <VoicePlayer audio={message.audio} />
+      ) : message.kind === 'file' && message.file ? (
+        <FileAttachment file={message.file} />
       ) : (
         <div className="message-content" data-testid="message-content">
           {message.content}
@@ -204,7 +207,7 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
           )}
           {isOwn && (
             <>
-              {message.kind !== 'voice' && (
+              {message.kind === 'text' && (
                 <button
                   className="icon-btn"
                   data-testid="message-edit"

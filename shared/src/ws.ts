@@ -58,6 +58,8 @@ export type WsServerMessage =
   | { type: 'member.joined'; data: { guildId: string; member: MemberDto } }
   | { type: 'member.left'; data: { guildId: string; userId: string } }
   | { type: 'channel.created'; data: { channel: ChannelDto } }
+  /** The owner deleted the guild; it is gone for every member. */
+  | { type: 'guild.deleted'; data: { guildId: string } }
   /** To the joining socket: its peer id and who is already there (it sends the offers). */
   | { type: 'voice.joined'; data: { channelId: string; peerId: string; peers: VoicePeerDto[] } }
   /** To this socket: it is no longer in the channel (left, or joined from another device). */

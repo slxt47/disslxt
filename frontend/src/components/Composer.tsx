@@ -10,6 +10,8 @@ export interface ComposerProps {
   onSend: (content: string) => Promise<void>;
   /** Sends a recorded voice message; without it there is no record button. */
   onSendVoice?: (audio: Blob, durationMs: number) => Promise<void>;
+  /** Files picked, pasted or dropped; without it there is no attach button. */
+  onAttachFiles?: (files: File[]) => void;
 }
 
 /** Counter appears this many characters before the limit. */
@@ -20,7 +22,8 @@ export function isSubmitKey(e: KeyboardEvent<HTMLTextAreaElement>): boolean {
   return e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229;
 }
 
-export function Composer({ channelName, onSend, onSendVoice }: ComposerProps) {
+export function Composer({ channelName, onSend, onSendVoice, onAttachFiles }: ComposerProps) {
+  const fileInput = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +145,32 @@ export function Composer({ channelName, onSend, onSendVoice }: ComposerProps) {
         </div>
       ) : (
         <div className="composer-row">
+          {onAttachFiles && (
+            <>
+              <button
+                type="button"
+                className="icon-btn composer-tool attach"
+                data-testid="attach-file"
+                aria-label="Datei anhängen"
+                title="Datei oder Bild teilen (max. 25 MB)"
+                onClick={() => fileInput.current?.click()}
+              >
+                <Icon name="paperclip" size={20} />
+              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                data-testid="file-input"
+                onChange={(e) => {
+                  const files = [...(e.target.files ?? [])];
+                  e.target.value = '';
+                  if (files.length > 0) onAttachFiles(files);
+                }}
+              />
+            </>
+          )}
           <textarea
             ref={ref}
             data-testid="composer-input"
@@ -153,6 +182,14 @@ export function Composer({ channelName, onSend, onSendVoice }: ComposerProps) {
             disabled={sending}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={onKeyDown}
+            onPaste={(e) => {
+              // Pasting a screenshot shares it as a file.
+              const files = [...e.clipboardData.files];
+              if (onAttachFiles && files.length > 0) {
+                e.preventDefault();
+                onAttachFiles(files);
+              }
+            }}
           />
           {dictation.supported && (
             <button

@@ -36,7 +36,16 @@ export interface MessageAuthorDto {
   username: string;
 }
 
-export type MessageKind = 'text' | 'voice';
+export type MessageKind = 'text' | 'voice' | 'file';
+
+export interface FileAttachmentDto {
+  /** Same-origin URL, only readable by members of the guild. */
+  url: string;
+  name: string;
+  size: number;
+  /** Only real images (checked by their bytes) are shown inline; everything else downloads. */
+  isImage: boolean;
+}
 
 export interface VoiceAudioDto {
   /** Same-origin URL, only readable by members of the guild. */
@@ -54,6 +63,7 @@ export interface MessageDto {
   /** Empty for voice messages. */
   content: string;
   audio: VoiceAudioDto | null;
+  file: FileAttachmentDto | null;
   createdAt: string;
   editedAt: string | null;
 }

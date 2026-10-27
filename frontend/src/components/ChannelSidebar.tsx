@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 import { usePushStore } from '../store/push';
 import { CreateChannelDialog } from './CreateChannelDialog';
+import { DeleteGuildDialog } from './DeleteGuildDialog';
 import { Avatar, Icon } from './Icon';
 import { VoiceBar } from './VoiceBar';
 import { useVoiceStore } from '../store/voice';
@@ -54,6 +55,7 @@ export function ChannelSidebar({
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const isOwner = !!guild && guild.ownerId === user?.id;
   const pushConfig = usePushStore((s) => s.config);
@@ -229,6 +231,21 @@ export function ChannelSidebar({
               )}
             </div>
           )}
+          {isOwner && (
+            <div className="sidebar-section">
+              <button
+                className="btn small danger-outline"
+                data-testid="delete-guild-button"
+                onClick={() => setDeleting(true)}
+              >
+                Server löschen
+              </button>
+              <p className="settings-hint sidebar-note">
+                Als Besitzer:in kannst du den Server nicht verlassen, nur löschen.
+              </p>
+            </div>
+          )}
+          {deleting && <DeleteGuildDialog guild={guild} onClose={() => setDeleting(false)} />}
           {creating && (
             <CreateChannelDialog guildId={guild.id} onClose={() => setCreating(false)} />
           )}

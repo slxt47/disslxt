@@ -17,6 +17,9 @@ export interface Prefs {
   speechRate: number;
   /** The "add to home screen" banner was closed. */
   installHintDismissed: boolean;
+  /** Chosen microphone / speaker for voice channels ('' = system default). */
+  audioInputId: string;
+  audioOutputId: string;
 }
 
 const defaults: Prefs = {
@@ -24,6 +27,8 @@ const defaults: Prefs = {
   autoRead: false,
   speechRate: 1,
   installHintDismissed: false,
+  audioInputId: '',
+  audioOutputId: '',
 };
 
 function load(): Prefs {
@@ -56,12 +61,22 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
   ...load(),
   set: (patch) => {
     set(patch);
-    const { theme, autoRead, speechRate, installHintDismissed } = { ...get(), ...patch };
+    const { theme, autoRead, speechRate, installHintDismissed, audioInputId, audioOutputId } = {
+      ...get(),
+      ...patch,
+    };
     if (patch.theme) applyTheme(patch.theme);
     try {
       localStorage.setItem(
         KEY,
-        JSON.stringify({ theme, autoRead, speechRate, installHintDismissed }),
+        JSON.stringify({
+          theme,
+          autoRead,
+          speechRate,
+          installHintDismissed,
+          audioInputId,
+          audioOutputId,
+        }),
       );
     } catch {
       // Not persisted; the setting still applies for this session.

@@ -1,4 +1,6 @@
-import { and, asc, count, eq } from 'drizzle-orm';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { and, asc, count, eq, isNotNull, or } from 'drizzle-orm';
 import {
   DEFAULT_CHANNEL_NAME,
   type ChannelDto,
@@ -8,8 +10,8 @@ import {
   type UserDto,
 } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
-import { channels, guildMembers, guilds, users, type Guild } from '../db/schema.js';
-import { conflict, forbidden, notFound } from '../lib/errors.js';
+import { channels, guildMembers, guilds, messages, users, type Guild } from '../db/schema.js';
+import { AppError, conflict, forbidden, notFound } from '../lib/errors.js';
 import { isUniqueViolation } from '../lib/pgErrors.js';
 import { inviteCode } from '../lib/tokens.js';
 import type { Hub } from '../realtime/hub.js';
@@ -21,7 +23,39 @@ export class GuildService {
     private readonly db: Database,
     private readonly hub: Hub,
     private readonly push: PushService,
+    /** Where uploaded files of messages live (removed together with the guild). */
+    private readonly uploads: { voiceDir: string; fileDir: string },
   ) {}
+
+  /**
+   * Owner only, and only with the guild's exact name as confirmation. Channels, messages and
+   * memberships go with it (FK cascade); stored voice files are removed afterwards.
+   */
+  async delete(userId: string, guildId: string, confirmName: string): Promise<void> {
+    const guild = await this.assertMember(userId, guildId);
+    if (guild.ownerId !== userId) throw forbidden('Nur der Besitzer kann den Server löschen');
+    if (confirmName.trim() !== guild.name) {
+      throw new AppError('BAD_REQUEST', 400, 'Der eingegebene Name stimmt nicht überein');
+    }
+    const files = await this.db
+      .select({ audioKey: messages.audioKey, fileKey: messages.fileKey })
+      .from(messages)
+      .innerJoin(channels, eq(channels.id, messages.channelId))
+      .where(
+        and(
+          eq(channels.guildId, guildId),
+          or(isNotNull(messages.audioKey), isNotNull(messages.fileKey)),
+        ),
+      );
+    await this.db.delete(guilds).where(eq(guilds.id, guildId));
+    this.hub.removeGuild(guildId);
+    await Promise.all(
+      files.flatMap((f) => [
+        ...(f.audioKey ? [rm(join(this.uploads.voiceDir, f.audioKey), { force: true })] : []),
+        ...(f.fileKey ? [rm(join(this.uploads.fileDir, f.fileKey), { force: true })] : []),
+      ]),
+    );
+  }
 
   /** Creates a guild with the creator as member and a #general channel. */
   async create(

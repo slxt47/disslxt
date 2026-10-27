@@ -142,13 +142,18 @@ export const messages = pgTable(
     audioKey: varchar('audio_key', { length: 64 }),
     audioDurationMs: integer('audio_duration_ms'),
     audioMime: varchar('audio_mime', { length: 64 }),
+    /** Shared files: name in UPLOAD_DIR/files, original (sanitised) name, size, served type. */
+    fileKey: varchar('file_key', { length: 64 }),
+    fileName: varchar('file_name', { length: 255 }),
+    fileSize: integer('file_size'),
+    fileMime: varchar('file_mime', { length: 64 }),
     createdAt: createdAt(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
   },
   (t) => [
     check(
       'messages_content_len_chk',
-      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000)`,
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000)`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
   ],

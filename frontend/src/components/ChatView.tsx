@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChannelDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
@@ -9,6 +9,7 @@ import { Composer } from './Composer';
 import { ConnectionBanner } from './ConnectionBanner';
 import { Icon } from './Icon';
 import { MessageList } from './MessageList';
+import { UploadQueue, useUploads } from './UploadQueue';
 
 const EMPTY: never[] = [];
 
@@ -25,6 +26,9 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
   const hasMore = useChatStore((s) => s.hasMoreByChannel[channelId] ?? false);
   const subscribed = useChatStore((s) => s.subscribedChannelId === channelId);
   const [loading, setLoading] = useState(true);
+  const { uploads, start: startUploads, remove: removeUpload } = useUploads(channelId);
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
 
   const loadLatest = useCallback(
     async (replace = false) => {
@@ -102,7 +106,35 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
   );
 
   return (
-    <section className="chat-view" aria-label={`Kanal #${channel.name}`}>
+    <section
+      className={`chat-view${dragging ? ' dragging' : ''}`}
+      aria-label={`Kanal #${channel.name}`}
+      onDragEnter={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        dragDepth.current += 1;
+        setDragging(true);
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+      }}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        dragDepth.current = 0;
+        setDragging(false);
+        startUploads([...e.dataTransfer.files]);
+      }}
+    >
+      {dragging && (
+        <div className="drop-overlay" aria-hidden="true">
+          <Icon name="paperclip" size={32} />
+          <span>Loslassen, um in #{channel.name} zu teilen</span>
+        </div>
+      )}
       <header className="chat-header">
         <button
           className="icon-btn mobile-only"
@@ -130,8 +162,10 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
         onEdit={onEdit}
         onDelete={onDelete}
       />
+      <UploadQueue uploads={uploads} onRemove={removeUpload} />
       <Composer
         key={channelId}
+        onAttachFiles={startUploads}
         channelName={channel.name}
         onSend={onSend}
         onSendVoice={onSendVoice}

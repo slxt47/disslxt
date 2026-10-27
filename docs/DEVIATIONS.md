@@ -75,8 +75,9 @@ Steps 1–15 plus the backend parts of steps 22–24.
     `build.additional_contexts: {build: <dir>}`, which replaces the `build` stage; the runtime
     stages were built from the committed Dockerfiles unchanged. The committed files did not have
     to change for this.
-19. **React Router v7 future flags** (`v7_startTransition`, `v7_relativeSplatPath`) are enabled to
-    silence the v6 deprecation warnings.
+19. **React Router v7 future flags** (`v7_startTransition`, `v7_relativeSplatPath`) were enabled to
+    silence the v6 deprecation warnings. Since the upgrade to React Router 7 (security fixes) this
+    behaviour is the default and the flags are gone.
 
 ## Third run: tester defects D1–D5
 

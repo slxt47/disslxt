@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { createGuildSchema, uuidSchema } from '@disslxt/shared';
+import { createGuildSchema, deleteGuildSchema, uuidSchema } from '@disslxt/shared';
 import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 import { parse, parseParam } from '../lib/validate.js';
@@ -30,6 +30,12 @@ export async function guildRoutes(
 
   app.post<GuildParams>('/guilds/:guildId/leave', async (req, reply) => {
     await guilds.leave(currentUser(req).id, guildId(req.params));
+    return reply.status(204).send();
+  });
+
+  app.delete<GuildParams>('/guilds/:guildId', async (req, reply) => {
+    const { name } = parse(deleteGuildSchema, req.body);
+    await guilds.delete(currentUser(req).id, guildId(req.params), name);
     return reply.status(204).send();
   });
 

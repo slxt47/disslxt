@@ -120,6 +120,10 @@ export interface Config {
     static: { urls: string[]; username: string; credential: string } | null;
     monthlyLimitBytes: number;
   };
+  files: {
+    /** Absolute directory for shared files. */
+    dir: string;
+  };
   voice: {
     /** Absolute directory for voice message files. */
     dir: string;
@@ -202,6 +206,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         : null,
       monthlyLimitBytes: Math.round(e.TURN_MONTHLY_LIMIT_GB * 1e9),
     },
+    files: { dir: resolve(e.UPLOAD_DIR, 'files') },
     voice: {
       dir: resolve(e.UPLOAD_DIR, 'voice'),
       transcode: e.VOICE_TRANSCODE,

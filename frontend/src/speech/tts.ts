@@ -17,10 +17,18 @@ export function pickGermanVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesis
 }
 
 /** Spoken form of a message (voice messages are announced, not read). */
-export function spokenText(message: Pick<MessageDto, 'author' | 'content'> & { kind?: string }) {
-  return message.kind === 'voice'
-    ? `${message.author.username} hat eine Sprachnachricht geschickt.`
-    : `${message.author.username}: ${message.content}`;
+export function spokenText(
+  message: Pick<MessageDto, 'author' | 'content'> & {
+    kind?: string;
+    file?: { name: string; isImage: boolean } | null;
+  },
+) {
+  if (message.kind === 'voice')
+    return `${message.author.username} hat eine Sprachnachricht geschickt.`;
+  if (message.kind === 'file') {
+    return `${message.author.username} hat ${message.file?.isImage ? 'ein Bild' : 'eine Datei'} geschickt: ${message.file?.name ?? ''}`;
+  }
+  return `${message.author.username}: ${message.content}`;
 }
 
 /**

@@ -25,7 +25,7 @@ afterEach(async () => {
 });
 afterAll(closeDb);
 
-const creds = { email: 'Alice@Example.com', username: 'alice', password: 'correct horse' };
+const creds = { email: 'Alice@Example.com', username: 'alice', password: 'Correct-Horse-7' };
 
 describe('POST /api/auth/register', () => {
   it('stores only an argon2id hash; the account exists only after confirmation', async () => {
@@ -72,6 +72,23 @@ describe('POST /api/auth/register', () => {
     const me = await req(app, 'GET', '/api/auth/me', { cookie: u.cookie });
     expect(me.statusCode).toBe(200);
     expect(me.json().user).toEqual(u.user);
+  });
+
+  it('weak passwords are refused with the rules that failed', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'weak@example.com', username: 'weakling', password: 'Passwort123!' },
+    });
+    expect(res.statusCode).toBe(400);
+    const details = res.json().error.details as { path: string; message: string }[];
+    expect(details).toEqual([{ path: 'password', message: 'Kein häufig benutztes Passwort' }]);
+    const personal = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: 'weak@example.com', username: 'weakling', password: 'Weakling!2026' },
+    });
+    expect(personal.json().error.details[0].message).toMatch(/Benutzernamen/);
   });
 
   it('returns 400 VALIDATION_ERROR with field details', async () => {
