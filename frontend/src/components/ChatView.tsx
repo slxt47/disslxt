@@ -16,9 +16,12 @@ const EMPTY: never[] = [];
 export interface ChatViewProps {
   channel: ChannelDto;
   onOpenMenu: () => void;
+  /** Member list shown next to the chat; the header button toggles it. */
+  membersOpen?: boolean;
+  onToggleMembers?: () => void;
 }
 
-export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
+export function ChatView({ channel, onOpenMenu, membersOpen, onToggleMembers }: ChatViewProps) {
   const channelId = channel.id;
   const realtime = useRealtime();
   const userId = useAuthStore((s) => s.user?.id ?? null);
@@ -149,6 +152,20 @@ export function ChatView({ channel, onOpenMenu }: ChatViewProps) {
           <span className="sr-only">#</span>
           {channel.name}
         </h1>
+        {onToggleMembers && (
+          <div className="chat-header-actions">
+            <button
+              className={`icon-btn wide-only${membersOpen ? ' active' : ''}`}
+              data-testid="toggle-members"
+              aria-pressed={!!membersOpen}
+              aria-label={membersOpen ? 'Mitglieder ausblenden' : 'Mitglieder anzeigen'}
+              title={membersOpen ? 'Mitglieder ausblenden' : 'Mitglieder anzeigen'}
+              onClick={onToggleMembers}
+            >
+              <Icon name="users" size={20} />
+            </button>
+          </div>
+        )}
       </header>
       <ConnectionBanner />
       <MessageList

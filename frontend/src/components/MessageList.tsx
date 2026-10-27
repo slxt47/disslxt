@@ -6,6 +6,48 @@ import { MessageItem } from './MessageItem';
 /** Distance from the bottom (px) within which new messages auto-scroll the list. */
 export const NEAR_BOTTOM_PX = 120;
 
+/** Messages of the same author within this gap are shown as one group. */
+export const GROUP_GAP_MS = 7 * 60 * 1000;
+
+const dayFormat = new Intl.DateTimeFormat('de-DE', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/** "Heute", "Gestern" or the full date. */
+export function dayLabel(d: Date, now = new Date()): string {
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (dayKey(d) === dayKey(now)) return 'Heute';
+  if (dayKey(d) === dayKey(yesterday)) return 'Gestern';
+  return dayFormat.format(d);
+}
+
+/** Per message: is it grouped with the one before, and does it start a new day? */
+export function layoutMessages(
+  messages: MessageDto[],
+  now = new Date(),
+): { grouped: boolean; dayLabel: string | null }[] {
+  return messages.map((m, i) => {
+    const prev = messages[i - 1];
+    const at = new Date(m.createdAt);
+    const prevAt = prev ? new Date(prev.createdAt) : null;
+    const newDay = !prevAt || dayKey(prevAt) !== dayKey(at);
+    const grouped =
+      !!prev &&
+      !newDay &&
+      prev.author.id === m.author.id &&
+      at.getTime() - (prevAt?.getTime() ?? 0) < GROUP_GAP_MS;
+    return { grouped, dayLabel: newDay ? dayLabel(at, now) : null };
+  });
+}
+
 export interface MessageListProps {
   channelId: string;
   messages: MessageDto[];
@@ -43,6 +85,7 @@ export function MessageList({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderError, setOlderError] = useState<string | null>(null);
 
+  const layout = layoutMessages(messages);
   const last = messages[messages.length - 1];
   const lastId = last?.id ?? null;
   const firstId = messages[0]?.id ?? null;
@@ -155,11 +198,13 @@ export function MessageList({
           </p>
         )}
         <ul className="messages">
-          {messages.map((m) => (
+          {messages.map((m, i) => (
             <MessageItem
               key={m.id}
               message={m}
               isOwn={m.author.id === currentUserId}
+              grouped={layout[i]?.grouped}
+              dayLabel={layout[i]?.dayLabel}
               onEdit={onEdit}
               onDelete={onDelete}
             />

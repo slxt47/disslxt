@@ -106,9 +106,19 @@ export async function createGuildViaUi(page: Page, name: string): Promise<GuildR
   return parseChannelUrl(page.url());
 }
 
+/** Opens the server menu (name at the top of the channel sidebar): invite, leave, delete. */
+export async function openGuildMenu(page: Page): Promise<void> {
+  if (await page.getByTestId('guild-menu').isVisible()) return;
+  await page.getByTestId('guild-menu-button').click();
+  await expect(page.getByTestId('guild-menu')).toBeVisible();
+}
+
 export async function inviteUrl(page: Page): Promise<string> {
+  await openGuildMenu(page);
   const text = (await page.getByTestId('invite-link').textContent())?.trim() ?? '';
   expect(text).toMatch(/\/invite\/[A-Za-z0-9]+$/);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('guild-menu')).toHaveCount(0);
   return text;
 }
 
