@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { GuildDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
@@ -57,6 +57,8 @@ export function ChannelSidebar({
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const isOwner = !!guild && guild.ownerId === user?.id;
   const pushConfig = usePushStore((s) => s.config);
   const muted = !!guild && !!pushConfig?.mutedGuildIds.includes(guild.id);
@@ -68,6 +70,29 @@ export function ChannelSidebar({
         .load()
         .catch(() => undefined);
   }, []);
+
+  // The server menu closes on a click outside, on Escape and when the server changes.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  const guildId = guild?.id;
+  useEffect(() => {
+    setMenuOpen(false);
+    setConfirmLeave(false);
+  }, [guildId]);
 
   async function toggleMute(guildId: string) {
     try {
@@ -111,10 +136,20 @@ export function ChannelSidebar({
     <div className="channel-sidebar">
       {guild ? (
         <>
-          <header className="sidebar-header">
-            <h2 className="guild-name" data-testid="guild-name" title={guild.name}>
-              {guild.name}
-            </h2>
+          <header className="sidebar-header" ref={menuRef}>
+            <button
+              className={`guild-menu-button${menuOpen ? ' open' : ''}`}
+              data-testid="guild-menu-button"
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              title={guild.name}
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <span className="guild-name" data-testid="guild-name">
+                {guild.name}
+              </span>
+              <Icon name="chevron-down" size={18} />
+            </button>
             {pushConfig?.enabled && (
               <button
                 className={`icon-btn${muted ? ' muted-on' : ''}`}
@@ -126,6 +161,73 @@ export function ChannelSidebar({
               >
                 <Icon name={muted ? 'bell-off' : 'bell'} size={18} />
               </button>
+            )}
+            {menuOpen && (
+              <div className="guild-menu" data-testid="guild-menu">
+                <div className="guild-menu-section invite">
+                  <h3 className="sidebar-heading">
+                    <Icon name="user-plus" size={16} />
+                    Leute einladen
+                  </h3>
+                  <code className="invite-link" data-testid="invite-link">
+                    {inviteUrl(guild.inviteCode)}
+                  </code>
+                  <button
+                    className="btn small primary"
+                    data-testid="copy-invite-button"
+                    onClick={() => void copyInvite(guild.inviteCode)}
+                  >
+                    <Icon name={copied ? 'check' : 'copy'} size={16} />
+                    {copied ? 'Kopiert!' : 'Link kopieren'}
+                  </button>
+                </div>
+                <div className="guild-menu-section">
+                  {!isOwner &&
+                    (confirmLeave ? (
+                      <div className="leave-confirm">
+                        <span>Server wirklich verlassen?</span>
+                        <button
+                          className="btn small danger"
+                          data-testid="leave-guild-confirm"
+                          disabled={busy}
+                          onClick={() => void leave(guild.id)}
+                        >
+                          Verlassen
+                        </button>
+                        <button className="btn small" onClick={() => setConfirmLeave(false)}>
+                          Abbrechen
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="menu-item danger"
+                        data-testid="leave-guild-button"
+                        onClick={() => setConfirmLeave(true)}
+                      >
+                        <Icon name="door" size={18} />
+                        Server verlassen
+                      </button>
+                    ))}
+                  {isOwner && (
+                    <>
+                      <button
+                        className="menu-item danger"
+                        data-testid="delete-guild-button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setDeleting(true);
+                        }}
+                      >
+                        <Icon name="trash" size={18} />
+                        Server löschen
+                      </button>
+                      <p className="settings-hint sidebar-note">
+                        Als Besitzer:in kannst du den Server nicht verlassen, nur löschen.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
             )}
           </header>
           <div className="sidebar-section">
@@ -187,62 +289,6 @@ export function ChannelSidebar({
                     </li>
                   ))}
               </ul>
-            </div>
-          )}
-          <div className="sidebar-section invite">
-            <h3 className="sidebar-heading">Einladungslink</h3>
-            <code className="invite-link" data-testid="invite-link">
-              {inviteUrl(guild.inviteCode)}
-            </code>
-            <button
-              className="btn small"
-              data-testid="copy-invite-button"
-              onClick={() => void copyInvite(guild.inviteCode)}
-            >
-              <Icon name={copied ? 'check' : 'copy'} size={16} />
-              {copied ? 'Kopiert!' : 'Link kopieren'}
-            </button>
-          </div>
-          {!isOwner && (
-            <div className="sidebar-section">
-              {confirmLeave ? (
-                <div className="leave-confirm">
-                  <span>Server wirklich verlassen?</span>
-                  <button
-                    className="btn small danger"
-                    data-testid="leave-guild-confirm"
-                    disabled={busy}
-                    onClick={() => void leave(guild.id)}
-                  >
-                    Verlassen
-                  </button>
-                  <button className="btn small" onClick={() => setConfirmLeave(false)}>
-                    Abbrechen
-                  </button>
-                </div>
-              ) : (
-                <button
-                  className="btn small danger-outline"
-                  data-testid="leave-guild-button"
-                  onClick={() => setConfirmLeave(true)}
-                >
-                  Server verlassen
-                </button>
-              )}
-            </div>
-          )}
-          {isOwner && (
-            <div className="sidebar-section">
-              <button
-                className="btn small danger-outline"
-                data-testid="delete-guild-button"
-                onClick={() => setDeleting(true)}
-              >
-                Server löschen
-              </button>
-              <p className="settings-hint sidebar-note">
-                Als Besitzer:in kannst du den Server nicht verlassen, nur löschen.
-              </p>
             </div>
           )}
           {deleting && <DeleteGuildDialog guild={guild} onClose={() => setDeleting(false)} />}

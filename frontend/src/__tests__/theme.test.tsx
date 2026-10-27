@@ -17,7 +17,7 @@ describe('appearance', () => {
 
     await userEvent.click(screen.getByTestId('theme-dark'));
     expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(meta.content).toBe('#161617');
+    expect(meta.content).toBe('#09090e');
     expect(JSON.parse(localStorage.getItem('disslxt:prefs')!).theme).toBe('dark');
     expect(screen.getByTestId('theme-dark').getAttribute('aria-checked')).toBe('true');
 
@@ -26,7 +26,7 @@ describe('appearance', () => {
 
     await userEvent.click(screen.getByTestId('theme-system'));
     expect(document.documentElement.dataset.theme).toBeUndefined();
-    expect(meta.content).toBe('#f5f5f7');
+    expect(meta.content).toBe('#eaeaf3');
     meta.remove();
   });
 });

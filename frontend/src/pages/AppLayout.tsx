@@ -19,6 +19,7 @@ import { MemberList } from '../components/MemberList';
 import { ServerList } from '../components/ServerList';
 import { activeView } from '../realtime/RealtimeProvider';
 import { useChatStore } from '../store/chat';
+import { usePrefs } from '../store/prefs';
 
 /** ServerList | ChannelSidebar | ChatView | MemberList; on mobile the first two form a drawer. */
 export function AppLayout() {
@@ -30,6 +31,7 @@ export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [creatingGuild, setCreatingGuild] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const showMembers = usePrefs((s) => s.showMembers);
 
   const guild = guildId ? (guilds.find((g) => g.id === guildId) ?? null) : null;
   const channel = channelId ? (channels?.find((c) => c.id === channelId) ?? null) : null;
@@ -109,7 +111,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className={`app-layout${guild ? ' has-guild' : ''}`}>
+    <div className={`app-layout${guild && showMembers ? ' has-guild' : ''}`}>
       <div className={`nav-drawer${drawerOpen ? ' open' : ''}`} data-testid="mobile-drawer">
         <ServerList activeGuildId={guildId} />
         <ChannelSidebar
@@ -134,7 +136,12 @@ export function AppLayout() {
         {channel?.kind === 'voice' ? (
           <VoiceChannelView channel={channel} onOpenMenu={() => setDrawerOpen(true)} />
         ) : channel ? (
-          <ChatView channel={channel} onOpenMenu={() => setDrawerOpen(true)} />
+          <ChatView
+            channel={channel}
+            onOpenMenu={() => setDrawerOpen(true)}
+            membersOpen={showMembers}
+            onToggleMembers={() => usePrefs.getState().set({ showMembers: !showMembers })}
+          />
         ) : (
           <section className="chat-view">
             <header className="chat-header">
@@ -170,7 +177,7 @@ export function AppLayout() {
         )}
       </main>
 
-      {guild && <MemberList guildId={guild.id} />}
+      {guild && showMembers && <MemberList guildId={guild.id} />}
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}
       {settingsOpen && (
         <SettingsDialog

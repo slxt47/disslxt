@@ -349,6 +349,12 @@ und iOS lassen das nicht zu – dort entscheidet das System (iPhone: Kontrollzen
 Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
 Gerät; `/theme-init.js` setzt die Wahl vor dem ersten Zeichnen, damit nichts hell aufblitzt.
 
+Design: Dark-first mit Violett→Blau-Akzent (Tokens am Anfang von `frontend/src/styles.css`). Avatare
+und Server-Symbole bekommen eine feste Farbe aus dem Namen. Aufeinanderfolgende Nachrichten einer
+Person (Abstand unter 7 Minuten, gleicher Tag) werden zusammengefasst, jeder Tag beginnt mit einem
+Trenner („Heute“, „Gestern“, Datum). Einladen, Verlassen und Löschen stecken im Server-Menü (Klick auf
+den Servernamen); die Mitgliederliste lässt sich über das Personen-Symbol im Kanal-Kopf ausblenden.
+
 ## Backup & Wiederherstellung
 
 `scripts/backup.sh` sichert die Datenbank (`pg_dump`, Custom-Format) und das Volume `uploads`

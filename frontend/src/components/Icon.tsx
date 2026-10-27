@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 /** Line icons in the style of SF Symbols; they inherit the text colour and scale with font size. */
 const PATHS = {
   menu: 'M4 7h16M4 12h16M4 17h16',
@@ -37,6 +39,12 @@ const PATHS = {
     'M20 11.5l-8.3 8.3a5 5 0 0 1-7.1-7.1l8.6-8.6a3.4 3.4 0 0 1 4.8 4.8l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9',
   file: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  'chevron-down': 'M6 9.5l6 6 6-6',
+  users:
+    'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18.5 14a6.5 6.5 0 0 1 3 6',
+  'user-plus':
+    'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6',
+  door: 'M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H14M10 12h10M17 9l3 3-3 3',
   alert:
     'M12 8v5M12 16.5v.5M10.3 4.2L2.8 17.5A2 2 0 0 0 4.5 20.5h15a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z',
 } as const;
@@ -63,7 +71,18 @@ export function Icon({ name, size = '1.25em' }: { name: IconName; size?: string 
   );
 }
 
-/** Initials avatar; the colour comes from the accent so the palette stays calm. */
+/**
+ * Hue for a name: the same person (or server) always gets the same colour. Picked from a fixed
+ * set so every colour reads well with white text in light and dark mode.
+ */
+const HUES = [262, 230, 200, 172, 145, 32, 350, 300, 12, 190];
+export function nameHue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (Math.imul(h, 31) + name.charCodeAt(i)) | 0;
+  return HUES[Math.abs(h) % HUES.length] ?? HUES[0]!;
+}
+
+/** Initials avatar, coloured by name. */
 export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
   const parts = name
     .trim()
@@ -72,7 +91,11 @@ export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md'
   const letters =
     parts.length > 1 ? `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}` : name.slice(0, 2);
   return (
-    <span className={`avatar ${size}`} aria-hidden="true">
+    <span
+      className={`avatar ${size}`}
+      aria-hidden="true"
+      style={{ '--hue': nameHue(name) } as CSSProperties}
+    >
       {letters.toUpperCase() || '?'}
     </span>
   );

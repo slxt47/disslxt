@@ -13,6 +13,10 @@ export interface MessageItemProps {
   isOwn: boolean;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** Follows a message of the same author shortly before: no avatar and header, time on hover. */
+  grouped?: boolean;
+  /** First message of a day: a divider with this label ("Heute", "Gestern", date) above it. */
+  dayLabel?: string | null;
 }
 
 const timeFormat = new Intl.DateTimeFormat('de-DE', {
@@ -21,7 +25,14 @@ const timeFormat = new Intl.DateTimeFormat('de-DE', {
 });
 const fullFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 
-function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps) {
+function MessageItemImpl({
+  message,
+  isOwn,
+  onEdit,
+  onDelete,
+  grouped = false,
+  dayLabel = null,
+}: MessageItemProps) {
   const [mode, setMode] = useState<'view' | 'edit' | 'confirm-delete'>('view');
   const [draft, setDraft] = useState(message.content);
   const [busy, setBusy] = useState(false);
@@ -92,15 +103,32 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
 
   return (
     <li
-      className={`message${isOwn ? ' own' : ''}${selected ? ' selected' : ''}`}
+      className={`message${isOwn ? ' own' : ''}${grouped ? ' grouped' : ''}${selected ? ' selected' : ''}`}
       data-testid={`message-${message.id}`}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button, a, textarea, input, audio')) return;
         setSelected((s) => !s);
       }}
     >
-      <Avatar name={message.author.username} />
-      <div className="message-meta">
+      {dayLabel && (
+        <div className="day-divider" role="separator" data-testid="day-divider">
+          <span>{dayLabel}</span>
+        </div>
+      )}
+      {grouped ? (
+        <time
+          className="message-gutter-time"
+          dateTime={message.createdAt}
+          title={fullFormat.format(created)}
+          aria-hidden="true"
+        >
+          {timeFormat.format(created)}
+        </time>
+      ) : (
+        <Avatar name={message.author.username} />
+      )}
+      {/* In a group the header is only for screen readers (who wrote it, when). */}
+      <div className={`message-meta${grouped ? ' sr-only' : ''}`}>
         <span className="message-author" data-testid="message-author">
           {message.author.username}
         </span>
@@ -111,7 +139,7 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
         >
           {timeFormat.format(created)}
         </time>
-        {message.editedAt && (
+        {message.editedAt && !grouped && (
           <span className="message-edited" data-testid="message-edited">
             (bearbeitet)
           </span>
@@ -157,6 +185,11 @@ function MessageItemImpl({ message, isOwn, onEdit, onDelete }: MessageItemProps)
         <div className="message-content" data-testid="message-content">
           {message.content}
         </div>
+      )}
+      {message.editedAt && grouped && mode !== 'edit' && (
+        <span className="message-edited below" data-testid="message-edited">
+          (bearbeitet)
+        </span>
       )}
 
       {mode === 'confirm-delete' && (

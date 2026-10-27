@@ -20,6 +20,8 @@ export interface Prefs {
   /** Chosen microphone / speaker for voice channels ('' = system default). */
   audioInputId: string;
   audioOutputId: string;
+  /** Member list next to the chat (wide screens). */
+  showMembers: boolean;
 }
 
 const defaults: Prefs = {
@@ -29,6 +31,7 @@ const defaults: Prefs = {
   installHintDismissed: false,
   audioInputId: '',
   audioOutputId: '',
+  showMembers: true,
 };
 
 function load(): Prefs {
@@ -40,7 +43,7 @@ function load(): Prefs {
   }
 }
 
-const THEME_COLORS = { light: '#f5f5f7', dark: '#161617' } as const;
+const THEME_COLORS = { light: '#eaeaf3', dark: '#09090e' } as const;
 
 /** Sets data-theme on <html> (read by the CSS) and the browser/status bar colour. */
 export function applyTheme(theme: Theme): void {

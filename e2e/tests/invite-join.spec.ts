@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test';
 import {
+  confirmViaMail,
   createGuildViaUi,
   fillRegisterForm,
-  inviteUrl,
   invitePath,
+  inviteUrl,
   newUserPage,
+  openGuildMenu,
   registerViaUi,
-  confirmViaMail,
   twoUsersInGuild,
   uniqueUser,
 } from '../helpers';
@@ -53,7 +54,12 @@ test('a logged-out user follows an invite link, registers and joins the guild', 
   await expect(b.page.getByTestId('channel-title')).toHaveText(/general/);
 
   // Leaving the server (non-owner only).
+  await openGuildMenu(a.page);
+  await expect(a.page.getByTestId('delete-guild-button')).toBeVisible();
   await expect(a.page.getByTestId('leave-guild-button')).toHaveCount(0);
+  await a.page.keyboard.press('Escape');
+  await openGuildMenu(b.page);
+  await expect(b.page.getByTestId('delete-guild-button')).toHaveCount(0);
   await b.page.getByTestId('leave-guild-button').click();
   await b.page.getByTestId('leave-guild-confirm').click();
   await expect(b.page.getByTestId('empty-state')).toBeVisible();
@@ -72,6 +78,7 @@ test('an invalid invite code shows an error', async ({ page }) => {
 
 test('the owner deletes a server; the member sees it disappear live', async ({ browser }) => {
   const { a, b, guild } = await twoUsersInGuild(browser, 'Kurzlebig');
+  await openGuildMenu(a.page);
   await a.page.getByTestId('delete-guild-button').click();
   const confirm = a.page.getByTestId('delete-guild-confirm');
   await expect(confirm).toBeDisabled();

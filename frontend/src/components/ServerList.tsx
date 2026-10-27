@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useChatStore } from '../store/chat';
 import { CreateGuildDialog } from './CreateGuildDialog';
-import { Icon } from './Icon';
+import { Icon, nameHue } from './Icon';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -18,6 +18,9 @@ export function ServerList({ activeGuildId }: { activeGuildId: string | null }) 
 
   return (
     <nav className="server-list" aria-label="Server">
+      <span className="brand-mark" aria-hidden="true">
+        d
+      </span>
       <ul data-testid="guild-list">
         {guilds.map((g) => {
           const first = channelsByGuild[g.id]?.[0];
@@ -30,6 +33,7 @@ export function ServerList({ activeGuildId }: { activeGuildId: string | null }) 
                 data-testid={`guild-item-${g.id}`}
                 title={g.name}
                 aria-label={g.name}
+                style={{ '--hue': nameHue(g.name) } as CSSProperties}
                 aria-current={g.id === activeGuildId ? 'page' : undefined}
               >
                 {initials(g.name)}
