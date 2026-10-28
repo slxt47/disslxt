@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { nameOf } from '../profile';
+import { conversationName } from '../profile';
+import { CreateGroupDialog, GroupAvatar } from './GroupDialogs';
 import { useChatStore } from '../store/chat';
 import { useVoiceStore } from '../store/voice';
 import { Avatar, Icon } from './Icon';
@@ -20,6 +22,7 @@ export function HomeSidebar({
   const unread = useChatStore((s) => s.unreadDms);
   const requests = useChatStore((s) => s.friends.filter((f) => f.status === 'incoming').length);
   const participants = useVoiceStore((s) => s.participants);
+  const [creating, setCreating] = useState(false);
 
   return (
     <div className="channel-sidebar home-sidebar">
@@ -50,6 +53,15 @@ export function HomeSidebar({
       <div className="sidebar-section">
         <div className="sidebar-heading-row">
           <h3 className="sidebar-heading">Unterhaltungen</h3>
+          <button
+            className="icon-btn"
+            data-testid="create-group-button"
+            aria-label="Neue Gruppe"
+            title="Neue Gruppe"
+            onClick={() => setCreating(true)}
+          >
+            <Icon name="plus" size={18} />
+          </button>
         </div>
         {dms.length === 0 ? (
           <p className="settings-hint sidebar-note">
@@ -59,7 +71,8 @@ export function HomeSidebar({
           <ul className="channels" data-testid="dm-list">
             {dms.map((dm) => {
               const id = dm.channel.id;
-              const name = nameOf(dm.peer);
+              const name = conversationName(dm);
+              const group = dm.channel.kind === 'group';
               const count = unread[id] ?? 0;
               const calling = (participants[id]?.length ?? 0) > 0;
               return (
@@ -67,14 +80,18 @@ export function HomeSidebar({
                   <Link
                     to={`/me/${id}`}
                     className={`channel-link dm-link${id === activeChannelId ? ' active' : ''}${count ? ' unread' : ''}`}
-                    data-testid={`dm-item-${dm.peer.username}`}
+                    data-testid={group ? `group-item-${id}` : `dm-item-${dm.peer.username}`}
                     aria-current={id === activeChannelId ? 'page' : undefined}
                     onClick={onNavigate}
                   >
-                    <span className={`member-avatar${dm.online ? ' online' : ''}`}>
-                      <Avatar name={name} url={dm.peer.avatarUrl} size="sm" />
-                      <span className="presence-dot" aria-hidden="true" />
-                    </span>
+                    {group ? (
+                      <GroupAvatar members={dm.members} />
+                    ) : (
+                      <span className={`member-avatar${dm.online ? ' online' : ''}`}>
+                        <Avatar name={name} url={dm.peer.avatarUrl} size="sm" />
+                        <span className="presence-dot" aria-hidden="true" />
+                      </span>
+                    )}
                     <span className="dm-name">{name}</span>
                     {calling && <Icon name="phone" size={14} />}
                     {count > 0 && (
@@ -89,6 +106,7 @@ export function HomeSidebar({
           </ul>
         )}
       </div>
+      {creating && <CreateGroupDialog onClose={() => setCreating(false)} />}
       <VoiceBar onNavigate={onNavigate} />
       <UserFooter onOpenSettings={onOpenSettings} />
     </div>

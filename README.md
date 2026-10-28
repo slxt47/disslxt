@@ -349,6 +349,25 @@ Sprachnachrichten, Bearbeiten und Löschen funktionieren also genau wie in Serve
 dürfen nur die beiden; schreiben und anrufen nur, solange sie befreundet sind (danach bleibt der
 Verlauf lesbar). Neue Nachrichten zählen als ungelesen (Zahl am „d“) und kommen als Mitteilung.
 
+## Gruppenchats
+
+Unter „Unterhaltungen“ → **+**: mindestens zwei Freunde wählen, optional ein Name. Bis zu 10 Personen;
+alle in der Gruppe können schreiben, Dateien/GIFs schicken und anrufen – auch wenn sie untereinander
+nicht befreundet sind. Jede:r darf umbenennen und **eigene** Freunde hinzufügen; entfernen kann nur,
+wer die Gruppe erstellt hat (verlässt diese Person die Gruppe, geht die Rolle weiter). Wer als Letztes
+geht, löscht die Gruppe samt Nachrichten und Dateien. Technisch: Kanäle der Art `group` ohne Server
+(`dm_members` für die Mitglieder, `channels.owner_id`). Bei einem Gruppenanruf klingelt es bei allen;
+annehmen oder ablehnen beendet nur das eigene Klingeln.
+
+## GIFs
+
+Knopf **GIF** im Eingabefeld: Suche (ohne Suchwort: Trends), antippen schickt das GIF. Die Suche läuft
+über den Server mit dem offiziellen GIPHY-API-Schlüssel (`GIPHY_API_KEY`, ohne Schlüssel kein Knopf),
+der Schlüssel erreicht nie den Browser. Ergebnisse werden 5 Minuten zwischengespeichert, Filter
+„pg-13“. Gespeichert wird nur die GIPHY-ID; die Browser laden das GIF (als kleines MP4) direkt von
+`media.giphy.com` – so verlangen es die GIPHY-Bedingungen (einbetten, nicht kopieren), und die CSP
+erlaubt genau diesen Host. Bei „Bewegung reduzieren“ laufen GIFs erst nach einem Tipp.
+
 ## Video- und Sprachanrufe
 
 In einer privaten Unterhaltung: Telefon- oder Kamera-Symbol oben rechts. Beim Gegenüber klingelt

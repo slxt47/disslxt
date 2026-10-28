@@ -112,6 +112,14 @@ export function ChatView({
     [channelId],
   );
 
+  const onSendGif = useCallback(
+    async (gif: { id: string }) => {
+      const { message } = await api.sendGif(channelId, gif.id);
+      useChatStore.getState().upsertMessage(message);
+    },
+    [channelId],
+  );
+
   const onEdit = useCallback(async (id: string, content: string) => {
     const { message } = await api.editMessage(id, content);
     useChatStore.getState().upsertMessage(message);
@@ -212,6 +220,7 @@ export function ChatView({
         target={target}
         onSend={onSend}
         onSendVoice={onSendVoice}
+        onSendGif={onSendGif}
       />
     </section>
   );

@@ -1,7 +1,7 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { and, desc, eq, lt } from 'drizzle-orm';
-import type { ListMessagesQuery, MessageDto, PublicUserDto } from '@disslxt/shared';
+import type { GifDto, ListMessagesQuery, MessageDto, PublicUserDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { channels, messages, users, type Channel } from '../db/schema.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
@@ -50,6 +50,24 @@ export class MessageService {
     await this.channels.publish(channel, { type: 'message.created', data: { message } });
     this.push.messageCreated(message);
     return message;
+  }
+
+  /** A GIF from GIPHY (already checked to exist); its title is the message text. */
+  async createGif(user: PublicUserDto, channel: Channel, gif: GifDto): Promise<MessageDto> {
+    const [row] = await this.db
+      .insert(messages)
+      .values({
+        channelId: channel.id,
+        authorId: user.id,
+        kind: 'gif',
+        content: gif.title.slice(0, 2000),
+        gifId: gif.id,
+        gifWidth: gif.width,
+        gifHeight: gif.height,
+      })
+      .returning();
+    if (!row) throw new Error('insert returned no row');
+    return this.published(channel, toMessageDto(row, user));
   }
 
   /** Stored file of a message, for readers of its channel only (404 / 403 otherwise). */
@@ -162,8 +180,8 @@ export class MessageService {
     if (msg.kind === 'voice') {
       throw new AppError('BAD_REQUEST', 400, 'Sprachnachrichten können nicht bearbeitet werden');
     }
-    if (msg.kind === 'file') {
-      throw new AppError('BAD_REQUEST', 400, 'Dateien können nicht bearbeitet werden');
+    if (msg.kind === 'file' || msg.kind === 'gif') {
+      throw new AppError('BAD_REQUEST', 400, 'Dateien und GIFs können nicht bearbeitet werden');
     }
     const [row] = await this.db
       .update(messages)

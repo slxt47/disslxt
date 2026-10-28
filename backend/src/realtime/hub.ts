@@ -216,7 +216,8 @@ export class Hub {
   joinVoice(
     client: Client,
     channel: { id: string; guildId: string | null },
-    opts: { video?: boolean; audience?: string[] } = {},
+    /** `audience`: private call (who hears about it); `group`: it is a group chat. */
+    opts: { video?: boolean; audience?: string[]; group?: boolean } = {},
   ): VoiceJoinResult {
     if (client.voice) this.leaveVoice(client, 'left');
     for (const other of this.socketsByUser.get(client.userId) ?? []) {
@@ -251,12 +252,16 @@ export class Hub {
     };
     for (const peer of existing) sendTo(peer, joined);
     this.broadcastVoiceState(channel.guildId, channel.id);
-    // Somebody picked up: stop the ringing on every device of the call's audience.
+    // Somebody picked up: stop the ringing – for everyone in a call of two, in a group only on
+    // the other devices of whoever joined (the rest may still join).
     if (!channel.guildId && existing.length > 0) {
-      this.publishToUsers(this.callAudience.get(channel.id) ?? [], {
-        type: 'call.ended',
-        data: { channelId: channel.id, reason: 'answered' },
-      });
+      this.publishToUsers(
+        opts.group ? [client.userId] : (this.callAudience.get(channel.id) ?? []),
+        {
+          type: 'call.ended',
+          data: { channelId: channel.id, reason: 'answered' },
+        },
+      );
     }
     return { ok: true, first: existing.length === 0 };
   }
@@ -286,6 +291,20 @@ export class Hub {
     for (const peer of room?.values() ?? []) sendTo(peer, left);
     sendTo(client, { type: 'voice.left', data: { channelId: voice.channelId, reason } });
     this.broadcastVoiceState(voice.guildId, voice.channelId, audience);
+  }
+
+  /** Someone left (or was removed from) a group: out of its call and its channel room. */
+  leaveConversation(userId: string, channelId: string): void {
+    for (const client of this.socketsByUser.get(userId) ?? []) {
+      if (client.voice?.channelId === channelId) this.leaveVoice(client, 'left');
+      if (client.channel?.id === channelId) this.unsubscribe(client);
+    }
+    const audience = this.callAudience.get(channelId);
+    if (audience)
+      this.callAudience.set(
+        channelId,
+        audience.filter((id) => id !== userId),
+      );
   }
 
   setVoiceVideo(client: Client, video: boolean): void {

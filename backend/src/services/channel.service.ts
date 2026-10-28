@@ -75,6 +75,16 @@ export class ChannelService {
     return channel;
   }
 
+  /**
+   * Who hears about a call in a private conversation: both friends of a 'dm' (only while still
+   * friends) or every member of a group. Undefined for server voice channels.
+   */
+  async callAudience(userId: string, channel: Channel): Promise<string[] | undefined> {
+    if (channel.kind === 'dm') return this.assertDmOpen(userId, channel);
+    if (channel.kind === 'group') return this.dmMemberIds(channel.id);
+    return undefined;
+  }
+
   /** Writing and calling in a private conversation: both must still be friends. */
   async assertDmOpen(userId: string, channel: Channel): Promise<string[]> {
     const members = await this.dmMemberIds(channel.id);
@@ -119,7 +129,8 @@ export class ChannelService {
 
   /** Delivers an event to everyone who reads the channel: its subscribers, or both DM members. */
   async publish(channel: Pick<Channel, 'id' | 'kind'>, msg: WsServerMessage): Promise<void> {
-    if (channel.kind === 'dm') this.hub.publishToUsers(await this.dmMemberIds(channel.id), msg);
-    else this.hub.publishToChannel(channel.id, msg);
+    if (channel.kind === 'dm' || channel.kind === 'group') {
+      this.hub.publishToUsers(await this.dmMemberIds(channel.id), msg);
+    } else this.hub.publishToChannel(channel.id, msg);
   }
 }

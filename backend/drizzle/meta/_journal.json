@@ -57,6 +57,13 @@
       "when": 1793213922318,
       "tag": "0007_profiles_friends_dms",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793216432529,
+      "tag": "0008_groups_and_gifs",
+      "breakpoints": true
     }
   ]
 }

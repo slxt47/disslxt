@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useChatStore } from '../store/chat';
 import { useVoiceStore } from '../store/voice';
 import { useVoice } from '../voice/VoiceProvider';
-import { nameOf } from '../profile';
+import { conversationName } from '../profile';
 import { Icon } from './Icon';
 
 /** Shown above the user footer while this tab is in a voice channel (from anywhere in the app). */
@@ -20,7 +20,7 @@ export function VoiceBar({ onNavigate }: { onNavigate: () => void }) {
   );
   if (!channelId) return null;
   const to = guildId ? `/guilds/${guildId}/channels/${channelId}` : `/me/${channelId}`;
-  const label = guildId ? (channel?.name ?? '') : dm ? `Anruf mit ${nameOf(dm.peer)}` : 'Anruf';
+  const label = guildId ? (channel?.name ?? '') : dm ? `Anruf: ${conversationName(dm)}` : 'Anruf';
   return (
     <div className="voice-bar" data-testid="voice-bar" data-status={status}>
       <Link to={to} className="voice-bar-info" onClick={onNavigate}>

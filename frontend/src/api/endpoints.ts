@@ -3,6 +3,7 @@ import type {
   ChannelKind,
   DmChannelDto,
   FriendDto,
+  GifDto,
   VoicePeerDto,
   GuildDto,
   InvitePreviewDto,
@@ -123,6 +124,25 @@ export const api = {
   removeFriend: (userId: string) => apiRequest<void>('DELETE', `/friends/${enc(userId)}`),
   listDms: () => apiRequest<{ dms: DmChannelDto[] }>('GET', '/dms'),
   openDm: (userId: string) => apiRequest<{ dm: DmChannelDto }>('POST', '/dms', { userId }),
+  createGroup: (userIds: string[], name?: string) =>
+    apiRequest<{ dm: DmChannelDto }>('POST', '/groups', { userIds, ...(name ? { name } : {}) }),
+  renameGroup: (channelId: string, name: string) =>
+    apiRequest<{ dm: DmChannelDto }>('PATCH', `/groups/${enc(channelId)}`, { name }),
+  addGroupMember: (channelId: string, userId: string) =>
+    apiRequest<{ dm: DmChannelDto }>('POST', `/groups/${enc(channelId)}/members`, { userId }),
+  /** `userId` 'me' leaves the group. */
+  removeGroupMember: (channelId: string, userId: string) =>
+    apiRequest<void>('DELETE', `/groups/${enc(channelId)}/members/${enc(userId)}`),
+
+  gifStatus: () => apiRequest<{ enabled: boolean }>('GET', '/gifs/status'),
+  searchGifs: (q: string, offset = 0) =>
+    apiRequest<{ gifs: GifDto[] }>(
+      'GET',
+      `/gifs/search?${new URLSearchParams({ ...(q ? { q } : {}), offset: String(offset) }).toString()}`,
+    ),
+  sendGif: (channelId: string, id: string) =>
+    apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/gifs`, { id }),
+
   callPeers: (channelId: string) =>
     apiRequest<{ peers: VoicePeerDto[] }>('GET', `/dms/${enc(channelId)}/call`),
 

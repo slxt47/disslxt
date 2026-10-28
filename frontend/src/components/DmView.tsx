@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { DmChannelDto } from '@disslxt/shared';
 import { api } from '../api/endpoints';
-import { nameOf } from '../profile';
+import { conversationName, nameOf } from '../profile';
 import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 import { usePrefs } from '../store/prefs';
@@ -9,6 +9,7 @@ import { useVoiceStore, type VoicePeerState } from '../store/voice';
 import { useVoice, voiceSupported } from '../voice/VoiceProvider';
 import { CallControls, CallTiles } from './CallTiles';
 import { ChatView } from './ChatView';
+import { GroupAvatar, GroupInfoDialog } from './GroupDialogs';
 import { Avatar, Icon } from './Icon';
 
 const EMPTY: never[] = [];
@@ -55,7 +56,9 @@ function CallPanel({ dm }: { dm: DmChannelDto }) {
       <CallTiles here={here} me={me} others={others} outsideLabel="Im Anruf" />
       {here && others.length === 0 && (
         <p className="call-note" data-testid="call-ringing">
-          Klingelt bei {nameOf(dm.peer)}…
+          {dm.channel.kind === 'group'
+            ? 'Klingelt bei den anderen…'
+            : `Klingelt bei ${nameOf(dm.peer)}…`}
         </p>
       )}
       {error && (
@@ -96,9 +99,13 @@ export function DmView({ dm, onOpenMenu }: { dm: DmChannelDto; onOpenMenu: () =>
   const channelId = dm.channel.id;
   const inCall = useVoiceStore((s) => s.channelId === channelId);
   const start = useStartCall();
+  const group = dm.channel.kind === 'group';
   const friend = useChatStore((s) =>
     s.friends.some((f) => f.user.id === dm.peer.id && f.status === 'friend'),
   );
+  // In a group everyone may write and call; between two only while still friends.
+  const open = group || friend;
+  const [info, setInfo] = useState(false);
   const supported = voiceSupported();
 
   // Reading it counts as read; and who is in its call right now (kept current by voice.state).
@@ -113,56 +120,73 @@ export function DmView({ dm, onOpenMenu }: { dm: DmChannelDto; onOpenMenu: () =>
     );
   }, [channelId]);
 
-  const name = nameOf(dm.peer);
+  const name = conversationName(dm);
   return (
-    <ChatView
-      channel={dm.channel}
-      onOpenMenu={onOpenMenu}
-      target={`@${name}`}
-      title={
-        <span className="dm-title">
-          <span className={`member-avatar${dm.online ? ' online' : ''}`}>
-            <Avatar name={name} url={dm.peer.avatarUrl} size="sm" />
-            <span className="presence-dot" aria-hidden="true" />
-          </span>
-          <span className="dm-title-name">{name}</span>
-          <span className="sr-only">{dm.online ? '(online)' : '(offline)'}</span>
-        </span>
-      }
-      headerActions={
-        friend && supported && !inCall ? (
+    <>
+      <ChatView
+        channel={dm.channel}
+        onOpenMenu={onOpenMenu}
+        target={group ? name : `@${name}`}
+        title={
+          group ? (
+            <button
+              type="button"
+              className="dm-title group-title"
+              data-testid="group-info-button"
+              title="Gruppe: Mitglieder und Name"
+              onClick={() => setInfo(true)}
+            >
+              <GroupAvatar members={dm.members} />
+              <span className="dm-title-name">{name}</span>
+              <span className="muted group-count">{dm.members.length + 1}</span>
+            </button>
+          ) : (
+            <span className="dm-title">
+              <span className={`member-avatar${dm.online ? ' online' : ''}`}>
+                <Avatar name={name} url={dm.peer.avatarUrl} size="sm" />
+                <span className="presence-dot" aria-hidden="true" />
+              </span>
+              <span className="dm-title-name">{name}</span>
+              <span className="sr-only">{dm.online ? '(online)' : '(offline)'}</span>
+            </span>
+          )
+        }
+        headerActions={
+          open && supported && !inCall ? (
+            <>
+              <button
+                className="icon-btn"
+                data-testid="call-start"
+                aria-label={`${name} anrufen`}
+                title="Anrufen"
+                onClick={() => start(channelId, false)}
+              >
+                <Icon name="phone" size={20} />
+              </button>
+              <button
+                className="icon-btn"
+                data-testid="call-start-video"
+                aria-label={`Videoanruf mit ${name}`}
+                title="Videoanruf"
+                onClick={() => start(channelId, true)}
+              >
+                <Icon name="video" size={20} />
+              </button>
+            </>
+          ) : null
+        }
+        top={
           <>
-            <button
-              className="icon-btn"
-              data-testid="call-start"
-              aria-label={`${name} anrufen`}
-              title="Anrufen"
-              onClick={() => start(channelId, false)}
-            >
-              <Icon name="phone" size={20} />
-            </button>
-            <button
-              className="icon-btn"
-              data-testid="call-start-video"
-              aria-label={`Videoanruf mit ${name}`}
-              title="Videoanruf"
-              onClick={() => start(channelId, true)}
-            >
-              <Icon name="video" size={20} />
-            </button>
+            {!open && (
+              <p className="call-note muted" data-testid="dm-readonly">
+                Ihr seid nicht mehr befreundet – die Unterhaltung kann nur noch gelesen werden.
+              </p>
+            )}
+            <CallPanel dm={dm} />
           </>
-        ) : null
-      }
-      top={
-        <>
-          {!friend && (
-            <p className="call-note muted" data-testid="dm-readonly">
-              Ihr seid nicht mehr befreundet – die Unterhaltung kann nur noch gelesen werden.
-            </p>
-          )}
-          <CallPanel dm={dm} />
-        </>
-      }
-    />
+        }
+      />
+      {info && <GroupInfoDialog dm={dm} onClose={() => setInfo(false)} />}
+    </>
   );
 }

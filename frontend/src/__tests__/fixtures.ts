@@ -23,6 +23,7 @@ export function msg(id: number | string, overrides: Partial<MessageDto> = {}): M
     content: `Nachricht ${id}`,
     audio: null,
     file: null,
+    gif: null,
     createdAt: '2026-10-20T12:00:00.000Z',
     editedAt: null,
     ...overrides,

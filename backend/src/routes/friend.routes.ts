@@ -1,5 +1,12 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { friendRequestSchema, openDmSchema, uuidSchema } from '@disslxt/shared';
+import {
+  addGroupMemberSchema,
+  createGroupSchema,
+  friendRequestSchema,
+  openDmSchema,
+  renameGroupSchema,
+  uuidSchema,
+} from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { notFound } from '../lib/errors.js';
 import { parse, parseParam } from '../lib/validate.js';
@@ -55,6 +62,39 @@ export async function friendRoutes(
     const { userId: peerId } = parse(openDmSchema, req.body);
     return { dm: await dms.open(currentUser(req).id, peerId) };
   });
+
+  // Group chats: start one with friends, rename, add people, remove / leave.
+  type GroupParams = { Params: { channelId: string; userId?: string } };
+  const groupId = (p: { channelId: string }) =>
+    parseParam(uuidSchema, p.channelId, () => notFound('Gruppe nicht gefunden'));
+
+  app.post('/groups', async (req, reply) => {
+    const { name, userIds } = parse(createGroupSchema, req.body);
+    return reply
+      .status(201)
+      .send({ dm: await dms.createGroup(currentUser(req).id, name, userIds) });
+  });
+
+  app.patch<GroupParams>('/groups/:channelId', async (req) => {
+    const { name } = parse(renameGroupSchema, req.body);
+    return { dm: await dms.renameGroup(currentUser(req).id, groupId(req.params), name) };
+  });
+
+  app.post<GroupParams>('/groups/:channelId/members', async (req) => {
+    const { userId: newId } = parse(addGroupMemberSchema, req.body);
+    return { dm: await dms.addMember(currentUser(req).id, groupId(req.params), newId) };
+  });
+
+  /** `me` leaves; anyone else is removed (owner only). */
+  app.delete<{ Params: { channelId: string; userId: string } }>(
+    '/groups/:channelId/members/:userId',
+    async (req, reply) => {
+      const me = currentUser(req).id;
+      const target = req.params.userId === 'me' ? me : userId(req.params);
+      await dms.removeMember(me, groupId(req.params), target);
+      return reply.status(204).send();
+    },
+  );
 
   /** Who is in the call of a private conversation right now. */
   app.get<{ Params: { channelId: string } }>('/dms/:channelId/call', async (req) => {

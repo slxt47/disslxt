@@ -151,11 +151,12 @@ export class PushService {
     if (!this.enabled) return;
     this.background(async () => {
       const [channel] = await this.db
-        .select({ kind: channels.kind })
+        .select({ kind: channels.kind, name: channels.name })
         .from(channels)
         .where(eq(channels.id, message.channelId))
         .limit(1);
-      if (channel?.kind === 'dm') return this.directMessage(message);
+      if (channel?.kind === 'dm') return this.directMessage(message, null);
+      if (channel?.kind === 'group') return this.directMessage(message, channel.name || 'Gruppe');
       const [ctx] = await this.db
         .select({ guildId: guilds.id, guildName: guilds.name, channelName: channels.name })
         .from(channels)
@@ -192,14 +193,17 @@ export class PushService {
     });
   }
 
-  /** Private message: the other person gets it (unless they are looking at it right now). */
-  private async directMessage(message: MessageDto): Promise<void> {
+  /**
+   * Private or group message: the others get it (unless they are looking at it right now).
+   * `group`: name of the group chat (title), null between two.
+   */
+  private async directMessage(message: MessageDto, group: string | null): Promise<void> {
     const to = (await this.dmPeers(message.channelId, message.author.id)).filter(
       (id) => !this.hub.isViewingChannel(id, message.channelId),
     );
     await this.sendToUsers(to, {
-      title: nameOf(message.author),
-      body: truncate(preview(message)),
+      title: group ?? nameOf(message.author),
+      body: truncate(group ? `${nameOf(message.author)}: ${preview(message)}` : preview(message)),
       url: `/me/${message.channelId}`,
       tag: `channel-${message.channelId}`,
     });
@@ -210,11 +214,12 @@ export class PushService {
     channelId: string,
     user: { id: string; username: string; displayName: string | null },
     video: boolean,
+    group: string | null = null,
   ): void {
     if (!this.enabled) return;
     this.background(async () => {
       await this.sendToUsers(await this.dmPeers(channelId, user.id), {
-        title: `${video ? '📹 Videoanruf' : '📞 Anruf'} von ${nameOf(user)}`,
+        title: `${video ? '📹 Videoanruf' : '📞 Anruf'} von ${nameOf(user)}${group ? ` in ${group}` : ''}`,
         body: 'Tippe, um ranzugehen.',
         url: `/me/${channelId}`,
         tag: `call-${channelId}`,
@@ -345,6 +350,7 @@ export class PushService {
 /** Short text for a message in a notification. */
 function preview(message: MessageDto): string {
   if (message.kind === 'voice') return '🎤 Sprachnachricht';
+  if (message.kind === 'gif') return '🎞️ GIF';
   if (message.kind === 'file') {
     return `${message.file?.isImage ? '🖼️ Bild' : '📎'} ${message.file?.name ?? ''}`.trim();
   }

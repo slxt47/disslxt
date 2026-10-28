@@ -2924,3 +2924,215 @@ a.brand-mark.active {
   );
   border-radius: 999px;
 }
+
+/* --- Group chats --- */
+.group-avatar {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 34px;
+  height: 28px;
+}
+.group-avatar .avatar {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  font-size: 0.5625rem;
+  box-shadow: 0 0 0 2px var(--bg-secondary);
+}
+.group-avatar .avatar:first-child {
+  top: 0;
+  left: 0;
+}
+.group-avatar .avatar:nth-child(2) {
+  right: 0;
+  bottom: 0;
+}
+.group-avatar.single .avatar {
+  inset: 0;
+  width: 28px;
+  height: 28px;
+  font-size: 0.6875rem;
+}
+button.group-title {
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+button.group-title:hover {
+  background: var(--fill);
+}
+.group-count {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.group-form {
+  display: grid;
+  gap: 14px;
+}
+.pick-list {
+  display: grid;
+  gap: 2px;
+  max-height: 46vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 0;
+}
+.pick-list legend {
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.pick-row:hover {
+  background: var(--fill);
+}
+.pick-row.on {
+  background: var(--accent-soft);
+}
+.pick-row input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+.pick-row .muted {
+  margin-left: auto;
+  font-size: 0.8125rem;
+}
+select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+}
+
+/* --- GIFs --- */
+.composer {
+  position: relative;
+}
+.gif-button {
+  width: auto;
+  min-width: 40px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.gif-picker {
+  position: absolute;
+  right: 18px;
+  bottom: calc(100% - 2px);
+  left: 18px;
+  z-index: 20;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  max-width: 460px;
+  height: min(440px, 60dvh);
+  margin-left: auto;
+  padding: 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  animation: rise-in var(--dur) var(--ease-out);
+}
+.gif-grid {
+  columns: 2 140px;
+  column-gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.gif-tile {
+  display: block;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 0;
+  overflow: hidden;
+  break-inside: avoid;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--fill);
+  cursor: pointer;
+}
+.gif-tile img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.gif-tile:hover,
+.gif-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.gif-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gif-attribution {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gif-message {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  margin: 4px 0 0;
+}
+.gif-message video {
+  display: block;
+  width: min(320px, 100%);
+  max-height: 320px;
+  border-radius: var(--radius);
+  background: var(--fill);
+  object-fit: cover;
+  cursor: pointer;
+}
+.gif-message figcaption {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+.gif-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .gif-picker {
+    right: 8px;
+    left: 8px;
+  }
+}

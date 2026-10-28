@@ -1,4 +1,11 @@
-import type { ChannelDto, GuildDto, MessageDto, PublicUserDto, UserDto } from '@disslxt/shared';
+import type {
+  ChannelDto,
+  GifDto,
+  GuildDto,
+  MessageDto,
+  PublicUserDto,
+  UserDto,
+} from '@disslxt/shared';
 import type { Channel, Guild, Message, User } from '../db/schema.js';
 
 /** The key changes with every upload, so the URL changes too and caches never show an old one. */
@@ -35,8 +42,18 @@ export const toChannelDto = (c: Channel): ChannelDto => ({
   id: c.id,
   guildId: c.guildId,
   name: c.name,
-  kind: c.kind === 'voice' || c.kind === 'dm' ? c.kind : 'text',
+  kind: c.kind === 'voice' || c.kind === 'dm' || c.kind === 'group' ? c.kind : 'text',
   createdAt: c.createdAt.toISOString(),
+});
+
+/** Embedded straight from GIPHY's CDN (their terms: embed, do not copy). */
+export const giphyGif = (id: string, width: number, height: number, title: string): GifDto => ({
+  id,
+  mp4: `https://media.giphy.com/media/${id}/giphy.mp4`,
+  webp: `https://media.giphy.com/media/${id}/200w.webp`,
+  width,
+  height,
+  title,
 });
 
 export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => ({
@@ -48,7 +65,7 @@ export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => (
     displayName: author.displayName,
     avatarUrl: author.avatarUrl,
   },
-  kind: m.kind === 'voice' || m.kind === 'file' ? m.kind : 'text',
+  kind: m.kind === 'voice' || m.kind === 'file' || m.kind === 'gif' ? m.kind : 'text',
   content: m.content,
   audio:
     m.kind === 'voice' && m.audioKey
@@ -66,6 +83,10 @@ export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => (
           size: m.fileSize ?? 0,
           isImage: (m.fileMime ?? '').startsWith('image/'),
         }
+      : null,
+  gif:
+    m.kind === 'gif' && m.gifId
+      ? giphyGif(m.gifId, m.gifWidth ?? 200, m.gifHeight ?? 200, m.content)
       : null,
   createdAt: m.createdAt.toISOString(),
   editedAt: m.editedAt ? m.editedAt.toISOString() : null,

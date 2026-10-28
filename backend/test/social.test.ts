@@ -351,3 +351,191 @@ describe('calls', () => {
     expect((await e.waitFor('error')).data.code).toBe('FORBIDDEN');
   });
 });
+
+describe('group chats', () => {
+  async function friendsWithAll() {
+    await befriend(alice, bob);
+    await befriend(alice, eve);
+  }
+  const create = (user: TestUser, userIds: string[], name?: string) =>
+    req(app, 'POST', '/api/groups', { cookie: user.cookie, payload: { name, userIds } });
+
+  it('only with friends, at least two; everyone gets it and the messages', async () => {
+    await befriend(alice, bob);
+    expect((await create(alice, [bob.user.id])).statusCode).toBe(400);
+    const notFriend = await create(alice, [bob.user.id, eve.user.id]);
+    expect(notFriend.statusCode).toBe(403);
+    expect(notFriend.json().error.code).toBe('NOT_FRIENDS');
+
+    await befriend(alice, eve);
+    const b = await open(bob);
+    const e = await open(eve);
+    const res = await create(alice, [bob.user.id, eve.user.id], 'Spieleabend');
+    expect(res.statusCode).toBe(201);
+    const dm = res.json().dm;
+    expect(dm.channel).toMatchObject({ kind: 'group', name: 'Spieleabend', guildId: null });
+    expect(dm.ownerId).toBe(alice.user.id);
+    expect(dm.members.map((m: { username: string }) => m.username).sort()).toEqual(['bob', 'eve']);
+    const seen = await b.waitFor('dm.updated', (ev) => ev.data.dm.channel.id === dm.channel.id);
+    expect(seen.data.dm.members.map((m: { username: string }) => m.username).sort()).toEqual([
+      'alice',
+      'eve',
+    ]);
+
+    // Bob and Eve are no friends of each other, but both can write in the group.
+    await sendMessage(app, bob, dm.channel.id, 'Hallo Gruppe');
+    expect((await e.waitFor('message.created')).data.message.content).toBe('Hallo Gruppe');
+    expect((await sendMessage(app, eve, dm.channel.id, 'Hi Bob')).statusCode).toBe(201);
+  });
+
+  it('rename, add a friend, owner removes, leaving passes on ownership, last one deletes', async () => {
+    await friendsWithAll();
+    const carol = await registerUser(app, { username: 'carol' });
+    await befriend(bob, carol);
+    const { dm } = (await create(alice, [bob.user.id, eve.user.id])).json();
+    const id = dm.channel.id as string;
+
+    const renamed = await req(app, 'PATCH', `/api/groups/${id}`, {
+      cookie: bob.cookie,
+      payload: { name: 'Neu' },
+    });
+    expect(renamed.json().dm.channel.name).toBe('Neu');
+
+    // Bob may only add his own friends.
+    const notHis = await req(app, 'POST', `/api/groups/${id}/members`, {
+      cookie: alice.cookie,
+      payload: { userId: carol.user.id },
+    });
+    expect(notHis.statusCode).toBe(403);
+    const added = await req(app, 'POST', `/api/groups/${id}/members`, {
+      cookie: bob.cookie,
+      payload: { userId: carol.user.id },
+    });
+    expect(added.json().dm.members).toHaveLength(3);
+
+    // Only the owner removes others.
+    const kick = await req(app, 'DELETE', `/api/groups/${id}/members/${carol.user.id}`, {
+      cookie: bob.cookie,
+    });
+    expect(kick.statusCode).toBe(403);
+    const c = await open(carol);
+    expect(
+      (
+        await req(app, 'DELETE', `/api/groups/${id}/members/${carol.user.id}`, {
+          cookie: alice.cookie,
+        })
+      ).statusCode,
+    ).toBe(204);
+    await c.waitFor('dm.removed', (ev) => ev.data.channelId === id);
+    const peek = await req(app, 'GET', `/api/channels/${id}/messages`, { cookie: carol.cookie });
+    expect(peek.statusCode).toBe(403);
+
+    // The owner leaves: someone else owns it now.
+    await req(app, 'DELETE', `/api/groups/${id}/members/me`, { cookie: alice.cookie });
+    const bobs = (await req(app, 'GET', '/api/dms', { cookie: bob.cookie })).json().dms;
+    expect(bobs[0].ownerId).not.toBe(alice.user.id);
+    expect(bobs[0].members).toHaveLength(1);
+
+    await req(app, 'DELETE', `/api/groups/${id}/members/me`, { cookie: bob.cookie });
+    await req(app, 'DELETE', `/api/groups/${id}/members/me`, { cookie: eve.cookie });
+    expect(
+      (await req(app, 'GET', `/api/channels/${id}/messages`, { cookie: eve.cookie })).statusCode,
+    ).toBe(404);
+  });
+
+  it('a group call rings everyone; picking up stops only your own ringing', async () => {
+    await friendsWithAll();
+    const { dm } = (await create(alice, [bob.user.id, eve.user.id], 'Runde')).json();
+    const channelId = dm.channel.id as string;
+    const a = await open(alice);
+    const b = await open(bob);
+    const e = await open(eve);
+    a.send({ type: 'voice.join', data: { channelId } });
+    expect((await b.waitFor('call.ring')).data.group).toBe('Runde');
+    await e.waitFor('call.ring');
+    b.send({ type: 'voice.join', data: { channelId } });
+    await b.waitFor('call.ended', (ev) => ev.data.reason === 'answered');
+    await new Promise((r) => setTimeout(r, 150));
+    expect(e.ofType('call.ended')).toHaveLength(0);
+    e.send({ type: 'call.decline', data: { channelId } });
+    await e.waitFor('call.ended', (ev) => ev.data.reason === 'declined');
+    await new Promise((r) => setTimeout(r, 150));
+    expect(a.ofType('call.ended')).toHaveLength(0);
+  });
+});
+
+describe('GIFs', () => {
+  const calls: string[] = [];
+  const fakeGiphy = (async (url: string | URL) => {
+    const u = new URL(String(url));
+    calls.push(u.pathname + u.search.replace(/api_key=[^&]+/, 'api_key=KEY'));
+    const item = (id: string) => ({
+      id,
+      title: `GIF ${id}`,
+      images: { original: { width: '480', height: '270' } },
+    });
+    if (u.pathname.endsWith('/trending') || u.pathname.endsWith('/search')) {
+      return new Response(
+        JSON.stringify({ data: [item('abc123'), item('def456'), { id: '../x' }] }),
+      );
+    }
+    const id = u.pathname.split('/').pop()!;
+    if (id === 'missing1') return new Response('{}', { status: 404 });
+    return new Response(JSON.stringify({ data: item(id) }));
+  }) as typeof fetch;
+
+  it('off without a key', async () => {
+    const res = await req(app, 'GET', '/api/gifs/status', { cookie: alice.cookie });
+    expect(res.json()).toEqual({ enabled: false });
+    expect((await req(app, 'GET', '/api/gifs/search', { cookie: alice.cookie })).statusCode).toBe(
+      503,
+    );
+  });
+
+  it('search through the server (key never leaves it), post one, embed from GIPHY', async () => {
+    await app.close();
+    calls.length = 0;
+    app = await buildTestApp({ giphyApiKey: 'secret-key' }, { giphyFetch: fakeGiphy });
+    const { general } = await createGuild(app, alice);
+
+    const search = await req(app, 'GET', '/api/gifs/search?q=Katze', { cookie: alice.cookie });
+    expect(search.statusCode).toBe(200);
+    expect(search.json().gifs.map((g: { id: string }) => g.id)).toEqual(['abc123', 'def456']);
+    expect(search.body).not.toContain('secret-key');
+    expect(calls[0]).toMatch(/\/v1\/gifs\/search\?.*q=katze/);
+    // Cached: the same search does not go to GIPHY again.
+    await req(app, 'GET', '/api/gifs/search?q=katze', { cookie: alice.cookie });
+    expect(calls).toHaveLength(1);
+
+    const sent = await req(app, 'POST', `/api/channels/${general.id}/gifs`, {
+      cookie: alice.cookie,
+      payload: { id: 'abc123' },
+    });
+    expect(sent.statusCode).toBe(201);
+    expect(sent.json().message).toMatchObject({
+      kind: 'gif',
+      content: 'GIF abc123',
+      gif: {
+        id: 'abc123',
+        mp4: 'https://media.giphy.com/media/abc123/giphy.mp4',
+        width: 480,
+        height: 270,
+      },
+    });
+    const missing = await req(app, 'POST', `/api/channels/${general.id}/gifs`, {
+      cookie: alice.cookie,
+      payload: { id: 'missing1' },
+    });
+    expect(missing.statusCode).toBe(404);
+    const bad = await req(app, 'POST', `/api/channels/${general.id}/gifs`, {
+      cookie: alice.cookie,
+      payload: { id: '../../x' },
+    });
+    expect(bad.statusCode).toBe(400);
+    const outsider = await req(app, 'POST', `/api/channels/${general.id}/gifs`, {
+      cookie: eve.cookie,
+      payload: { id: 'abc123' },
+    });
+    expect(outsider.statusCode).toBe(403);
+  });
+});

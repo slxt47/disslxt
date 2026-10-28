@@ -99,6 +99,7 @@ export interface ChatState {
   removeFriend: (userId: string) => void;
   setDms: (dms: DmChannelDto[]) => void;
   upsertDm: (dm: DmChannelDto) => void;
+  removeDm: (channelId: string) => void;
   /** New message in a private conversation: moves it up, optionally counting it as unread. */
   bumpDm: (channelId: string, at: string, unread: boolean) => void;
   markDmRead: (channelId: string) => void;
@@ -248,6 +249,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       dms: sortDms([...s.dms.filter((d) => d.channel.id !== dm.channel.id), dm]),
     })),
 
+  removeDm: (channelId) =>
+    set((s) => {
+      const unreadDms = { ...s.unreadDms };
+      delete unreadDms[channelId];
+      return { dms: s.dms.filter((d) => d.channel.id !== channelId), unreadDms };
+    }),
+
   bumpDm: (channelId, at, unread) =>
     set((s) => {
       if (!s.dms.some((d) => d.channel.id === channelId)) return {};
@@ -318,7 +326,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         set({
           membersByGuild,
           messagesByChannel,
-          dms: s.dms.map((d) => ({ ...d, peer: withProfile(d.peer, p) })),
+          dms: s.dms.map((d) => ({
+            ...d,
+            peer: withProfile(d.peer, p),
+            members: d.members.map((m) => withProfile(m, p)),
+          })),
           friends: s.friends.map((f) => ({ ...f, user: withProfile(f.user, p) })),
         });
         return;
@@ -333,12 +345,19 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         const { userId, online } = event.data;
         set({
           friends: s.friends.map((f) => (f.user.id === userId ? { ...f, online } : f)),
-          dms: s.dms.map((d) => (d.peer.id === userId ? { ...d, online } : d)),
+          // A conversation is "online" when anyone else in it is; for groups that needs the
+          // others' state, which only the server knows for non-friends – keep it for those.
+          dms: s.dms.map((d) =>
+            d.channel.kind === 'dm' && d.peer.id === userId ? { ...d, online } : d,
+          ),
         });
         return;
       }
       case 'dm.updated':
         s.upsertDm(event.data.dm);
+        return;
+      case 'dm.removed':
+        s.removeDm(event.data.channelId);
         return;
       case 'guild.deleted':
         s.removeGuild(event.data.guildId);

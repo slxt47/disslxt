@@ -32,7 +32,11 @@ export function FriendsView({ onOpenMenu }: { onOpenMenu: () => void }) {
   const shown =
     tab === 'requests'
       ? requests
-      : friends.filter((f) => f.status === 'friend' && (tab === 'all' || f.online));
+      : friends.filter((f) =>
+          tab === 'all'
+            ? f.status !== 'outgoing' // open requests to you stay visible on top
+            : f.status === 'friend' && f.online,
+        );
 
   async function add(e: FormEvent) {
     e.preventDefault();

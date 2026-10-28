@@ -29,6 +29,10 @@ export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 /** Pending friend requests one person can have open at a time (spam brake). */
 export const FRIEND_REQUESTS_MAX_PENDING = 50;
 
+/** Group chats: everyone in it, including yourself (calls stay a mesh of at most 6). */
+export const GROUP_MAX_MEMBERS = 10;
+export const GROUP_NAME_MAX_LEN = 32;
+
 /** Voice messages: longest recording and largest upload accepted. */
 export const VOICE_MAX_SECONDS = 120;
 export const VOICE_MAX_BYTES = 5 * 1024 * 1024;

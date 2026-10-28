@@ -26,8 +26,8 @@ export interface GuildDto {
   createdAt: string;
 }
 
-/** 'dm': a private conversation of two friends (text, files and calls). */
-export type ChannelKind = 'text' | 'voice' | 'dm';
+/** 'dm': a private conversation of two friends; 'group': a group chat (text, files and calls). */
+export type ChannelKind = 'text' | 'voice' | 'dm' | 'group';
 
 export interface ChannelDto {
   id: string;
@@ -53,7 +53,7 @@ export interface VoicePeerDto {
 
 export type MessageAuthorDto = PublicUserDto;
 
-export type MessageKind = 'text' | 'voice' | 'file';
+export type MessageKind = 'text' | 'voice' | 'file' | 'gif';
 
 export interface FileAttachmentDto {
   /** Same-origin URL, only readable by members of the guild. */
@@ -62,6 +62,17 @@ export interface FileAttachmentDto {
   size: number;
   /** Only real images (checked by their bytes) are shown inline; everything else downloads. */
   isImage: boolean;
+}
+
+/** A GIF from GIPHY: embedded from GIPHY's servers, never copied to ours. */
+export interface GifDto {
+  id: string;
+  /** Short looping video (smaller than the .gif) and a still/animated WebP fallback. */
+  mp4: string;
+  webp: string;
+  width: number;
+  height: number;
+  title: string;
 }
 
 export interface VoiceAudioDto {
@@ -81,6 +92,7 @@ export interface MessageDto {
   content: string;
   audio: VoiceAudioDto | null;
   file: FileAttachmentDto | null;
+  gif: GifDto | null;
   createdAt: string;
   editedAt: string | null;
 }
@@ -104,10 +116,19 @@ export interface FriendDto {
   since: string;
 }
 
-/** A private conversation with one friend. */
+/**
+ * A private conversation: with one friend (kind 'dm') or a group chat (kind 'group', its name is
+ * channel.name, empty = not named yet).
+ */
 export interface DmChannelDto {
   channel: ChannelDto;
+  /** The other person; in a group the first other member. */
   peer: PublicUserDto;
+  /** Everyone else in the conversation (one person in a 'dm'). */
+  members: PublicUserDto[];
+  /** Group chats: may rename and remove people. Null for a 'dm'. */
+  ownerId: string | null;
+  /** The other person (or anyone else in a group) is online. */
   online: boolean;
   /** Newest message, for sorting the list (null: nothing written yet). */
   lastMessageAt: string | null;

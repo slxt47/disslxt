@@ -581,7 +581,7 @@ describe('TURN metering', () => {
   it('calls: a ring shows up, ending it clears it; a declined call is left', async () => {
     const { client, sent } = setup();
     const from = { id: 'u-bob', username: 'bob', displayName: 'Bob', avatarUrl: null };
-    client.handle({ type: 'call.ring', data: { channelId: CH, from, video: true } });
+    client.handle({ type: 'call.ring', data: { channelId: CH, from, video: true, group: null } });
     expect(useVoiceStore.getState().incoming).toMatchObject({ channelId: CH, video: true });
     client.handle({ type: 'call.ended', data: { channelId: CH, reason: 'cancelled' } });
     expect(useVoiceStore.getState().incoming).toBeNull();

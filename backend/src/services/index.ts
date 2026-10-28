@@ -14,6 +14,7 @@ import { IceService } from './ice.service.js';
 import { PushService } from './push.service.js';
 import { TurnUsageService } from './turnUsage.service.js';
 import { UserService } from './user.service.js';
+import { GifService } from './gif.service.js';
 import type { PushSender } from '../lib/push.js';
 
 export interface Services {
@@ -27,6 +28,7 @@ export interface Services {
   friends: FriendService;
   dms: DmService;
   users: UserService;
+  gifs: GifService;
 }
 
 export function createServices(
@@ -36,6 +38,7 @@ export function createServices(
   mailer: Mailer,
   log: FastifyBaseLogger,
   pushSender: PushSender | null,
+  opts: { fetchFn?: typeof fetch } = {},
 ): Services {
   const auth = new AuthService(db, config, mailer, log);
   const push = new PushService(db, hub, config, pushSender, log);
@@ -48,11 +51,15 @@ export function createServices(
     images,
   );
   const friends = new FriendService(db, hub);
-  const dms = new DmService(db, hub, friends);
+  const dms = new DmService(db, hub, friends, {
+    voiceDir: config.voice.dir,
+    fileDir: config.files.dir,
+  });
+  const gifs = new GifService(config.giphyApiKey, opts.fetchFn ?? fetch);
   const users = new UserService(db, hub, guilds, friends, images);
   const channels = new ChannelService(db, hub, guilds, friends);
   const messages = new MessageService(db, hub, channels, push, config.voice.dir, config.files.dir);
   const turnUsage = new TurnUsageService(db, config.ice.monthlyLimitBytes);
   const ice = new IceService(config, log, fetch, async () => (await turnUsage.status()).exhausted);
-  return { auth, guilds, channels, messages, push, ice, turnUsage, friends, dms, users };
+  return { auth, guilds, channels, messages, push, ice, turnUsage, friends, dms, users, gifs };
 }

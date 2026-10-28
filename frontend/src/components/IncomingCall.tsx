@@ -52,6 +52,12 @@ export function IncomingCall() {
   const navigate = useNavigate();
   const start = useStartCall();
   useRingtone(!!incoming);
+  // Nobody picks up: stop ringing after 45 s (the call itself goes on).
+  useEffect(() => {
+    if (!incoming) return;
+    const t = setTimeout(() => useVoiceStore.setState({ incoming: null }), 45_000);
+    return () => clearTimeout(t);
+  }, [incoming]);
   if (!incoming) return null;
   const name = nameOf(incoming.from);
 
@@ -76,7 +82,10 @@ export function IncomingCall() {
       <Avatar name={name} url={incoming.from.avatarUrl} size="lg" />
       <div className="incoming-text">
         <strong>{name}</strong>
-        <span>{incoming.video ? 'Videoanruf…' : 'Ruft an…'}</span>
+        <span>
+          {incoming.video ? 'Videoanruf' : 'Ruft an'}
+          {incoming.group ? ` in ${incoming.group}` : ''}…
+        </span>
       </div>
       <div className="incoming-actions">
         <button

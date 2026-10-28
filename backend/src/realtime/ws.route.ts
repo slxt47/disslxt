@@ -170,11 +170,14 @@ export async function wsRoutes(
         const { channelId } = msg.data;
         try {
           const channel = await services.channels.assertAccess(client.userId, channelId);
-          if (channel.kind !== 'dm') return;
-          hub.publishToUsers(await services.channels.dmMemberIds(channelId), {
-            type: 'call.ended',
-            data: { channelId, reason: 'declined' },
-          });
+          if (channel.kind !== 'dm' && channel.kind !== 'group') return;
+          // In a group, declining only stops your own ringing; between two it ends the call.
+          hub.publishToUsers(
+            channel.kind === 'group'
+              ? [client.userId]
+              : await services.channels.dmMemberIds(channelId),
+            { type: 'call.ended', data: { channelId, reason: 'declined' } },
+          );
         } catch {
           // Not your conversation: nothing to decline.
         }
@@ -189,7 +192,7 @@ export async function wsRoutes(
         const { channelId } = msg.data;
         try {
           const channel = await services.channels.assertAccess(client.userId, channelId);
-          if (channel.kind !== 'voice' && channel.kind !== 'dm') {
+          if (channel.kind === 'text') {
             sendTo(client, {
               type: 'error',
               data: { code: 'BAD_REQUEST', channelId, message: 'Kein Sprachkanal' },
@@ -197,13 +200,11 @@ export async function wsRoutes(
             return;
           }
           // Calls in a private conversation: only between friends; both hear about it.
-          const audience =
-            channel.kind === 'dm'
-              ? await services.channels.assertDmOpen(client.userId, channel)
-              : undefined;
+          const audience = await services.channels.callAudience(client.userId, channel);
           if (client.socket.readyState !== client.socket.OPEN) return;
           const video = !!msg.data.video;
-          const result = hub.joinVoice(client, channel, { video, audience });
+          const group = channel.kind === 'group';
+          const result = hub.joinVoice(client, channel, { video, audience, group });
           if (!result.ok) {
             sendTo(client, {
               type: 'error',
@@ -220,9 +221,17 @@ export async function wsRoutes(
             };
             hub.publishToUsers(
               audience.filter((id) => id !== client.userId),
-              { type: 'call.ring', data: { channelId, from, video } },
+              {
+                type: 'call.ring',
+                data: { channelId, from, video, group: group ? channel.name || 'Gruppe' : null },
+              },
             );
-            services.push.callStarted(channelId, from, video);
+            services.push.callStarted(
+              channelId,
+              from,
+              video,
+              group ? channel.name || 'Gruppe' : null,
+            );
           } else if (result.first) {
             services.push.voiceStarted(channelId, {
               id: client.userId,

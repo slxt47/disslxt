@@ -2,6 +2,8 @@ import { z } from 'zod';
 import {
   CHANNEL_NAME_MAX_LEN,
   DISPLAY_NAME_MAX_LEN,
+  GROUP_MAX_MEMBERS,
+  GROUP_NAME_MAX_LEN,
   EMAIL_MAX_LEN,
   GUILD_NAME_MAX_LEN,
   MESSAGE_MAX_LEN,
@@ -115,6 +117,38 @@ export type FriendRequestInput = z.infer<typeof friendRequestSchema>;
 /** Opens (or creates) the private conversation with a friend. */
 export const openDmSchema = z.object({ userId: z.guid() });
 export type OpenDmInput = z.infer<typeof openDmSchema>;
+
+const groupNameSchema = z
+  .string()
+  .trim()
+  .refine(
+    (s) => textLength(s) <= GROUP_NAME_MAX_LEN,
+    `Name darf höchstens ${GROUP_NAME_MAX_LEN} Zeichen haben`,
+  )
+  .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Name enthält unzulässige Steuerzeichen');
+
+/** New group chat with friends (you count as one of the members). */
+export const createGroupSchema = z.object({
+  name: groupNameSchema.optional(),
+  userIds: z
+    .array(z.guid())
+    .min(2, 'Wähle mindestens zwei Freunde – für eine Person gibt es den privaten Chat')
+    .max(GROUP_MAX_MEMBERS - 1, `Höchstens ${GROUP_MAX_MEMBERS} Personen pro Gruppe`)
+    .refine((ids) => new Set(ids).size === ids.length, 'Jede Person nur einmal'),
+});
+export type CreateGroupInput = z.infer<typeof createGroupSchema>;
+
+/** Empty name: the group is shown with its members' names. */
+export const renameGroupSchema = z.object({ name: groupNameSchema });
+export const addGroupMemberSchema = z.object({ userId: z.guid() });
+
+/** GIPHY ids are short alphanumeric strings. */
+export const gifIdSchema = z.string().regex(/^[A-Za-z0-9]{4,64}$/, 'Ungültige GIF-ID');
+export const sendGifSchema = z.object({ id: gifIdSchema });
+export const gifSearchQuery = z.object({
+  q: z.string().trim().max(50).optional(),
+  offset: z.coerce.number().int().min(0).max(499).default(0),
+});
 
 /** Normalises a channel name: trimmed, lowercased, whitespace runs become "-". */
 export function normalizeChannelName(name: string): string {

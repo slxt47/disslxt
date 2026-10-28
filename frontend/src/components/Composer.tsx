@@ -3,6 +3,8 @@ import { MESSAGE_MAX_LEN, textLength, VOICE_MAX_SECONDS } from '@disslxt/shared'
 import { ApiRequestError, errorMessage } from '../api/client';
 import { useDictation } from '../speech/useDictation';
 import { formatDuration, useVoiceRecorder } from '../speech/useVoiceRecorder';
+import type { GifDto } from '@disslxt/shared';
+import { GifPicker, useGifsEnabled } from './Gif';
 import { Icon } from './Icon';
 
 export interface ComposerProps {
@@ -14,6 +16,8 @@ export interface ComposerProps {
   onSendVoice?: (audio: Blob, durationMs: number) => Promise<void>;
   /** Files picked, pasted or dropped; without it there is no attach button. */
   onAttachFiles?: (files: File[]) => void;
+  /** Posts a GIF from the picker; without it (or without a GIPHY key) there is no GIF button. */
+  onSendGif?: (gif: GifDto) => Promise<void>;
 }
 
 /** Counter appears this many characters before the limit. */
@@ -30,7 +34,10 @@ export function Composer({
   onSend,
   onSendVoice,
   onAttachFiles,
+  onSendGif,
 }: ComposerProps) {
+  const gifsEnabled = useGifsEnabled();
+  const [gifOpen, setGifOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
@@ -113,6 +120,16 @@ export function Composer({
         void submit();
       }}
     >
+      {gifOpen && onSendGif && (
+        <GifPicker
+          onClose={() => setGifOpen(false)}
+          onPick={(gif) => {
+            setGifOpen(false);
+            setError(null);
+            onSendGif(gif).catch((err: unknown) => setError(errorMessage(err)));
+          }}
+        />
+      )}
       {(error ?? dictation.error ?? recorder.error) && (
         <p className="composer-error" role="alert" data-testid="composer-error">
           {error ?? dictation.error ?? recorder.error}
@@ -178,6 +195,19 @@ export function Composer({
                 }}
               />
             </>
+          )}
+          {onSendGif && gifsEnabled && (
+            <button
+              type="button"
+              className={`icon-btn composer-tool gif-button${gifOpen ? ' active' : ''}`}
+              data-testid="gif-button"
+              aria-label="GIF senden"
+              aria-expanded={gifOpen}
+              title="GIF senden"
+              onClick={() => setGifOpen((o) => !o)}
+            >
+              GIF
+            </button>
           )}
           <textarea
             ref={ref}

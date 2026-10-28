@@ -99,10 +99,16 @@ export type WsServerMessage =
   /** Friendship ended, or a request was declined / withdrawn. */
   | { type: 'friend.removed'; data: { userId: string } }
   | { type: 'friend.presence'; data: { userId: string; online: boolean } }
-  /** A private conversation was opened or has new activity. */
+  /** A private conversation or group was opened, renamed or its members changed. */
   | { type: 'dm.updated'; data: { dm: DmChannelDto } }
+  /** You left a group or were removed from it. */
+  | { type: 'dm.removed'; data: { channelId: string } }
   /** A friend started a call in your private conversation. */
-  | { type: 'call.ring'; data: { channelId: string; from: PublicUserDto; video: boolean } }
+  | {
+      type: 'call.ring';
+      /** `group`: name of the group chat (null in a private conversation of two). */
+      data: { channelId: string; from: PublicUserDto; video: boolean; group: string | null };
+    }
   /** The call stopped ringing: the other side declined, joined on another device, or hung up. */
   | {
       type: 'call.ended';

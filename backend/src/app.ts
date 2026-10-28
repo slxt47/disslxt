@@ -24,6 +24,7 @@ import { fileRoutes } from './routes/file.routes.js';
 import { voiceRoutes } from './routes/voice.routes.js';
 import { friendRoutes } from './routes/friend.routes.js';
 import { userRoutes } from './routes/user.routes.js';
+import { gifRoutes } from './routes/gif.routes.js';
 import { createServices, type Services } from './services/index.js';
 
 declare module 'fastify' {
@@ -46,6 +47,8 @@ export interface BuildAppOptions {
   pushSender?: PushSender | null;
   /** Override voice-message conversion (tests). Default from VOICE_TRANSCODE. */
   transcoder?: Transcoder;
+  /** fetch for the GIPHY API (tests pass a fake). */
+  giphyFetch?: typeof fetch;
   /** Hook to register extra routes before the app is ready (used by tests). */
   extraRoutes?: (app: FastifyInstance) => void | Promise<void>;
 }
@@ -93,7 +96,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
           ? new MemoryPushSender()
           : new WebPushSender(config.push)
         : null;
-  const services = createServices(db, hub, config, mailer, app.log, pushSender);
+  const services = createServices(db, hub, config, mailer, app.log, pushSender, {
+    fetchFn: opts.giphyFetch,
+  });
   app.decorate('hub', hub);
   app.decorate('services', services);
   app.decorate('mailer', mailer);
@@ -158,6 +163,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         await protectedApi.register(fileRoutes, { services, config });
         await protectedApi.register(userRoutes, { services, config });
         await protectedApi.register(friendRoutes, { services, config });
+        await protectedApi.register(gifRoutes, { services, config });
         await protectedApi.register(voiceRoutes, {
           services,
           config,

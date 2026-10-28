@@ -129,14 +129,17 @@ export const channels = pgTable(
     kind: varchar('kind', { length: 16 }).notNull().default('text'),
     /** Direct messages: both user ids, sorted and joined by ':' (one conversation per pair). */
     dmKey: varchar('dm_key', { length: 80 }).unique('channels_dm_key_uq'),
+    /** Group chats: who started it (may rename, add and remove people); passes on when they leave. */
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
   (t) => [
     unique('channels_guild_id_name_uq').on(t.guildId, t.name),
     index('channels_guild_id_idx').on(t.guildId),
+    // Private conversations ('dm', 'group') have no guild; only a 'dm' has a pair key.
     check(
       'channels_dm_shape_chk',
-      sql`(${t.kind} = 'dm') = (${t.guildId} is null and ${t.dmKey} is not null)`,
+      sql`(${t.kind} in ('dm', 'group')) = (${t.guildId} is null) and (${t.kind} = 'dm') = (${t.dmKey} is not null)`,
     ),
   ],
 );
@@ -208,13 +211,17 @@ export const messages = pgTable(
     fileName: varchar('file_name', { length: 255 }),
     fileSize: integer('file_size'),
     fileMime: varchar('file_mime', { length: 64 }),
+    /** GIFs: the GIPHY id (embedded from GIPHY, never stored here) and its size for the layout. */
+    gifId: varchar('gif_id', { length: 64 }),
+    gifWidth: integer('gif_width'),
+    gifHeight: integer('gif_height'),
     createdAt: createdAt(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
   },
   (t) => [
     check(
       'messages_content_len_chk',
-      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000)`,
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000)`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
   ],

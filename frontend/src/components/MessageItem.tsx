@@ -5,6 +5,7 @@ import { speak, spokenText, ttsSupported } from '../speech/tts';
 import { usePrefs } from '../store/prefs';
 import { isSubmitKey } from './Composer';
 import { FileAttachment } from './FileAttachment';
+import { GifView } from './Gif';
 import { VoicePlayer } from './VoicePlayer';
 import { Avatar, Icon } from './Icon';
 import { nameOf } from '../profile';
@@ -186,6 +187,8 @@ function MessageItemImpl({
         <VoicePlayer audio={message.audio} />
       ) : message.kind === 'file' && message.file ? (
         <FileAttachment file={message.file} />
+      ) : message.kind === 'gif' && message.gif ? (
+        <GifView gif={message.gif} />
       ) : (
         <div className="message-content" data-testid="message-content">
           {message.content}

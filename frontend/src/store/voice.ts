@@ -23,7 +23,7 @@ export interface VoiceState {
   /** Remote audio+video per participant (for the video tiles). */
   streams: Record<string, MediaStream>;
   /** A friend is calling (private conversation), shown until answered, declined or ended. */
-  incoming: { channelId: string; from: PublicUserDto; video: boolean } | null;
+  incoming: { channelId: string; from: PublicUserDto; video: boolean; group: string | null } | null;
   /** Other participants of the channel this tab is in, with their WebRTC state. */
   peers: Record<string, VoicePeerState>;
   /** Everyone in every voice channel of the loaded guilds (for the channel list). */
