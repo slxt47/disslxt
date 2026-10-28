@@ -4,6 +4,11 @@ import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { ChannelSidebar } from '../components/ChannelSidebar';
 import { ChatView } from '../components/ChatView';
+import { DmView } from '../components/DmView';
+import { FriendsView } from '../components/FriendsView';
+import { HomeSidebar } from '../components/HomeSidebar';
+import { IncomingCall } from '../components/IncomingCall';
+import { ProfileSettings } from '../components/ProfileSettings';
 import { ConnectionBanner } from '../components/ConnectionBanner';
 import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
@@ -25,6 +30,11 @@ import { usePrefs } from '../store/prefs';
 export function AppLayout() {
   const { guildId = null, channelId = null } = useParams();
   const location = useLocation();
+  /** Friends and private conversations (/me, /me/:channelId). */
+  const home = location.pathname === '/me' || location.pathname.startsWith('/me/');
+  const dms = useChatStore((s) => s.dms);
+  const dmsLoaded = useChatStore((s) => s.dmsLoaded);
+  const dm = home && channelId ? (dms.find((d) => d.channel.id === channelId) ?? null) : null;
   const guilds = useChatStore((s) => s.guilds);
   const guildsLoaded = useChatStore((s) => s.guildsLoaded);
   const channels = useChatStore((s) => (guildId ? s.channelsByGuild[guildId] : undefined));
@@ -46,6 +56,23 @@ export function AppLayout() {
         useChatStore.getState().setGuilds([]);
       },
     );
+  }, []);
+
+  // Friends and private conversations (once per session; refreshed on reconnect).
+  useEffect(() => {
+    const chat = useChatStore.getState();
+    if (!chat.friendsLoaded) {
+      api.listFriends().then(
+        (r) => useChatStore.getState().setFriends(r.friends),
+        () => useChatStore.getState().setFriends([]),
+      );
+    }
+    if (!chat.dmsLoaded) {
+      api.listDms().then(
+        (r) => useChatStore.getState().setDms(r.dms),
+        () => useChatStore.getState().setDms([]),
+      );
+    }
   }, []);
 
   // Channels + members of the active guild.
@@ -75,12 +102,12 @@ export function AppLayout() {
 
   useEffect(() => {
     activeView.guildId = guild ? guildId : null;
-    activeView.channelId = channel ? channelId : null;
+    activeView.channelId = channel || dm ? channelId : null;
     return () => {
       activeView.guildId = null;
       activeView.channelId = null;
     };
-  }, [guild, guildId, channel, channelId]);
+  }, [guild, guildId, channel, dm, channelId]);
 
   // Picking a channel (or any navigation) closes the drawer.
   useEffect(() => {
@@ -95,8 +122,11 @@ export function AppLayout() {
     );
   }
 
-  // Redirects: "/" → first guild; unknown guild → "/"; guild without channel → first channel.
-  if (!guildId) {
+  // Redirects: "/" → first guild; unknown guild → "/"; guild without channel → first channel;
+  // unknown private conversation → friends.
+  if (home) {
+    if (channelId && dmsLoaded && !dm) return <Navigate to="/me" replace />;
+  } else if (!guildId) {
     const first = guilds[0];
     if (first) return <Navigate to={`/guilds/${first.id}`} replace />;
   } else if (!guild) {
@@ -111,18 +141,29 @@ export function AppLayout() {
   }
 
   return (
-    <div className={`app-layout${guild && showMembers ? ' has-guild' : ''}`}>
+    <div className={`app-layout${guild && showMembers && !home ? ' has-guild' : ''}`}>
       <div className={`nav-drawer${drawerOpen ? ' open' : ''}`} data-testid="mobile-drawer">
-        <ServerList activeGuildId={guildId} />
-        <ChannelSidebar
-          guild={guild}
-          activeChannelId={channelId}
-          onNavigate={() => setDrawerOpen(false)}
-          onOpenSettings={() => {
-            setDrawerOpen(false);
-            setSettingsOpen(true);
-          }}
-        />
+        <ServerList activeGuildId={home ? null : guildId} home={home} />
+        {home ? (
+          <HomeSidebar
+            activeChannelId={dm ? channelId : null}
+            onNavigate={() => setDrawerOpen(false)}
+            onOpenSettings={() => {
+              setDrawerOpen(false);
+              setSettingsOpen(true);
+            }}
+          />
+        ) : (
+          <ChannelSidebar
+            guild={guild}
+            activeChannelId={channelId}
+            onNavigate={() => setDrawerOpen(false)}
+            onOpenSettings={() => {
+              setDrawerOpen(false);
+              setSettingsOpen(true);
+            }}
+          />
+        )}
       </div>
       {drawerOpen && (
         <div
@@ -133,7 +174,15 @@ export function AppLayout() {
       )}
 
       <main className="main-pane">
-        {channel?.kind === 'voice' ? (
+        {home ? (
+          dm ? (
+            <DmView key={dm.channel.id} dm={dm} onOpenMenu={() => setDrawerOpen(true)} />
+          ) : channelId ? (
+            <div className="empty-state muted">Lädt…</div>
+          ) : (
+            <FriendsView onOpenMenu={() => setDrawerOpen(true)} />
+          )
+        ) : channel?.kind === 'voice' ? (
           <VoiceChannelView channel={channel} onOpenMenu={() => setDrawerOpen(true)} />
         ) : channel ? (
           <ChatView
@@ -177,13 +226,15 @@ export function AppLayout() {
         )}
       </main>
 
-      {guild && showMembers && <MemberList guildId={guild.id} />}
+      {guild && showMembers && !home && <MemberList guildId={guild.id} />}
+      <IncomingCall />
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}
       {settingsOpen && (
         <SettingsDialog
           onClose={() => setSettingsOpen(false)}
           extra={
             <>
+              <ProfileSettings />
               <AppearanceSettings />
               <SpeechSettings />
               <VoiceSettings />

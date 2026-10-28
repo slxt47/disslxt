@@ -25,12 +25,20 @@ export const users = pgTable(
     email: varchar('email', { length: 254 }).notNull(),
     username: varchar('username', { length: 32 }).notNull(),
     passwordHash: text('password_hash').notNull(),
+    /** Shown instead of the username where set (profile settings). */
+    displayName: varchar('display_name', { length: 32 }),
+    /** Profile picture: file name in UPLOAD_DIR/avatars (a new name per upload busts caches). */
+    avatarKey: varchar('avatar_key', { length: 64 }),
     // Accounts are only created once the address is confirmed, so this is always set for new
     // users; the migration backfills accounts that existed before verification was introduced.
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('users_email_lower_uq').on(sql`lower(${t.email})`)],
+  (t) => [
+    uniqueIndex('users_email_lower_uq').on(sql`lower(${t.email})`),
+    // Friends are added by username, so it must name exactly one person.
+    uniqueIndex('users_username_lower_uq').on(sql`lower(${t.username})`),
+  ],
 );
 
 /**
@@ -89,6 +97,8 @@ export const guilds = pgTable('guilds', {
     .notNull()
     .references(() => users.id),
   inviteCode: varchar('invite_code', { length: 16 }).notNull().unique('guilds_invite_code_uq'),
+  /** Server picture: file name in UPLOAD_DIR/avatars (set by the owner). */
+  iconKey: varchar('icon_key', { length: 64 }),
   createdAt: createdAt(),
 });
 
@@ -113,16 +123,67 @@ export const channels = pgTable(
   'channels',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    guildId: uuid('guild_id')
-      .notNull()
-      .references(() => guilds.id, { onDelete: 'cascade' }),
+    /** Null for direct messages (kind 'dm'), which belong to two friends instead of a guild. */
+    guildId: uuid('guild_id').references(() => guilds.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 32 }).notNull(),
     kind: varchar('kind', { length: 16 }).notNull().default('text'),
+    /** Direct messages: both user ids, sorted and joined by ':' (one conversation per pair). */
+    dmKey: varchar('dm_key', { length: 80 }).unique('channels_dm_key_uq'),
     createdAt: createdAt(),
   },
   (t) => [
     unique('channels_guild_id_name_uq').on(t.guildId, t.name),
     index('channels_guild_id_idx').on(t.guildId),
+    check(
+      'channels_dm_shape_chk',
+      sql`(${t.kind} = 'dm') = (${t.guildId} is null and ${t.dmKey} is not null)`,
+    ),
+  ],
+);
+
+/** The two participants of a direct-message channel. */
+export const dmMembers = pgTable(
+  'dm_members',
+  {
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.channelId, t.userId] }),
+    index('dm_members_user_id_idx').on(t.userId),
+  ],
+);
+
+/**
+ * Friendship between two users. A request is a 'pending' row from requester to addressee; once
+ * accepted both are friends. At most one row per pair, whichever direction it was sent in.
+ */
+export const friendships = pgTable(
+  'friendships',
+  {
+    requesterId: uuid('requester_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    addresseeId: uuid('addressee_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 16 }).notNull().default('pending'),
+    createdAt: createdAt(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.requesterId, t.addresseeId] }),
+    uniqueIndex('friendships_pair_uq').on(
+      sql`least(${t.requesterId}, ${t.addresseeId})`,
+      sql`greatest(${t.requesterId}, ${t.addresseeId})`,
+    ),
+    index('friendships_addressee_idx').on(t.addresseeId),
+    check('friendships_not_self_chk', sql`${t.requesterId} <> ${t.addresseeId}`),
+    check('friendships_status_chk', sql`${t.status} in ('pending', 'accepted')`),
   ],
 );
 

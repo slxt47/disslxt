@@ -1,5 +1,15 @@
 import { create } from 'zustand';
-import type { ChannelDto, GuildDto, MemberDto, MessageDto, WsServerMessage } from '@disslxt/shared';
+import type {
+  ChannelDto,
+  DmChannelDto,
+  FriendDto,
+  GuildDto,
+  MemberDto,
+  MessageDto,
+  PublicUserDto,
+  WsServerMessage,
+} from '@disslxt/shared';
+import { nameOf } from '../profile';
 import type { ConnectionStatus } from '../realtime/socket';
 
 /** Compares decimal bigint ids without BigInt (ids have no leading zeros). */
@@ -19,8 +29,29 @@ export function mergeMessages(existing: MessageDto[], incoming: MessageDto[]): M
 function sortMembers(members: MemberDto[]): MemberDto[] {
   return [...members].sort((a, b) => {
     if (a.online !== b.online) return a.online ? -1 : 1;
-    return a.username.localeCompare(b.username);
+    return nameOf(a).localeCompare(nameOf(b));
   });
+}
+
+/** Newest activity first. */
+function sortDms(dms: DmChannelDto[]): DmChannelDto[] {
+  return [...dms].sort((a, b) =>
+    (b.lastMessageAt ?? b.channel.createdAt).localeCompare(a.lastMessageAt ?? a.channel.createdAt),
+  );
+}
+
+const FRIEND_ORDER = { incoming: 0, friend: 1, outgoing: 2 } as const;
+function sortFriends(friends: FriendDto[]): FriendDto[] {
+  return [...friends].sort(
+    (a, b) =>
+      FRIEND_ORDER[a.status] - FRIEND_ORDER[b.status] ||
+      nameOf(a.user).localeCompare(nameOf(b.user)),
+  );
+}
+
+/** Applies a changed profile wherever the person appears. */
+function withProfile<T extends { id: string; username: string }>(u: T, p: PublicUserDto): T {
+  return u.id === p.id ? { ...u, displayName: p.displayName, avatarUrl: p.avatarUrl } : u;
 }
 
 export interface ChatState {
@@ -30,6 +61,14 @@ export interface ChatState {
   messagesByChannel: Record<string, MessageDto[]>;
   hasMoreByChannel: Record<string, boolean>;
   membersByGuild: Record<string, MemberDto[]>;
+  /** Friends and open friend requests. */
+  friends: FriendDto[];
+  friendsLoaded: boolean;
+  /** Private conversations, newest activity first. */
+  dms: DmChannelDto[];
+  dmsLoaded: boolean;
+  /** Unread messages per private conversation (since this tab was opened). */
+  unreadDms: Record<string, number>;
   connection: ConnectionStatus;
   /** Channel whose WS subscription the server has confirmed. */
   subscribedChannelId: string | null;
@@ -55,6 +94,14 @@ export interface ChatState {
   upsertMessage: (message: MessageDto) => void;
   removeMessage: (channelId: string, messageId: string) => void;
   setMembers: (guildId: string, members: MemberDto[]) => void;
+  setFriends: (friends: FriendDto[]) => void;
+  upsertFriend: (friend: FriendDto) => void;
+  removeFriend: (userId: string) => void;
+  setDms: (dms: DmChannelDto[]) => void;
+  upsertDm: (dm: DmChannelDto) => void;
+  /** New message in a private conversation: moves it up, optionally counting it as unread. */
+  bumpDm: (channelId: string, at: string, unread: boolean) => void;
+  markDmRead: (channelId: string) => void;
   setConnection: (status: ConnectionStatus) => void;
   setError: (error: string | null) => void;
   /** Reducer for server → client WS events. `selfId` is the current user's id. */
@@ -69,6 +116,11 @@ const initial = {
   messagesByChannel: {} as Record<string, MessageDto[]>,
   hasMoreByChannel: {} as Record<string, boolean>,
   membersByGuild: {} as Record<string, MemberDto[]>,
+  friends: [] as FriendDto[],
+  friendsLoaded: false,
+  dms: [] as DmChannelDto[],
+  dmsLoaded: false,
+  unreadDms: {} as Record<string, number>,
   connection: 'stopped' as ConnectionStatus,
   subscribedChannelId: null as string | null,
   error: null as string | null,
@@ -103,10 +155,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   addChannel: (channel) =>
     set((s) => {
-      const list = s.channelsByGuild[channel.guildId];
+      const guildId = channel.guildId;
+      if (!guildId) return {};
+      const list = s.channelsByGuild[guildId];
       if (!list) return {};
       if (list.some((c) => c.id === channel.id)) return {};
-      return { channelsByGuild: { ...s.channelsByGuild, [channel.guildId]: [...list, channel] } };
+      return { channelsByGuild: { ...s.channelsByGuild, [guildId]: [...list, channel] } };
     }),
 
   applyLatestPage: (channelId, messages, hasMore, opts = {}) =>
@@ -177,6 +231,44 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setMembers: (guildId, members) =>
     set((s) => ({ membersByGuild: { ...s.membersByGuild, [guildId]: sortMembers(members) } })),
 
+  setFriends: (friends) => set({ friends: sortFriends(friends), friendsLoaded: true }),
+
+  upsertFriend: (friend) =>
+    set((s) => ({
+      friends: sortFriends([...s.friends.filter((f) => f.user.id !== friend.user.id), friend]),
+    })),
+
+  removeFriend: (userId) =>
+    set((s) => ({ friends: s.friends.filter((f) => f.user.id !== userId) })),
+
+  setDms: (dms) => set({ dms: sortDms(dms), dmsLoaded: true }),
+
+  upsertDm: (dm) =>
+    set((s) => ({
+      dms: sortDms([...s.dms.filter((d) => d.channel.id !== dm.channel.id), dm]),
+    })),
+
+  bumpDm: (channelId, at, unread) =>
+    set((s) => {
+      if (!s.dms.some((d) => d.channel.id === channelId)) return {};
+      return {
+        dms: sortDms(
+          s.dms.map((d) => (d.channel.id === channelId ? { ...d, lastMessageAt: at } : d)),
+        ),
+        unreadDms: unread
+          ? { ...s.unreadDms, [channelId]: (s.unreadDms[channelId] ?? 0) + 1 }
+          : s.unreadDms,
+      };
+    }),
+
+  markDmRead: (channelId) =>
+    set((s) => {
+      if (!s.unreadDms[channelId]) return {};
+      const unreadDms = { ...s.unreadDms };
+      delete unreadDms[channelId];
+      return { unreadDms };
+    }),
+
   setConnection: (connection) =>
     set((s) => ({
       connection,
@@ -203,6 +295,50 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         return;
       case 'channel.created':
         s.addChannel(event.data.channel);
+        return;
+      case 'guild.updated':
+        if (s.guilds.some((g) => g.id === event.data.guild.id)) s.upsertGuild(event.data.guild);
+        return;
+      case 'user.updated': {
+        const p = event.data.user;
+        const membersByGuild: Record<string, MemberDto[]> = {};
+        for (const [g, list] of Object.entries(s.membersByGuild)) {
+          membersByGuild[g] = list.map((m) =>
+            m.userId === p.id ? { ...m, displayName: p.displayName, avatarUrl: p.avatarUrl } : m,
+          );
+        }
+        const messagesByChannel: Record<string, MessageDto[]> = {};
+        for (const [c, list] of Object.entries(s.messagesByChannel)) {
+          messagesByChannel[c] = list.some((m) => m.author.id === p.id)
+            ? list.map((m) =>
+                m.author.id === p.id ? { ...m, author: withProfile(m.author, p) } : m,
+              )
+            : list;
+        }
+        set({
+          membersByGuild,
+          messagesByChannel,
+          dms: s.dms.map((d) => ({ ...d, peer: withProfile(d.peer, p) })),
+          friends: s.friends.map((f) => ({ ...f, user: withProfile(f.user, p) })),
+        });
+        return;
+      }
+      case 'friend.updated':
+        s.upsertFriend(event.data.friend);
+        return;
+      case 'friend.removed':
+        s.removeFriend(event.data.userId);
+        return;
+      case 'friend.presence': {
+        const { userId, online } = event.data;
+        set({
+          friends: s.friends.map((f) => (f.user.id === userId ? { ...f, online } : f)),
+          dms: s.dms.map((d) => (d.peer.id === userId ? { ...d, online } : d)),
+        });
+        return;
+      }
+      case 'dm.updated':
+        s.upsertDm(event.data.dm);
         return;
       case 'guild.deleted':
         s.removeGuild(event.data.guildId);

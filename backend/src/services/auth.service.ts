@@ -4,7 +4,12 @@ import type { LoginInput, RegisterInput, UserDto } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import type { Database } from '../db/client.js';
 import { mailLog, pendingRegistrations, sessions, users } from '../db/schema.js';
-import { emailNotVerified, invalidCredentials, verificationInvalid } from '../lib/errors.js';
+import {
+  emailNotVerified,
+  invalidCredentials,
+  usernameTaken,
+  verificationInvalid,
+} from '../lib/errors.js';
 import type { Mailer, MailMessage } from '../lib/mailer.js';
 import { accountExistsMail, verificationMail } from '../lib/mailTemplates.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
@@ -63,6 +68,7 @@ export class AuthService {
       return;
     }
 
+    if (await this.usernameTaken(this.db, input.username)) throw usernameTaken();
     if (!(await this.reserveMailSlot(email, 'verification'))) return;
     const token = randomToken();
     await this.db.insert(pendingRegistrations).values({
@@ -94,6 +100,8 @@ export class AuthService {
         .for('update')
         .limit(1);
       if (!pending) throw verificationInvalid();
+      // Taken by someone who confirmed first while this link was waiting.
+      if (await this.usernameTaken(tx, pending.username)) throw usernameTaken();
 
       const [row] = await tx
         .insert(users)
@@ -193,12 +201,27 @@ export class AuthService {
 
   async getUserBySession(token: string): Promise<UserDto | null> {
     const [row] = await this.db
-      .select({ id: users.id, email: users.email, username: users.username })
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        displayName: users.displayName,
+        avatarKey: users.avatarKey,
+      })
       .from(sessions)
       .innerJoin(users, eq(users.id, sessions.userId))
       .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, sql`now()`)))
       .limit(1);
-    return row ?? null;
+    return row ? toUserDto(row) : null;
+  }
+
+  private async usernameTaken(db: Pick<Database, 'select'>, username: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(sql`lower(${users.username})`, username.toLowerCase()))
+      .limit(1);
+    return !!row;
   }
 
   private async createSession(userId: string): Promise<string> {

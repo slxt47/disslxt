@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ChannelDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
@@ -19,9 +19,26 @@ export interface ChatViewProps {
   /** Member list shown next to the chat; the header button toggles it. */
   membersOpen?: boolean;
   onToggleMembers?: () => void;
+  /** Private conversation: shown instead of "# name" (e.g. the friend's picture and name). */
+  title?: ReactNode;
+  /** Who messages go to, e.g. "@Bob" (default "#channel"). */
+  target?: string;
+  /** Extra buttons in the header (e.g. call). */
+  headerActions?: ReactNode;
+  /** Between header and messages (e.g. an ongoing call). */
+  top?: ReactNode;
 }
 
-export function ChatView({ channel, onOpenMenu, membersOpen, onToggleMembers }: ChatViewProps) {
+export function ChatView({
+  channel,
+  onOpenMenu,
+  membersOpen,
+  onToggleMembers,
+  title,
+  target = `#${channel.name}`,
+  headerActions,
+  top,
+}: ChatViewProps) {
   const channelId = channel.id;
   const realtime = useRealtime();
   const userId = useAuthStore((s) => s.user?.id ?? null);
@@ -111,7 +128,7 @@ export function ChatView({ channel, onOpenMenu, membersOpen, onToggleMembers }: 
   return (
     <section
       className={`chat-view${dragging ? ' dragging' : ''}`}
-      aria-label={`Kanal #${channel.name}`}
+      aria-label={channel.kind === 'dm' ? `Unterhaltung mit ${target}` : `Kanal #${channel.name}`}
       onDragEnter={(e) => {
         if (!e.dataTransfer.types.includes('Files')) return;
         dragDepth.current += 1;
@@ -135,7 +152,7 @@ export function ChatView({ channel, onOpenMenu, membersOpen, onToggleMembers }: 
       {dragging && (
         <div className="drop-overlay" aria-hidden="true">
           <Icon name="paperclip" size={32} />
-          <span>Loslassen, um in #{channel.name} zu teilen</span>
+          <span>Loslassen, um mit {target} zu teilen</span>
         </div>
       )}
       <header className="chat-header">
@@ -148,26 +165,34 @@ export function ChatView({ channel, onOpenMenu, membersOpen, onToggleMembers }: 
           <Icon name="menu" />
         </button>
         <h1 className="chat-title" data-testid="channel-title">
-          <Icon name="hash" size={18} />
-          <span className="sr-only">#</span>
-          {channel.name}
+          {title ?? (
+            <>
+              <Icon name="hash" size={18} />
+              <span className="sr-only">#</span>
+              {channel.name}
+            </>
+          )}
         </h1>
-        {onToggleMembers && (
+        {(onToggleMembers || headerActions) && (
           <div className="chat-header-actions">
-            <button
-              className={`icon-btn wide-only${membersOpen ? ' active' : ''}`}
-              data-testid="toggle-members"
-              aria-pressed={!!membersOpen}
-              aria-label={membersOpen ? 'Mitglieder ausblenden' : 'Mitglieder anzeigen'}
-              title={membersOpen ? 'Mitglieder ausblenden' : 'Mitglieder anzeigen'}
-              onClick={onToggleMembers}
-            >
-              <Icon name="users" size={20} />
-            </button>
+            {headerActions}
+            {onToggleMembers && (
+              <button
+                className={`icon-btn wide-only${membersOpen ? ' active' : ''}`}
+                data-testid="toggle-members"
+                aria-pressed={!!membersOpen}
+                aria-label={membersOpen ? 'Mitglieder ausblenden' : 'Mitglieder anzeigen'}
+                title={membersOpen ? 'Mitglieder ausblenden' : 'Mitglieder anzeigen'}
+                onClick={onToggleMembers}
+              >
+                <Icon name="users" size={20} />
+              </button>
+            )}
           </div>
         )}
       </header>
       <ConnectionBanner />
+      {top}
       <MessageList
         channelId={channelId}
         messages={messages}
@@ -184,6 +209,7 @@ export function ChatView({ channel, onOpenMenu, membersOpen, onToggleMembers }: 
         key={channelId}
         onAttachFiles={startUploads}
         channelName={channel.name}
+        target={target}
         onSend={onSend}
         onSendVoice={onSendVoice}
       />

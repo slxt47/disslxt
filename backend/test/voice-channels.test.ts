@@ -108,7 +108,15 @@ describe('joining and signalling', () => {
     expect(aJoined.data.peers).toEqual([]);
     const bJoined = await join(b);
     expect(bJoined.data.peers).toEqual([
-      { peerId: aJoined.data.peerId, userId: alice.user.id, username: 'alice', muted: false },
+      {
+        peerId: aJoined.data.peerId,
+        userId: alice.user.id,
+        username: 'alice',
+        displayName: null,
+        avatarUrl: null,
+        muted: false,
+        video: false,
+      },
     ]);
     const pj = await a.waitFor('voice.peer-joined');
     expect(pj.data.peer).toMatchObject({ peerId: bJoined.data.peerId, username: 'bob' });

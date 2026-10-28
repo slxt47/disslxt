@@ -50,6 +50,13 @@
       "when": 1792591449207,
       "tag": "0006_file_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793213922318,
+      "tag": "0007_profiles_friends_dms",
+      "breakpoints": true
     }
   ]
 }

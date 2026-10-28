@@ -1,8 +1,18 @@
 import type { MessageDto } from '@disslxt/shared';
 
 export const CHANNEL = '11111111-1111-4111-8111-111111111111';
-export const ME = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', username: 'alice' };
-export const OTHER = { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', username: 'bob' };
+export const ME = {
+  id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  username: 'alice',
+  displayName: null,
+  avatarUrl: null,
+};
+export const OTHER = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  username: 'bob',
+  displayName: null,
+  avatarUrl: null,
+};
 
 export function msg(id: number | string, overrides: Partial<MessageDto> = {}): MessageDto {
   return {

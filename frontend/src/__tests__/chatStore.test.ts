@@ -8,6 +8,7 @@ const guild: GuildDto = {
   id: GUILD,
   name: 'Test',
   ownerId: ME.id,
+  iconUrl: null,
   inviteCode: 'abc123',
   createdAt: '2026-10-20T12:00:00.000Z',
 };
@@ -167,11 +168,22 @@ describe('chat store', () => {
 
   it('handles member.joined, presence.update and member.left', () => {
     const s = useChatStore.getState();
-    s.setMembers(GUILD, [{ userId: ME.id, username: ME.username, online: true }]);
+    s.setMembers(GUILD, [
+      { userId: ME.id, username: ME.username, displayName: null, avatarUrl: null, online: true },
+    ]);
     s.applyEvent(
       {
         type: 'member.joined',
-        data: { guildId: GUILD, member: { userId: OTHER.id, username: 'bob', online: false } },
+        data: {
+          guildId: GUILD,
+          member: {
+            userId: OTHER.id,
+            username: 'bob',
+            displayName: null,
+            avatarUrl: null,
+            online: false,
+          },
+        },
       },
       ME.id,
     );

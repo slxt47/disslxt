@@ -108,14 +108,20 @@ export async function wsRoutes(
         socket.close(WS_CLOSE.UNAUTHORIZED, 'unauthorized');
         return;
       }
-      const guildIds = await services.guilds.guildIdsForUser(user.id);
+      const [guildIds, friendIds] = await Promise.all([
+        services.guilds.guildIdsForUser(user.id),
+        services.friends.friendIds(user.id),
+      ]);
       if (closed) return;
       const c: Client = {
         socket,
         userId: user.id,
         username: user.username,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
         sessionHash: sha256(token),
         guildIds: new Set(guildIds),
+        friendIds: new Set(friendIds),
         channel: null,
         visible: true,
         voice: null,
@@ -157,6 +163,23 @@ export async function wsRoutes(
       case 'voice.mute':
         hub.setVoiceMuted(client, msg.data.muted);
         return;
+      case 'voice.video':
+        hub.setVoiceVideo(client, msg.data.video);
+        return;
+      case 'call.decline': {
+        const { channelId } = msg.data;
+        try {
+          const channel = await services.channels.assertAccess(client.userId, channelId);
+          if (channel.kind !== 'dm') return;
+          hub.publishToUsers(await services.channels.dmMemberIds(channelId), {
+            type: 'call.ended',
+            data: { channelId, reason: 'declined' },
+          });
+        } catch {
+          // Not your conversation: nothing to decline.
+        }
+        return;
+      }
       case 'voice.signal':
         // A peer that just left is not an error worth reporting; the client cleans up on
         // voice.peer-left.
@@ -166,15 +189,21 @@ export async function wsRoutes(
         const { channelId } = msg.data;
         try {
           const channel = await services.channels.assertAccess(client.userId, channelId);
-          if (client.socket.readyState !== client.socket.OPEN) return;
-          if (channel.kind !== 'voice') {
+          if (channel.kind !== 'voice' && channel.kind !== 'dm') {
             sendTo(client, {
               type: 'error',
               data: { code: 'BAD_REQUEST', channelId, message: 'Kein Sprachkanal' },
             });
             return;
           }
-          const result = hub.joinVoice(client, channel);
+          // Calls in a private conversation: only between friends; both hear about it.
+          const audience =
+            channel.kind === 'dm'
+              ? await services.channels.assertDmOpen(client.userId, channel)
+              : undefined;
+          if (client.socket.readyState !== client.socket.OPEN) return;
+          const video = !!msg.data.video;
+          const result = hub.joinVoice(client, channel, { video, audience });
           if (!result.ok) {
             sendTo(client, {
               type: 'error',
@@ -182,13 +211,29 @@ export async function wsRoutes(
             });
             return;
           }
-          if (result.first) {
-            services.push.voiceStarted(channelId, { id: client.userId, username: client.username });
+          if (result.first && audience) {
+            const from = {
+              id: client.userId,
+              username: client.username,
+              displayName: client.displayName,
+              avatarUrl: client.avatarUrl,
+            };
+            hub.publishToUsers(
+              audience.filter((id) => id !== client.userId),
+              { type: 'call.ring', data: { channelId, from, video } },
+            );
+            services.push.callStarted(channelId, from, video);
+          } else if (result.first) {
+            services.push.voiceStarted(channelId, {
+              id: client.userId,
+              username: client.username,
+              displayName: client.displayName,
+            });
           }
         } catch (err) {
           if (err instanceof AppError && (err.statusCode === 403 || err.statusCode === 404)) {
             const code = err.statusCode === 404 ? 'NOT_FOUND' : 'FORBIDDEN';
-            sendTo(client, { type: 'error', data: { code, channelId } });
+            sendTo(client, { type: 'error', data: { code, channelId, message: err.message } });
             return;
           }
           app.log.error({ err }, 'voice join failed');

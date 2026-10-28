@@ -83,7 +83,7 @@ describe('sharing files', () => {
     expect(formatBytes(20_480)).toBe('20 KB');
     expect(
       spokenText({
-        author: { id: 'x', username: 'bob' },
+        author: { id: 'x', username: 'bob', displayName: null, avatarUrl: null },
         content: '',
         kind: 'file',
         file: { name: 'a.png', isImage: true },

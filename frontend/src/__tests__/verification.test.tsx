@@ -12,7 +12,13 @@ import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { useAuthStore } from '../store/auth';
 
 const TOKEN = 'A'.repeat(43);
-const user = { id: 'u1', email: 'alice@example.com', username: 'alice' };
+const user = {
+  id: 'u1',
+  email: 'alice@example.com',
+  username: 'alice',
+  displayName: null,
+  avatarUrl: null,
+};
 
 function LocationProbe() {
   const { pathname, search, hash } = useLocation();

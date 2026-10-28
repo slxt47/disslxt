@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useChatStore } from '../store/chat';
 import { useVoiceStore } from '../store/voice';
 import { useVoice } from '../voice/VoiceProvider';
+import { nameOf } from '../profile';
 import { Icon } from './Icon';
 
 /** Shown above the user footer while this tab is in a voice channel (from anywhere in the app). */
@@ -14,16 +15,17 @@ export function VoiceBar({ onNavigate }: { onNavigate: () => void }) {
   const channel = useChatStore((s) =>
     guildId ? s.channelsByGuild[guildId]?.find((c) => c.id === channelId) : undefined,
   );
-  if (!channelId || !guildId) return null;
+  const dm = useChatStore((s) =>
+    guildId ? undefined : s.dms.find((d) => d.channel.id === channelId),
+  );
+  if (!channelId) return null;
+  const to = guildId ? `/guilds/${guildId}/channels/${channelId}` : `/me/${channelId}`;
+  const label = guildId ? (channel?.name ?? '') : dm ? `Anruf mit ${nameOf(dm.peer)}` : 'Anruf';
   return (
     <div className="voice-bar" data-testid="voice-bar" data-status={status}>
-      <Link
-        to={`/guilds/${guildId}/channels/${channelId}`}
-        className="voice-bar-info"
-        onClick={onNavigate}
-      >
+      <Link to={to} className="voice-bar-info" onClick={onNavigate}>
         <strong>{status === 'connected' ? 'Verbunden' : 'Verbinde…'}</strong>
-        <span>{channel ? channel.name : ''}</span>
+        <span>{label}</span>
       </Link>
       <button
         className={`icon-btn${muted ? ' muted-on' : ''}`}

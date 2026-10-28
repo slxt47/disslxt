@@ -50,7 +50,7 @@ export async function fileRoutes(
         notFound('Kanal nicht gefunden'),
       );
       const user = currentUser(req);
-      await channels.assertTextChannel(user.id, channelId);
+      const channel = await channels.assertTextChannel(user.id, channelId);
       const body = req.body;
       if (!Buffer.isBuffer(body) || body.length === 0) {
         throw new AppError('BAD_REQUEST', 400, 'Die Datei ist leer');
@@ -61,7 +61,7 @@ export async function fileRoutes(
       await mkdir(dir, { recursive: true });
       await writeFile(join(dir, key), body);
       try {
-        const message = await messages.createFile(user, channelId, {
+        const message = await messages.createFile(user, channel, {
           key,
           name,
           size: body.length,

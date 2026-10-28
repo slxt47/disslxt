@@ -1,6 +1,8 @@
 import type {
   ChannelDto,
   ChannelKind,
+  DmChannelDto,
+  FriendDto,
   VoicePeerDto,
   GuildDto,
   InvitePreviewDto,
@@ -94,6 +96,35 @@ export const api = {
       onProgress,
       signal,
     ),
+
+  updateProfile: (displayName: string | null) =>
+    apiRequest<{ user: UserDto }>('PATCH', '/users/me', { displayName }),
+  uploadAvatar: (image: Blob) =>
+    apiUpload<{ user: UserDto }>('/users/me/avatar', image, 'application/octet-stream', 'PUT'),
+  removeAvatar: () => apiRequest<{ user: UserDto }>('DELETE', '/users/me/avatar'),
+
+  renameGuild: (guildId: string, name: string) =>
+    apiRequest<{ guild: GuildDto }>('PATCH', `/guilds/${enc(guildId)}`, { name }),
+  uploadGuildIcon: (guildId: string, image: Blob) =>
+    apiUpload<{ guild: GuildDto }>(
+      `/guilds/${enc(guildId)}/icon`,
+      image,
+      'application/octet-stream',
+      'PUT',
+    ),
+  removeGuildIcon: (guildId: string) =>
+    apiRequest<{ guild: GuildDto }>('DELETE', `/guilds/${enc(guildId)}/icon`),
+
+  listFriends: () => apiRequest<{ friends: FriendDto[] }>('GET', '/friends'),
+  requestFriend: (username: string) =>
+    apiRequest<{ friend: FriendDto }>('POST', '/friends/requests', { username }),
+  acceptFriend: (userId: string) =>
+    apiRequest<{ friend: FriendDto }>('POST', `/friends/${enc(userId)}/accept`),
+  removeFriend: (userId: string) => apiRequest<void>('DELETE', `/friends/${enc(userId)}`),
+  listDms: () => apiRequest<{ dms: DmChannelDto[] }>('GET', '/dms'),
+  openDm: (userId: string) => apiRequest<{ dm: DmChannelDto }>('POST', '/dms', { userId }),
+  callPeers: (channelId: string) =>
+    apiRequest<{ peers: VoicePeerDto[] }>('GET', `/dms/${enc(channelId)}/call`),
 
   pushConfig: () => apiRequest<PushConfigDto>('GET', '/push/config'),
   subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>

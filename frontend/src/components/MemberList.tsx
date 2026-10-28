@@ -1,4 +1,5 @@
 import { useChatStore } from '../store/chat';
+import { nameOf } from '../profile';
 import { Avatar } from './Icon';
 
 export function MemberList({ guildId }: { guildId: string }) {
@@ -19,10 +20,12 @@ export function MemberList({ guildId }: { guildId: string }) {
             data-online={m.online ? 'true' : 'false'}
           >
             <span className="member-avatar">
-              <Avatar name={m.username} size="sm" />
+              <Avatar name={nameOf(m)} url={m.avatarUrl} size="sm" />
               <span className="presence-dot" aria-hidden="true" />
             </span>
-            <span className="member-name">{m.username}</span>
+            <span className="member-name" title={`@${m.username}`}>
+              {nameOf(m)}
+            </span>
             <span className="sr-only">{m.online ? 'online' : 'offline'}</span>
           </li>
         ))}

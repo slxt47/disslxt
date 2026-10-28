@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 /** Line icons in the style of SF Symbols; they inherit the text colour and scale with font size. */
 const PATHS = {
@@ -47,6 +47,20 @@ const PATHS = {
   door: 'M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H14M10 12h10M17 9l3 3-3 3',
   alert:
     'M12 8v5M12 16.5v.5M10.3 4.2L2.8 17.5A2 2 0 0 0 4.5 20.5h15a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z',
+  video:
+    'M4.5 6.5h9a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zM15.5 10.5l5-3v9l-5-3',
+  'video-off':
+    'M9 6.5h4.5a2 2 0 0 1 2 2v4.5M15.5 16a2 2 0 0 1-2 1.5h-9a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2M15.5 10.5l5-3v9l-5-3M3 3l18 18',
+  phone:
+    'M8.6 3.5H6A2.5 2.5 0 0 0 3.5 6.2a14.5 14.5 0 0 0 14.3 14.3 2.5 2.5 0 0 0 2.7-2.5v-2.6l-3.8-1.6-2 2a10 10 0 0 1-4.5-4.5l2-2z',
+  message:
+    'M5 4.5h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 3.5v-3.5H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z',
+  home: 'M3.5 11L12 4l8.5 7M5.5 9.5V19a1 1 0 0 0 1 1H10v-5.5h4V20h3.5a1 1 0 0 0 1-1V9.5',
+  image:
+    'M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 16l5-5 4 4 3-3 6 6M15.5 9a1.5 1.5 0 1 0 0-.01',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5a7.5 7.5 0 0 1 15 0',
+  palette:
+    'M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.5-1.9l-.4-1.3A2 2 0 0 1 15 15.2h2.5A3.5 3.5 0 0 0 21 11.7C21 7 17 3 12 3zM7.5 12.5h.01M9 8h.01M14 7.5h.01M17 11h.01',
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -82,8 +96,30 @@ export function nameHue(name: string): number {
   return HUES[Math.abs(h) % HUES.length] ?? HUES[0]!;
 }
 
-/** Initials avatar, coloured by name. */
-export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
+/** Profile picture, or initials coloured by name when there is none (or it fails to load). */
+export function Avatar({
+  name,
+  url = null,
+  size = 'md',
+}: {
+  name: string;
+  url?: string | null;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (url && failed !== url) {
+    return (
+      <img
+        className={`avatar ${size} photo`}
+        src={url}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(url)}
+      />
+    );
+  }
   const parts = name
     .trim()
     .split(/[\s._-]+/)

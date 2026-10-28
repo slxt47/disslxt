@@ -22,6 +22,8 @@ import { messageRoutes } from './routes/message.routes.js';
 import { pushRoutes } from './routes/push.routes.js';
 import { fileRoutes } from './routes/file.routes.js';
 import { voiceRoutes } from './routes/voice.routes.js';
+import { friendRoutes } from './routes/friend.routes.js';
+import { userRoutes } from './routes/user.routes.js';
 import { createServices, type Services } from './services/index.js';
 
 declare module 'fastify' {
@@ -154,6 +156,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         await protectedApi.register(messageRoutes, { services, config });
         await protectedApi.register(pushRoutes, { services, config });
         await protectedApi.register(fileRoutes, { services, config });
+        await protectedApi.register(userRoutes, { services, config });
+        await protectedApi.register(friendRoutes, { services, config });
         await protectedApi.register(voiceRoutes, {
           services,
           config,

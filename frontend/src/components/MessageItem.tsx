@@ -7,6 +7,7 @@ import { isSubmitKey } from './Composer';
 import { FileAttachment } from './FileAttachment';
 import { VoicePlayer } from './VoicePlayer';
 import { Avatar, Icon } from './Icon';
+import { nameOf } from '../profile';
 
 export interface MessageItemProps {
   message: MessageDto;
@@ -125,12 +126,16 @@ function MessageItemImpl({
           {timeFormat.format(created)}
         </time>
       ) : (
-        <Avatar name={message.author.username} />
+        <Avatar name={nameOf(message.author)} url={message.author.avatarUrl} />
       )}
       {/* In a group the header is only for screen readers (who wrote it, when). */}
       <div className={`message-meta${grouped ? ' sr-only' : ''}`}>
-        <span className="message-author" data-testid="message-author">
-          {message.author.username}
+        <span
+          className="message-author"
+          data-testid="message-author"
+          title={message.author.displayName ? `@${message.author.username}` : undefined}
+        >
+          {nameOf(message.author)}
         </span>
         <time
           className="message-time"

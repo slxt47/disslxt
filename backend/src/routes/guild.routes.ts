@@ -1,5 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { createGuildSchema, deleteGuildSchema, uuidSchema } from '@disslxt/shared';
+import {
+  AVATAR_MAX_BYTES,
+  createGuildSchema,
+  deleteGuildSchema,
+  updateGuildSchema,
+  uuidSchema,
+} from '@disslxt/shared';
+import { acceptImageUploads, sendImage } from '../lib/imageReply.js';
 import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 import { parse, parseParam } from '../lib/validate.js';
@@ -15,6 +22,7 @@ export async function guildRoutes(
   opts: { services: Services },
 ): Promise<void> {
   const { guilds } = opts.services;
+  acceptImageUploads(app);
 
   app.get('/guilds', async (req) => ({ guilds: await guilds.listForUser(currentUser(req).id) }));
 
@@ -38,6 +46,28 @@ export async function guildRoutes(
     await guilds.delete(currentUser(req).id, guildId(req.params), name);
     return reply.status(204).send();
   });
+
+  // Server settings (owner only, checked in the service).
+  app.patch<GuildParams>('/guilds/:guildId', async (req) => {
+    const { name } = parse(updateGuildSchema, req.body);
+    return { guild: await guilds.rename(currentUser(req).id, guildId(req.params), name) };
+  });
+
+  app.put<GuildParams>(
+    '/guilds/:guildId/icon',
+    { onRequest: app.requireAuth, bodyLimit: AVATAR_MAX_BYTES },
+    async (req) => ({
+      guild: await guilds.setIcon(currentUser(req).id, guildId(req.params), req.body),
+    }),
+  );
+
+  app.delete<GuildParams>('/guilds/:guildId/icon', async (req) => ({
+    guild: await guilds.removeIcon(currentUser(req).id, guildId(req.params)),
+  }));
+
+  app.get<GuildParams>('/guilds/:guildId/icon', async (req, reply) =>
+    sendImage(reply, await guilds.icon(currentUser(req).id, guildId(req.params))),
+  );
 
   app.get<GuildParams>('/guilds/:guildId/members', async (req) => ({
     members: await guilds.members(currentUser(req).id, guildId(req.params)),

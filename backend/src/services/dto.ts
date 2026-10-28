@@ -1,10 +1,25 @@
-import type { ChannelDto, GuildDto, MessageDto, UserDto } from '@disslxt/shared';
+import type { ChannelDto, GuildDto, MessageDto, PublicUserDto, UserDto } from '@disslxt/shared';
 import type { Channel, Guild, Message, User } from '../db/schema.js';
 
-export const toUserDto = (u: Pick<User, 'id' | 'email' | 'username'>): UserDto => ({
+/** The key changes with every upload, so the URL changes too and caches never show an old one. */
+export const avatarUrl = (userId: string, key: string | null): string | null =>
+  key ? `/api/users/${userId}/avatar?v=${key.slice(0, 12)}` : null;
+
+export const guildIconUrl = (guildId: string, key: string | null): string | null =>
+  key ? `/api/guilds/${guildId}/icon?v=${key.slice(0, 12)}` : null;
+
+type ProfileRow = Pick<User, 'id' | 'username' | 'displayName' | 'avatarKey'>;
+
+export const toPublicUser = (u: ProfileRow): PublicUserDto => ({
   id: u.id,
-  email: u.email,
   username: u.username,
+  displayName: u.displayName,
+  avatarUrl: avatarUrl(u.id, u.avatarKey),
+});
+
+export const toUserDto = (u: ProfileRow & Pick<User, 'email'>): UserDto => ({
+  ...toPublicUser(u),
+  email: u.email,
 });
 
 export const toGuildDto = (g: Guild): GuildDto => ({
@@ -12,6 +27,7 @@ export const toGuildDto = (g: Guild): GuildDto => ({
   name: g.name,
   ownerId: g.ownerId,
   inviteCode: g.inviteCode,
+  iconUrl: guildIconUrl(g.id, g.iconKey),
   createdAt: g.createdAt.toISOString(),
 });
 
@@ -19,14 +35,19 @@ export const toChannelDto = (c: Channel): ChannelDto => ({
   id: c.id,
   guildId: c.guildId,
   name: c.name,
-  kind: c.kind === 'voice' ? 'voice' : 'text',
+  kind: c.kind === 'voice' || c.kind === 'dm' ? c.kind : 'text',
   createdAt: c.createdAt.toISOString(),
 });
 
-export const toMessageDto = (m: Message, author: { id: string; username: string }): MessageDto => ({
+export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => ({
   id: m.id.toString(),
   channelId: m.channelId,
-  author: { id: author.id, username: author.username },
+  author: {
+    id: author.id,
+    username: author.username,
+    displayName: author.displayName,
+    avatarUrl: author.avatarUrl,
+  },
   kind: m.kind === 'voice' || m.kind === 'file' ? m.kind : 'text',
   content: m.content,
   audio:

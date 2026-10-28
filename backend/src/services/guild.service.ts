@@ -12,10 +12,11 @@ import {
 import type { Database } from '../db/client.js';
 import { channels, guildMembers, guilds, messages, users, type Guild } from '../db/schema.js';
 import { AppError, conflict, forbidden, notFound } from '../lib/errors.js';
+import type { ImageStore } from '../lib/images.js';
 import { isUniqueViolation } from '../lib/pgErrors.js';
 import { inviteCode } from '../lib/tokens.js';
 import type { Hub } from '../realtime/hub.js';
-import { toChannelDto, toGuildDto } from './dto.js';
+import { avatarUrl, toChannelDto, toGuildDto } from './dto.js';
 import type { PushService } from './push.service.js';
 
 export class GuildService {
@@ -25,7 +26,70 @@ export class GuildService {
     private readonly push: PushService,
     /** Where uploaded files of messages live (removed together with the guild). */
     private readonly uploads: { voiceDir: string; fileDir: string },
+    /** Server pictures. */
+    private readonly images: ImageStore,
   ) {}
+
+  /** Owner only: renames the server. */
+  async rename(userId: string, guildId: string, name: string): Promise<GuildDto> {
+    await this.assertOwner(userId, guildId);
+    const [row] = await this.db
+      .update(guilds)
+      .set({ name })
+      .where(eq(guilds.id, guildId))
+      .returning();
+    if (!row) throw notFound('Server nicht gefunden');
+    return this.publishUpdate(row);
+  }
+
+  /** Owner only: new server picture (bytes checked); the previous one is removed. */
+  async setIcon(userId: string, guildId: string, body: unknown): Promise<GuildDto> {
+    const old = await this.assertOwner(userId, guildId);
+    const key = await this.images.save(body);
+    const [row] = await this.db
+      .update(guilds)
+      .set({ iconKey: key })
+      .where(eq(guilds.id, guildId))
+      .returning();
+    if (!row) {
+      await this.images.remove(key);
+      throw notFound('Server nicht gefunden');
+    }
+    await this.images.remove(old.iconKey);
+    return this.publishUpdate(row);
+  }
+
+  async removeIcon(userId: string, guildId: string): Promise<GuildDto> {
+    const old = await this.assertOwner(userId, guildId);
+    const [row] = await this.db
+      .update(guilds)
+      .set({ iconKey: null })
+      .where(eq(guilds.id, guildId))
+      .returning();
+    if (!row) throw notFound('Server nicht gefunden');
+    await this.images.remove(old.iconKey);
+    return this.publishUpdate(row);
+  }
+
+  /** Members only. */
+  async icon(userId: string, guildId: string) {
+    const guild = await this.assertMember(userId, guildId);
+    return this.images.read(guild.iconKey);
+  }
+
+  private async assertOwner(userId: string, guildId: string): Promise<Guild> {
+    const guild = await this.assertMember(userId, guildId);
+    if (guild.ownerId !== userId) {
+      throw forbidden('Nur der Besitzer kann die Server-Einstellungen ändern');
+    }
+    return guild;
+  }
+
+  private publishUpdate(row: Guild): GuildDto {
+    const guild = toGuildDto(row);
+    this.hub.publishToGuild(row.id, { type: 'guild.updated', data: { guild } });
+    return guild;
+  }
 
   /**
    * Owner only, and only with the guild's exact name as confirmation. Channels, messages and
@@ -49,6 +113,7 @@ export class GuildService {
       );
     await this.db.delete(guilds).where(eq(guilds.id, guildId));
     this.hub.removeGuild(guildId);
+    await this.images.remove(guild.iconKey);
     await Promise.all(
       files.flatMap((f) => [
         ...(f.audioKey ? [rm(join(this.uploads.voiceDir, f.audioKey), { force: true })] : []),
@@ -138,12 +203,23 @@ export class GuildService {
   async members(userId: string, guildId: string): Promise<MemberDto[]> {
     await this.assertMember(userId, guildId);
     const rows = await this.db
-      .select({ userId: users.id, username: users.username })
+      .select({
+        userId: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarKey: users.avatarKey,
+      })
       .from(guildMembers)
       .innerJoin(users, eq(users.id, guildMembers.userId))
       .where(eq(guildMembers.guildId, guildId))
       .orderBy(asc(users.username));
-    return rows.map((r) => ({ ...r, online: this.hub.isOnline(r.userId) }));
+    return rows.map((r) => ({
+      userId: r.userId,
+      username: r.username,
+      displayName: r.displayName,
+      avatarUrl: avatarUrl(r.userId, r.avatarKey),
+      online: this.hub.isOnline(r.userId),
+    }));
   }
 
   private async findByInvite(code: string): Promise<Guild> {
@@ -165,7 +241,10 @@ export class GuildService {
   }
 
   /** Joins via invite code. Idempotent: joining again returns the guild without events. */
-  async join(user: Pick<UserDto, 'id' | 'username'>, code: string): Promise<GuildDto> {
+  async join(
+    user: Pick<UserDto, 'id' | 'username' | 'displayName' | 'avatarUrl'>,
+    code: string,
+  ): Promise<GuildDto> {
     const guild = await this.findByInvite(code);
     const inserted = await this.db
       .insert(guildMembers)
@@ -177,7 +256,16 @@ export class GuildService {
       this.hub.addUserToGuild(user.id, guild.id);
       this.hub.publishToGuild(guild.id, {
         type: 'member.joined',
-        data: { guildId: guild.id, member: { userId: user.id, username: user.username, online } },
+        data: {
+          guildId: guild.id,
+          member: {
+            userId: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
+            online,
+          },
+        },
       });
       if (online) {
         this.hub.publishToGuild(guild.id, {

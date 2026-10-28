@@ -53,9 +53,14 @@ export async function apiRequest<T>(
 }
 
 /** POSTs raw bytes (e.g. an audio recording) with their own Content-Type; JSON response. */
-export function apiUpload<T>(path: string, body: Blob, contentType: string): Promise<T> {
+export function apiUpload<T>(
+  path: string,
+  body: Blob,
+  contentType: string,
+  method: 'POST' | 'PUT' = 'POST',
+): Promise<T> {
   return send<T>(path, {
-    method: 'POST',
+    method,
     credentials: 'include',
     headers: { accept: 'application/json', 'content-type': contentType },
     body,

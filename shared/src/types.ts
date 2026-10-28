@@ -2,6 +2,18 @@ export interface UserDto {
   id: string;
   email: string;
   username: string;
+  /** Chosen display name; null → the username is shown. */
+  displayName: string | null;
+  /** Same-origin URL of the profile picture, null → initials. */
+  avatarUrl: string | null;
+}
+
+/** What other people see of a user. */
+export interface PublicUserDto {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
 }
 
 export interface GuildDto {
@@ -9,14 +21,18 @@ export interface GuildDto {
   name: string;
   ownerId: string;
   inviteCode: string;
+  /** Same-origin URL of the server picture, null → initials. */
+  iconUrl: string | null;
   createdAt: string;
 }
 
-export type ChannelKind = 'text' | 'voice';
+/** 'dm': a private conversation of two friends (text, files and calls). */
+export type ChannelKind = 'text' | 'voice' | 'dm';
 
 export interface ChannelDto {
   id: string;
-  guildId: string;
+  /** Null for direct messages. */
+  guildId: string | null;
   name: string;
   kind: ChannelKind;
   createdAt: string;
@@ -28,13 +44,14 @@ export interface VoicePeerDto {
   peerId: string;
   userId: string;
   username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
   muted: boolean;
+  /** Camera is on. */
+  video: boolean;
 }
 
-export interface MessageAuthorDto {
-  id: string;
-  username: string;
-}
+export type MessageAuthorDto = PublicUserDto;
 
 export type MessageKind = 'text' | 'voice' | 'file';
 
@@ -71,7 +88,29 @@ export interface MessageDto {
 export interface MemberDto {
   userId: string;
   username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
   online: boolean;
+}
+
+/** 'friend' once accepted; otherwise a request sent to me ('incoming') or by me ('outgoing'). */
+export type FriendStatus = 'friend' | 'incoming' | 'outgoing';
+
+export interface FriendDto {
+  user: PublicUserDto;
+  status: FriendStatus;
+  online: boolean;
+  /** When the request was sent, or when it was accepted for friends. */
+  since: string;
+}
+
+/** A private conversation with one friend. */
+export interface DmChannelDto {
+  channel: ChannelDto;
+  peer: PublicUserDto;
+  online: boolean;
+  /** Newest message, for sorting the list (null: nothing written yet). */
+  lastMessageAt: string | null;
 }
 
 export interface TurnUsageDto {
@@ -122,6 +161,8 @@ export type ErrorCode =
   | 'INVITE_NOT_FOUND'
   | 'CONFLICT'
   | 'CHANNEL_EXISTS'
+  | 'USERNAME_TAKEN'
+  | 'NOT_FRIENDS'
   | 'OWNER_CANNOT_LEAVE'
   | 'RATE_LIMITED'
   | 'SERVICE_UNAVAILABLE'

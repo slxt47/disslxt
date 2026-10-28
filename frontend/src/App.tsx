@@ -66,6 +66,8 @@ export function AppRoutes() {
         <Route path="/" element={<AppLayout />} />
         <Route path="/guilds/:guildId" element={<AppLayout />} />
         <Route path="/guilds/:guildId/channels/:channelId" element={<AppLayout />} />
+        <Route path="/me" element={<AppLayout />} />
+        <Route path="/me/:channelId" element={<AppLayout />} />
         <Route path="/invite/:code" element={<InvitePage />} />
       </Route>
       <Route path="*" element={<NotFound />} />

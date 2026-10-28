@@ -15,8 +15,27 @@ const peer = (id: string, username: string, muted = false) => ({
   peerId: id,
   userId: `user-${username}`,
   username,
+  displayName: null,
+  avatarUrl: null,
   muted,
+  video: false,
 });
+
+/** Just enough of RTCRtpTransceiver for the camera: a sender whose track can be swapped. */
+class FakeTransceiver {
+  direction = 'recvonly';
+  currentDirection: string | null = null;
+  receiver = { track: { kind: 'video' } };
+  sender: { track: unknown; replaceTrack: ReturnType<typeof vi.fn> };
+  constructor(track: unknown) {
+    this.sender = {
+      track,
+      replaceTrack: vi.fn(async (t: unknown) => {
+        this.sender.track = t;
+      }),
+    };
+  }
+}
 
 class FakePC {
   static all: FakePC[] = [];
@@ -53,6 +72,16 @@ class FakePC {
   }
   restartIce() {
     this.restarted = true;
+  }
+  transceivers: FakeTransceiver[] = [];
+  addTransceiver(trackOrKind: unknown, init: { direction: string }) {
+    const t = new FakeTransceiver(typeof trackOrKind === 'string' ? null : trackOrKind);
+    t.direction = init.direction;
+    this.transceivers.push(t);
+    return t;
+  }
+  getTransceivers() {
+    return this.transceivers;
   }
   /** Simulated WebRTC stats (set per test). */
   static statsFn: (() => RTCStatsReport) | null = null;
@@ -122,7 +151,7 @@ describe('VoiceClient', () => {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       video: false,
     });
-    expect(sent).toEqual([{ type: 'voice.join', data: { channelId: CH } }]);
+    expect(sent).toEqual([{ type: 'voice.join', data: { channelId: CH, video: false } }]);
     expect(useVoiceStore.getState()).toMatchObject({ channelId: CH, status: 'joining' });
 
     client.handle({
@@ -294,7 +323,7 @@ describe('VoiceClient', () => {
     await flush();
     client.rejoinAfterReconnect();
     expect(FakePC.all[0]!.closed).toBe(true);
-    expect(sent.at(-1)).toEqual({ type: 'voice.join', data: { channelId: CH } });
+    expect(sent.at(-1)).toEqual({ type: 'voice.join', data: { channelId: CH, video: false } });
     expect(deps.getUserMedia).toHaveBeenCalledTimes(1);
   });
 
@@ -363,7 +392,9 @@ describe('VoiceChannelView', () => {
     const join = vi.fn();
     vi.spyOn(provider, 'useVoice').mockReturnValue({ join } as unknown as VoiceClient);
     vi.spyOn(provider, 'voiceSupported').mockReturnValue(true);
-    useAuthStore.setState({ user: { id: 'me', email: 'm@x', username: 'me' } });
+    useAuthStore.setState({
+      user: { id: 'me', email: 'm@x', username: 'me', displayName: null, avatarUrl: null },
+    });
     useVoiceStore.setState({ participants: { [CH]: [peer('peer-bob-1', 'bob', true)] } });
     const stop = vi.fn();
     Object.defineProperty(navigator, 'mediaDevices', {
@@ -399,7 +430,9 @@ describe('VoiceChannelView', () => {
     const leave = vi.fn();
     vi.spyOn(provider, 'useVoice').mockReturnValue({ setMuted, leave } as unknown as VoiceClient);
     vi.spyOn(provider, 'voiceSupported').mockReturnValue(true);
-    useAuthStore.setState({ user: { id: 'me', email: 'm@x', username: 'me' } });
+    useAuthStore.setState({
+      user: { id: 'me', email: 'm@x', username: 'me', displayName: null, avatarUrl: null },
+    });
     useVoiceStore.setState({
       channelId: CH,
       guildId: GUILD,
@@ -510,5 +543,56 @@ describe('TURN metering', () => {
     vi.useRealTimers();
     FakePC.statsFn = null;
     expect(FakePC.all[0]!.closed).toBe(true);
+  });
+
+  it('camera: on at join and toggled mid-call, swapped into every connection', async () => {
+    const { client, sent, deps } = setup();
+    const camera = { kind: 'video', enabled: true, stop: vi.fn() };
+    const camStream = { getVideoTracks: () => [camera] } as unknown as MediaStream;
+    vi.mocked(deps.getUserMedia).mockImplementation(async (c) =>
+      c.video ? camStream : ({ getTracks: () => [], getAudioTracks: () => [] } as never),
+    );
+    await client.join(CH, null, {}, { video: true });
+    expect(sent.at(-1)).toEqual({ type: 'voice.join', data: { channelId: CH, video: true } });
+    expect(useVoiceStore.getState()).toMatchObject({ video: true, localVideo: camStream });
+
+    client.handle({
+      type: 'voice.joined',
+      data: { channelId: CH, peerId: 'self-peer-1', peers: [peer('peer-bob-1', 'bob')] },
+    });
+    await flush();
+    const video = FakePC.all[0]!.transceivers[0]!;
+    expect(video.direction).toBe('sendrecv');
+    expect(video.sender.track).toBe(camera);
+
+    await client.setVideo(false);
+    expect(video.sender.replaceTrack).toHaveBeenLastCalledWith(null);
+    expect(camera.stop).toHaveBeenCalled();
+    expect(sent.at(-1)).toEqual({ type: 'voice.video', data: { video: false } });
+    expect(useVoiceStore.getState().video).toBe(false);
+
+    client.handle({
+      type: 'voice.peer-video',
+      data: { channelId: CH, peerId: 'peer-bob-1', video: true },
+    });
+    expect(useVoiceStore.getState().peers['peer-bob-1']!.video).toBe(true);
+  });
+
+  it('calls: a ring shows up, ending it clears it; a declined call is left', async () => {
+    const { client, sent } = setup();
+    const from = { id: 'u-bob', username: 'bob', displayName: 'Bob', avatarUrl: null };
+    client.handle({ type: 'call.ring', data: { channelId: CH, from, video: true } });
+    expect(useVoiceStore.getState().incoming).toMatchObject({ channelId: CH, video: true });
+    client.handle({ type: 'call.ended', data: { channelId: CH, reason: 'cancelled' } });
+    expect(useVoiceStore.getState().incoming).toBeNull();
+
+    await client.join(CH, null);
+    client.handle({ type: 'voice.joined', data: { channelId: CH, peerId: 'self-1', peers: [] } });
+    client.handle({ type: 'call.ended', data: { channelId: CH, reason: 'declined' } });
+    expect(sent.at(-1)).toEqual({ type: 'voice.leave' });
+    expect(useVoiceStore.getState()).toMatchObject({
+      channelId: null,
+      error: 'Der Anruf wurde abgelehnt.',
+    });
   });
 });

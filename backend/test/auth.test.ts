@@ -34,6 +34,8 @@ describe('POST /api/auth/register', () => {
       id: expect.any(String),
       email: 'alice@example.com',
       username: 'alice',
+      displayName: null,
+      avatarUrl: null,
     });
     expect(u.user).not.toHaveProperty('passwordHash');
 

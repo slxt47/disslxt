@@ -6,6 +6,7 @@ export const GUILD_NAME_MAX_LEN = 100;
 export const CHANNEL_NAME_MAX_LEN = 32;
 export const USERNAME_MIN_LEN = 3;
 export const USERNAME_MAX_LEN = 32;
+export const DISPLAY_NAME_MAX_LEN = 32;
 export const PASSWORD_MIN_LEN = 10;
 /** From this length any password counts as a passphrase (no character-class rule). */
 export const PASSWORD_PASSPHRASE_LEN = 16;
@@ -21,6 +22,12 @@ export const VOICE_CHANNEL_MAX_PARTICIPANTS = 6;
 /** Shared files: largest upload accepted. */
 export const FILE_MAX_BYTES = 25 * 1024 * 1024;
 export const FILE_NAME_MAX_LEN = 200;
+
+/** Profile and server pictures (resized in the browser to 256 px before upload). */
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Pending friend requests one person can have open at a time (spam brake). */
+export const FRIEND_REQUESTS_MAX_PENDING = 50;
 
 /** Voice messages: longest recording and largest upload accepted. */
 export const VOICE_MAX_SECONDS = 120;

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   CHANNEL_NAME_MAX_LEN,
+  DISPLAY_NAME_MAX_LEN,
   EMAIL_MAX_LEN,
   GUILD_NAME_MAX_LEN,
   MESSAGE_MAX_LEN,
@@ -87,6 +88,33 @@ export const createGuildSchema = z.object({
     .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Name enthält unzulässige Steuerzeichen'),
 });
 export type CreateGuildInput = z.infer<typeof createGuildSchema>;
+
+/** Server settings (owner): currently the name; the picture has its own upload route. */
+export const updateGuildSchema = createGuildSchema;
+export type UpdateGuildInput = z.infer<typeof updateGuildSchema>;
+
+/** Profile settings. An empty display name removes it (the username is shown again). */
+export const updateProfileSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .refine(
+      (s) => textLength(s) <= DISPLAY_NAME_MAX_LEN,
+      `Anzeigename darf höchstens ${DISPLAY_NAME_MAX_LEN} Zeichen haben`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Anzeigename enthält unzulässige Steuerzeichen')
+    .transform((s) => (s === '' ? null : s))
+    .nullable(),
+});
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/** Friend request by exact username (case-insensitive). */
+export const friendRequestSchema = z.object({ username: usernameSchema });
+export type FriendRequestInput = z.infer<typeof friendRequestSchema>;
+
+/** Opens (or creates) the private conversation with a friend. */
+export const openDmSchema = z.object({ userId: z.guid() });
+export type OpenDmInput = z.infer<typeof openDmSchema>;
 
 /** Normalises a channel name: trimmed, lowercased, whitespace runs become "-". */
 export function normalizeChannelName(name: string): string {

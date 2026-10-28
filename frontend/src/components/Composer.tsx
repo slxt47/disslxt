@@ -7,6 +7,8 @@ import { Icon } from './Icon';
 
 export interface ComposerProps {
   channelName: string;
+  /** Who the message goes to, e.g. "@Bob" in a private conversation (default: #channel). */
+  target?: string;
   onSend: (content: string) => Promise<void>;
   /** Sends a recorded voice message; without it there is no record button. */
   onSendVoice?: (audio: Blob, durationMs: number) => Promise<void>;
@@ -22,7 +24,13 @@ export function isSubmitKey(e: KeyboardEvent<HTMLTextAreaElement>): boolean {
   return e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229;
 }
 
-export function Composer({ channelName, onSend, onSendVoice, onAttachFiles }: ComposerProps) {
+export function Composer({
+  channelName,
+  target = `#${channelName}`,
+  onSend,
+  onSendVoice,
+  onAttachFiles,
+}: ComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
@@ -176,8 +184,8 @@ export function Composer({ channelName, onSend, onSendVoice, onAttachFiles }: Co
             data-testid="composer-input"
             className="composer-input"
             rows={1}
-            placeholder={dictation.listening ? 'Sprich jetzt…' : `Nachricht an #${channelName}`}
-            aria-label={`Nachricht an #${channelName}`}
+            placeholder={dictation.listening ? 'Sprich jetzt…' : `Nachricht an ${target}`}
+            aria-label={`Nachricht an ${target}`}
             value={value}
             disabled={sending}
             onChange={(e) => setValue(e.target.value)}

@@ -124,6 +124,10 @@ export interface Config {
     /** Absolute directory for shared files. */
     dir: string;
   };
+  avatars: {
+    /** Absolute directory for profile and server pictures. */
+    dir: string;
+  };
   voice: {
     /** Absolute directory for voice message files. */
     dir: string;
@@ -207,6 +211,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       monthlyLimitBytes: Math.round(e.TURN_MONTHLY_LIMIT_GB * 1e9),
     },
     files: { dir: resolve(e.UPLOAD_DIR, 'files') },
+    avatars: { dir: resolve(e.UPLOAD_DIR, 'avatars') },
     voice: {
       dir: resolve(e.UPLOAD_DIR, 'voice'),
       transcode: e.VOICE_TRANSCODE,
