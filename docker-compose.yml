@@ -15,6 +15,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-disslxt}
     volumes:
       - db_data:/var/lib/postgresql/data
+    # Hardening: no privilege escalation (the entrypoint drops to the postgres user itself)
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
@@ -71,6 +74,14 @@ services:
       TURN_MONTHLY_LIMIT_GB: ${TURN_MONTHLY_LIMIT_GB:-900}
     volumes:
       - uploads:/data/uploads
+    # Hardening: runs as `node` on port 3000 and writes only to the uploads volume and /tmp
+    # (ffmpeg), so it needs no capabilities and a read-only root filesystem is enough.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       db:
         condition: service_healthy
@@ -98,6 +109,20 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+    # Hardening: Caddy only needs to bind port 80; data and config live in the volumes.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       backend:
         condition: service_healthy

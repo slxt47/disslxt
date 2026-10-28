@@ -109,7 +109,13 @@ Adresse weiter. Ohne das würden alle Nutzer dasselbe Rate-Limit teilen.
 
 Nach Änderungen an `.env`: `docker compose up -d --build`.
 
-Optionaler E2E-Smoke-Test gegen den laufenden Stack über den Tunnel (legt zwei Testnutzer an):
+**Härtung der Container:** Backend und Caddy laufen mit schreibgeschütztem Dateisystem (nur `/tmp`
+als tmpfs sowie die Volumes sind beschreibbar), ohne Linux-Capabilities (Caddy behält nur
+`NET_BIND_SERVICE` für Port 80) und mit `no-new-privileges`; die Datenbanken mit
+`no-new-privileges`. Braucht ein neues Feature weitere Schreibpfade, gehören sie in ein Volume oder
+in `tmpfs`.
+
+Optionaler E2E-Smoke-Test gegen den laufenden Stack über den Tunnel (nur lesend, legt keine Konten an):
 
 ```bash
 E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker
