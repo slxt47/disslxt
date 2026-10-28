@@ -49,8 +49,8 @@ export async function guildRoutes(
 
   // Server settings (owner only, checked in the service).
   app.patch<GuildParams>('/guilds/:guildId', async (req) => {
-    const { name } = parse(updateGuildSchema, req.body);
-    return { guild: await guilds.rename(currentUser(req).id, guildId(req.params), name) };
+    const patch = parse(updateGuildSchema, req.body);
+    return { guild: await guilds.update(currentUser(req).id, guildId(req.params), patch) };
   });
 
   app.put<GuildParams>(

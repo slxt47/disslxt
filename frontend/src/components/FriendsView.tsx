@@ -9,6 +9,7 @@ import { voiceSupported } from '../voice/VoiceProvider';
 import { ConnectionBanner } from './ConnectionBanner';
 import { useStartCall } from './DmView';
 import { Avatar, Icon } from './Icon';
+import { PRESENCE_TEXT, StatusLine, UserBadges } from './Social';
 
 type Tab = 'all' | 'online' | 'requests';
 
@@ -191,20 +192,27 @@ function FriendRow({ friend }: { friend: FriendDto }) {
 
   return (
     <li className="friend-row" data-testid={`friend-${user.username}`} data-status={friend.status}>
-      <span className={`member-avatar${friend.online ? ' online' : ''}`}>
+      <span
+        className={`member-avatar${friend.online ? ' online' : ''}`}
+        data-presence={friend.presence ?? (friend.online ? 'online' : 'offline')}
+      >
         <Avatar name={name} url={user.avatarUrl} />
         <span className="presence-dot" aria-hidden="true" />
       </span>
       <span className="friend-names">
-        <strong>{name}</strong>
+        <strong>
+          {name}
+          <UserBadges user={user} />
+        </strong>
         <span className="muted">
           @{user.username}
           {friend.status === 'friend'
             ? friend.online
-              ? ' · online'
+              ? ` · ${PRESENCE_TEXT[friend.presence ?? 'online']}`
               : ''
             : ` · ${STATUS_TEXT[friend.status]}`}
         </span>
+        <StatusLine status={user.status} />
       </span>
       <span className="friend-actions">
         {friend.status === 'incoming' && (

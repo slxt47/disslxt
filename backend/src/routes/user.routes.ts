@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { AVATAR_MAX_BYTES, updateProfileSchema, uuidSchema } from '@disslxt/shared';
 import type { Config } from '../config.js';
-import { notFound } from '../lib/errors.js';
+import { forbidden, notFound } from '../lib/errors.js';
 import { acceptImageUploads, sendImage } from '../lib/imageReply.js';
 import { parse, parseParam } from '../lib/validate.js';
 import { currentUser } from '../plugins/auth.js';
@@ -24,8 +24,9 @@ export async function userRoutes(
   };
 
   app.patch('/users/me', async (req) => {
-    const { displayName } = parse(updateProfileSchema, req.body);
-    return { user: await users.updateProfile(currentUser(req).id, displayName) };
+    return {
+      user: await users.updateProfile(currentUser(req).id, parse(updateProfileSchema, req.body)),
+    };
   });
 
   app.put(
@@ -38,6 +39,12 @@ export async function userRoutes(
   app.delete('/users/me/avatar', async (req) => ({
     user: await users.removeAvatar(currentUser(req).id),
   }));
+
+  /** Storage use against the cap: only for accounts with the 'admin' badge. */
+  app.get('/admin/storage', async (req) => {
+    if (currentUser(req).badge !== 'admin') throw forbidden('Nur für Admins');
+    return opts.services.storage.status();
+  });
 
   app.get<{ Params: { userId: string } }>('/users/:userId/avatar', async (req, reply) => {
     const id = parseParam(uuidSchema, req.params.userId, () => notFound('Kein Bild'));

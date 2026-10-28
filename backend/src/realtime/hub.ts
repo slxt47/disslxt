@@ -3,6 +3,7 @@ import type { WebSocket } from 'ws';
 import {
   VOICE_CHANNEL_MAX_PARTICIPANTS,
   type PresenceStatus,
+  type PublicUserDto,
   type VoicePeerDto,
   type VoiceSignal,
   type WsServerMessage,
@@ -49,6 +50,8 @@ export class Hub {
   private readonly channelRooms = new Map<string, Set<Client>>();
   /** channelId → peerId → socket */
   private readonly voiceRooms = new Map<string, Map<string, Client>>();
+  /** Last presence broadcast per user (absent = offline). */
+  private readonly lastPresence = new Map<string, PresenceStatus>();
   /** Private conversations: who hears about the call (both friends), per channel with a call. */
   private readonly callAudience = new Map<string, string[]>();
 
@@ -79,14 +82,13 @@ export class Hub {
   /** Registers a socket and joins it to the given guild rooms. Broadcasts presence on 0→1. */
   addClient(client: Client): void {
     let set = this.socketsByUser.get(client.userId);
-    const first = !set || set.size === 0;
     if (!set) {
       set = new Set();
       this.socketsByUser.set(client.userId, set);
     }
     set.add(client);
     for (const guildId of client.guildIds) addTo(this.guildRooms, guildId, client);
-    if (first) this.broadcastPresence(client.userId, client.guildIds, 'online', client.friendIds);
+    this.refreshPresence(client.userId, client);
   }
 
   /** Removes a socket from all rooms. Broadcasts presence offline on 1→0. */
@@ -99,7 +101,7 @@ export class Hub {
     client.channel = null;
     if (set.size === 0) {
       this.socketsByUser.delete(client.userId);
-      this.broadcastPresence(client.userId, client.guildIds, 'offline', client.friendIds);
+      this.refreshPresence(client.userId, client);
     }
   }
 
@@ -135,7 +137,7 @@ export class Hub {
 
   /** Profile changed: later voice/peer info uses it, and everyone who knows the user is told. */
   updateProfile(
-    user: { id: string; username: string; displayName: string | null; avatarUrl: string | null },
+    user: PublicUserDto,
     guildIds: Iterable<string>,
     friendIds: Iterable<string>,
   ): void {
@@ -252,6 +254,7 @@ export class Hub {
     };
     for (const peer of existing) sendTo(peer, joined);
     this.broadcastVoiceState(channel.guildId, channel.id);
+    this.refreshPresence(client.userId, client);
     // Somebody picked up: stop the ringing – for everyone in a call of two, in a group only on
     // the other devices of whoever joined (the rest may still join).
     if (!channel.guildId && existing.length > 0) {
@@ -291,6 +294,7 @@ export class Hub {
     for (const peer of room?.values() ?? []) sendTo(peer, left);
     sendTo(client, { type: 'voice.left', data: { channelId: voice.channelId, reason } });
     this.broadcastVoiceState(voice.guildId, voice.channelId, audience);
+    this.refreshPresence(client.userId, client);
   }
 
   /** Someone left (or was removed from) a group: out of its call and its channel room. */
@@ -370,18 +374,34 @@ export class Hub {
     }
   }
 
-  private broadcastPresence(
-    userId: string,
-    guildIds: Iterable<string>,
-    status: PresenceStatus,
-    friendIds: Iterable<string>,
-  ) {
-    for (const guildId of guildIds) {
-      this.publishToGuild(guildId, { type: 'presence.update', data: { guildId, userId, status } });
+  /** Green online, red in a call (any device), grey offline. */
+  presence(userId: string): PresenceStatus {
+    const set = this.socketsByUser.get(userId);
+    if (!set || set.size === 0) return 'offline';
+    for (const c of set) if (c.voice) return 'call';
+    return 'online';
+  }
+
+  /**
+   * Tells the user's servers and friends when their presence changed. `via` is a socket of the
+   * user that still knows their servers and friends (needed when the last one just closed).
+   */
+  private refreshPresence(userId: string, via?: Client): void {
+    const now = this.presence(userId);
+    if ((this.lastPresence.get(userId) ?? 'offline') === now) return;
+    if (now === 'offline') this.lastPresence.delete(userId);
+    else this.lastPresence.set(userId, now);
+    const source = via ?? this.socketsByUser.get(userId)?.values().next().value;
+    if (!source) return;
+    for (const guildId of source.guildIds) {
+      this.publishToGuild(guildId, {
+        type: 'presence.update',
+        data: { guildId, userId, status: now },
+      });
     }
-    this.publishToUsers(friendIds, {
+    this.publishToUsers(source.friendIds, {
       type: 'friend.presence',
-      data: { userId, online: status === 'online' },
+      data: { userId, online: now !== 'offline', presence: now },
     });
   }
 }

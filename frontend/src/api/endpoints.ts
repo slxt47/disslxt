@@ -27,6 +27,12 @@ export const api = {
   login: (input: { email: string; password: string }) =>
     apiRequest<{ user: UserDto }>('POST', '/auth/login', input),
   logout: () => apiRequest<void>('POST', '/auth/logout'),
+  forgotPassword: (email: string) =>
+    apiRequest<{ status: 'reset_sent' }>('POST', '/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    apiRequest<{ user: UserDto }>('POST', '/auth/reset-password', { token, password }),
+  adminStorage: () =>
+    apiRequest<{ usedBytes: number; limitBytes: number }>('GET', '/admin/storage'),
   me: () => apiRequest<{ user: UserDto }>('GET', '/auth/me'),
 
   listGuilds: () => apiRequest<{ guilds: GuildDto[] }>('GET', '/guilds'),
@@ -98,14 +104,20 @@ export const api = {
       signal,
     ),
 
-  updateProfile: (displayName: string | null) =>
-    apiRequest<{ user: UserDto }>('PATCH', '/users/me', { displayName }),
+  updateProfile: (patch: {
+    displayName?: string | null;
+    statusEmoji?: string | null;
+    statusText?: string | null;
+    tagGuildId?: string | null;
+  }) => apiRequest<{ user: UserDto }>('PATCH', '/users/me', patch),
   uploadAvatar: (image: Blob) =>
     apiUpload<{ user: UserDto }>('/users/me/avatar', image, 'application/octet-stream', 'PUT'),
   removeAvatar: () => apiRequest<{ user: UserDto }>('DELETE', '/users/me/avatar'),
 
-  renameGuild: (guildId: string, name: string) =>
-    apiRequest<{ guild: GuildDto }>('PATCH', `/guilds/${enc(guildId)}`, { name }),
+  updateGuild: (
+    guildId: string,
+    patch: { name?: string; tag?: string; tagEmoji?: string | null },
+  ) => apiRequest<{ guild: GuildDto }>('PATCH', `/guilds/${enc(guildId)}`, patch),
   uploadGuildIcon: (guildId: string, image: Blob) =>
     apiUpload<{ guild: GuildDto }>(
       `/guilds/${enc(guildId)}/icon`,

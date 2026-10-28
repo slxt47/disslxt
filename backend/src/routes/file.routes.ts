@@ -57,9 +57,11 @@ export async function fileRoutes(
       }
       const name = sanitizeFileName(typeof req.query.name === 'string' ? req.query.name : '');
       const mime = sniffImage(body) ?? 'application/octet-stream';
+      await opts.services.storage.assertRoom(body.length);
       const key = randomBytes(16).toString('hex');
       await mkdir(dir, { recursive: true });
       await writeFile(join(dir, key), body);
+      opts.services.storage.added(body.length);
       try {
         const message = await messages.createFile(user, channel, {
           key,

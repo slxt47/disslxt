@@ -74,6 +74,8 @@ services:
       TURN_MONTHLY_LIMIT_GB: ${TURN_MONTHLY_LIMIT_GB:-900}
       # GIF picker (official GIPHY API, https://developers.giphy.com); empty = no GIF button.
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
+      # Cap for everything posted (uploads + message text); beyond it new posts get 507.
+      STORAGE_LIMIT_GB: ${STORAGE_LIMIT_GB:-40}
     volumes:
       - uploads:/data/uploads
     # Hardening: runs as `node` on port 3000 and writes only to the uploads volume and /tmp

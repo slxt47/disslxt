@@ -9,7 +9,7 @@ import type { Database } from '../db/client.js';
 import { friendships, users } from '../db/schema.js';
 import { AppError, conflict, notFound } from '../lib/errors.js';
 import type { Hub } from '../realtime/hub.js';
-import { toPublicUser } from './dto.js';
+import { profileColumns, toPublicUser } from './dto.js';
 
 type Row = typeof friendships.$inferSelect;
 
@@ -165,15 +165,7 @@ export class FriendService {
 
   private async profiles(ids: string[]): Promise<Map<string, PublicUserDto>> {
     if (ids.length === 0) return new Map();
-    const rows = await this.db
-      .select({
-        id: users.id,
-        username: users.username,
-        displayName: users.displayName,
-        avatarKey: users.avatarKey,
-      })
-      .from(users)
-      .where(inArray(users.id, ids));
+    const rows = await this.db.select(profileColumns).from(users).where(inArray(users.id, ids));
     return new Map(rows.map((r) => [r.id, toPublicUser(r)]));
   }
 
@@ -191,6 +183,7 @@ export class FriendService {
       user,
       status,
       online: status === 'friend' && this.hub.isOnline(otherId),
+      presence: status === 'friend' ? this.hub.presence(otherId) : 'offline',
       since: (row.acceptedAt ?? row.createdAt).toISOString(),
     };
   }

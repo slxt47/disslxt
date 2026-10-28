@@ -79,6 +79,11 @@ export function LoginPage() {
           {busy ? 'Anmelden…' : 'Anmelden'}
         </button>
         <p className="auth-switch">
+          <Link to="/forgot-password" data-testid="to-forgot">
+            Passwort vergessen?
+          </Link>
+        </p>
+        <p className="auth-switch">
           Noch kein Konto?{' '}
           <Link to={`/register${location.search}`} data-testid="to-register">
             Registrieren

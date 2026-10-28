@@ -29,6 +29,19 @@ export const users = pgTable(
     displayName: varchar('display_name', { length: 32 }),
     /** Profile picture: file name in UPLOAD_DIR/avatars (a new name per upload busts caches). */
     avatarKey: varchar('avatar_key', { length: 64 }),
+    /** Badge set by the operator (e.g. 'admin'); never changeable through the API. */
+    badge: varchar('badge', { length: 16 }),
+    /** Custom status: an emoji and/or a short text. */
+    statusEmoji: varchar('status_emoji', { length: 16 }),
+    statusText: varchar('status_text', { length: 80 }),
+    /**
+     * The server tag this person wears next to their name (a guild they are a member of). Text and
+     * emoji are copied here so every message author etc. can be shown without another join; they
+     * are updated when the owner changes the tag and cleared when it goes away.
+     */
+    tagGuildId: uuid('tag_guild_id'),
+    tagText: varchar('tag_text', { length: 4 }),
+    tagEmoji: varchar('tag_emoji', { length: 16 }),
     // Accounts are only created once the address is confirmed, so this is always set for new
     // users; the migration backfills accounts that existed before verification was introduced.
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
@@ -61,6 +74,21 @@ export const pendingRegistrations = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },
   (t) => [index('pending_registrations_email_idx').on(sql`lower(${t.email})`)],
+);
+
+/** "Passwort vergessen": one-time link, valid for a short time. */
+export const passwordResets = pgTable(
+  'password_resets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: char('token_hash', { length: 64 }).notNull().unique('password_resets_token_uq'),
+    createdAt: createdAt(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('password_resets_user_idx').on(t.userId)],
 );
 
 /** One row per e-mail sent to an address; backs the per-address limit against mail bombing. */
@@ -99,6 +127,9 @@ export const guilds = pgTable('guilds', {
   inviteCode: varchar('invite_code', { length: 16 }).notNull().unique('guilds_invite_code_uq'),
   /** Server picture: file name in UPLOAD_DIR/avatars (set by the owner). */
   iconKey: varchar('icon_key', { length: 64 }),
+  /** Server tag (2–4 letters/digits) and its emoji; members can wear it next to their name. */
+  tag: varchar('tag', { length: 4 }),
+  tagEmoji: varchar('tag_emoji', { length: 16 }),
   createdAt: createdAt(),
 });
 

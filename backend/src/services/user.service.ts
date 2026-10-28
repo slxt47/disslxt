@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
-import type { UserDto } from '@disslxt/shared';
+import type { UpdateProfileInput, UserDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { users } from '../db/schema.js';
-import { notFound } from '../lib/errors.js';
+import { AppError, notFound } from '../lib/errors.js';
 import type { ImageStore } from '../lib/images.js';
 import type { Hub } from '../realtime/hub.js';
 import { toPublicUser, toUserDto } from './dto.js';
@@ -19,8 +19,34 @@ export class UserService {
     private readonly images: ImageStore,
   ) {}
 
-  async updateProfile(userId: string, displayName: string | null): Promise<UserDto> {
-    return this.update(userId, { displayName });
+  /** Only the fields that are given change (see updateProfileSchema). */
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<UserDto> {
+    const patch: Partial<typeof users.$inferInsert> = {};
+    if (input.displayName !== undefined) patch.displayName = input.displayName;
+    if (input.statusEmoji !== undefined) patch.statusEmoji = input.statusEmoji;
+    if (input.statusText !== undefined) patch.statusText = input.statusText;
+    if (input.tagGuildId === null) {
+      Object.assign(patch, { tagGuildId: null, tagText: null, tagEmoji: null });
+    } else if (input.tagGuildId !== undefined) {
+      const guild = await this.guilds.assertMember(userId, input.tagGuildId);
+      if (!guild.tag) throw new AppError('BAD_REQUEST', 400, 'Dieser Server hat keinen Tag');
+      Object.assign(patch, { tagGuildId: guild.id, tagText: guild.tag, tagEmoji: guild.tagEmoji });
+    }
+    if (Object.keys(patch).length === 0) return toUserDto(await this.current(userId));
+    return this.update(userId, patch);
+  }
+
+  /** Announces the current profiles of these users again (after a server tag changed). */
+  async republish(userIds: string[]): Promise<void> {
+    for (const id of userIds) {
+      const row = await this.current(id).catch(() => null);
+      if (!row) continue;
+      const [guildIds, friendIds] = await Promise.all([
+        this.guilds.guildIdsForUser(id),
+        this.friends.friendIds(id),
+      ]);
+      this.hub.updateProfile(toPublicUser(row), guildIds, friendIds);
+    }
   }
 
   /** Stores a new picture (bytes checked) and removes the previous one. */
@@ -57,7 +83,7 @@ export class UserService {
 
   private async update(
     userId: string,
-    patch: Partial<Pick<typeof users.$inferInsert, 'displayName' | 'avatarKey'>>,
+    patch: Partial<typeof users.$inferInsert>,
   ): Promise<UserDto> {
     const [row] = await this.db.update(users).set(patch).where(eq(users.id, userId)).returning();
     if (!row) throw notFound('Benutzer nicht gefunden');

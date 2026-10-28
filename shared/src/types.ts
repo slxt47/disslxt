@@ -1,11 +1,14 @@
-export interface UserDto {
-  id: string;
-  email: string;
-  username: string;
-  /** Chosen display name; null → the username is shown. */
-  displayName: string | null;
-  /** Same-origin URL of the profile picture, null → initials. */
-  avatarUrl: string | null;
+/** A short server tag (e.g. "GAME" + 🎮) someone wears next to their name. */
+export interface UserTagDto {
+  guildId: string;
+  text: string;
+  emoji: string | null;
+}
+
+/** Custom status: an emoji and/or a short text ("🎧 Hört Musik"). */
+export interface UserStatusDto {
+  emoji: string | null;
+  text: string | null;
 }
 
 /** What other people see of a user. */
@@ -14,7 +17,19 @@ export interface PublicUserDto {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  /** Set by the operator only, e.g. 'admin'. */
+  badge?: string | null;
+  tag?: UserTagDto | null;
+  status?: UserStatusDto | null;
 }
+
+/** The signed-in user: their public profile plus the e-mail address. */
+export interface UserDto extends PublicUserDto {
+  email: string;
+}
+
+/** Green = online, red = in a call, grey = offline. */
+export type PresenceStatus = 'online' | 'call' | 'offline';
 
 export interface GuildDto {
   id: string;
@@ -23,6 +38,9 @@ export interface GuildDto {
   inviteCode: string;
   /** Same-origin URL of the server picture, null → initials. */
   iconUrl: string | null;
+  /** Server tag members can wear (2–4 letters/digits) and its emoji. */
+  tag: string | null;
+  tagEmoji: string | null;
   createdAt: string;
 }
 
@@ -103,6 +121,10 @@ export interface MemberDto {
   displayName: string | null;
   avatarUrl: string | null;
   online: boolean;
+  presence?: PresenceStatus;
+  badge?: string | null;
+  tag?: UserTagDto | null;
+  status?: UserStatusDto | null;
 }
 
 /** 'friend' once accepted; otherwise a request sent to me ('incoming') or by me ('outgoing'). */
@@ -112,6 +134,7 @@ export interface FriendDto {
   user: PublicUserDto;
   status: FriendStatus;
   online: boolean;
+  presence?: PresenceStatus;
   /** When the request was sent, or when it was accepted for friends. */
   since: string;
 }
@@ -130,6 +153,8 @@ export interface DmChannelDto {
   ownerId: string | null;
   /** The other person (or anyone else in a group) is online. */
   online: boolean;
+  /** Of the other person in a conversation of two. */
+  presence?: PresenceStatus;
   /** Newest message, for sorting the list (null: nothing written yet). */
   lastMessageAt: string | null;
 }
@@ -183,6 +208,9 @@ export type ErrorCode =
   | 'CONFLICT'
   | 'CHANNEL_EXISTS'
   | 'USERNAME_TAKEN'
+  | 'GUILD_LIMIT'
+  | 'STORAGE_FULL'
+  | 'RESET_INVALID'
   | 'NOT_FRIENDS'
   | 'OWNER_CANNOT_LEAVE'
   | 'RATE_LIMITED'

@@ -101,3 +101,42 @@ export function accountExistsMail(opts: { to: string; loginLink: string }): Mail
   );
   return { to: opts.to, subject, text, html };
 }
+
+/** "Passwort vergessen": one-time link to set a new password. */
+export function passwordResetMail(opts: {
+  to: string;
+  username: string;
+  link: string;
+  ttlMinutes: number;
+}): MailMessage {
+  const subject = 'Neues Passwort für disslxt';
+  const text = [
+    `Hallo ${opts.username},`,
+    '',
+    'für dein disslxt-Konto wurde ein neues Passwort angefordert. Hier kannst du es festlegen:',
+    '',
+    opts.link,
+    '',
+    `Der Link ist ${opts.ttlMinutes} Minuten gültig und funktioniert nur einmal. Danach bist du auf allen Geräten abgemeldet.`,
+    '',
+    'Wenn du das nicht warst, ignoriere diese E-Mail einfach – dein Passwort bleibt, wie es ist.',
+  ].join('\n');
+  const html = layout(
+    subject,
+    [
+      `<h1 style="margin:0 0 16px;font-size:28px;line-height:1.14;font-weight:600;letter-spacing:-0.015em">Neues Passwort</h1>`,
+      p(`Hallo ${escapeHtml(opts.username)},`),
+      p('für dein disslxt-Konto wurde ein neues Passwort angefordert.'),
+      button(opts.link, 'Neues Passwort festlegen'),
+      p(
+        `Der Link ist ${opts.ttlMinutes} Minuten gültig und funktioniert nur einmal. Danach bist du auf allen Geräten abgemeldet.`,
+        true,
+      ),
+      p(
+        'Wenn du das nicht warst, ignoriere diese E-Mail einfach – dein Passwort bleibt, wie es ist.',
+        true,
+      ),
+    ].join('\n'),
+  );
+  return { to: opts.to, subject, text, html };
+}

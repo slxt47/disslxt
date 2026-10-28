@@ -72,6 +72,7 @@ export async function voiceRoutes(
       const container = sniffAudio(body);
       if (!container) throw unsupported();
 
+      await opts.services.storage.assertRoom(body.length);
       const hint = Number(req.query.durationMs);
       const clientDurationMs = Number.isFinite(hint) ? hint : VOICE_MAX_SECONDS * 1000;
       await mkdir(dir, { recursive: true });
@@ -83,6 +84,7 @@ export async function voiceRoutes(
         throw err;
       }
       try {
+        opts.services.storage.added(body.length);
         const message = await messages.createVoice(user, channel, audio);
         return reply.status(201).send({ message });
       } catch (err) {

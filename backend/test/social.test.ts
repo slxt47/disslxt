@@ -3,8 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { users } from '../src/db/schema.js';
 import {
   buildTestApp,
+  getDb,
+  sentMails,
   closeDb,
   createGuild,
   joinGuild,
@@ -537,5 +541,186 @@ describe('GIFs', () => {
       payload: { id: 'abc123' },
     });
     expect(outsider.statusCode).toBe(403);
+  });
+});
+
+describe('forgot password', () => {
+  const resetToken = (to: string) => {
+    const mail = sentMails(app)
+      .filter((m) => m.to === to && m.subject.startsWith('Neues Passwort'))
+      .at(-1);
+    const token = mail?.text.match(/#token=([A-Za-z0-9_-]{43})/)?.[1];
+    if (!token) throw new Error('no reset mail');
+    return token;
+  };
+
+  it('mail only for real accounts; the link sets a new password once and signs out everywhere', async () => {
+    const unknown = await req(app, 'POST', '/api/auth/forgot-password', {
+      payload: { email: 'nobody@example.com' },
+    });
+    expect(unknown.statusCode).toBe(202);
+    expect(sentMails(app).some((m) => m.to === 'nobody@example.com')).toBe(false);
+
+    const res = await req(app, 'POST', '/api/auth/forgot-password', {
+      payload: { email: alice.user.email.toUpperCase() },
+    });
+    expect(res.statusCode).toBe(202);
+    const token = resetToken(alice.user.email);
+
+    const weak = await req(app, 'POST', '/api/auth/reset-password', {
+      payload: { token, password: 'alice12345' },
+    });
+    expect(weak.statusCode).toBe(400);
+
+    // A rejected password does not use up the link; the second try works, a third does not.
+    const good = await req(app, 'POST', '/api/auth/reset-password', {
+      payload: { token, password: 'Neues-Passwort-42' },
+    });
+    const again = await req(app, 'POST', '/api/auth/reset-password', {
+      payload: { token, password: 'Noch-ein-Passwort-7' },
+    });
+    expect(again.statusCode).toBe(400);
+    expect(again.json().error.code).toBe('RESET_INVALID');
+    expect(good.statusCode).toBe(200);
+    expect(good.cookies.find((c) => c.name === 'sid')?.value).toBeTruthy();
+    // The old session is gone, the new password works, the old one does not.
+    expect((await req(app, 'GET', '/api/auth/me', { cookie: alice.cookie })).statusCode).toBe(401);
+    const login = await req(app, 'POST', '/api/auth/login', {
+      payload: { email: alice.user.email, password: 'Neues-Passwort-42' },
+    });
+    expect(login.statusCode).toBe(200);
+    const old = await req(app, 'POST', '/api/auth/login', {
+      payload: { email: alice.user.email, password: alice.password },
+    });
+    expect(old.statusCode).toBe(401);
+  });
+});
+
+describe('limits', () => {
+  it('at most 5 servers per person', async () => {
+    for (let i = 1; i <= 5; i++) await createGuild(app, alice, `S${i}`);
+    const sixth = await req(app, 'POST', '/api/guilds', {
+      cookie: alice.cookie,
+      payload: { name: 'Zu viel' },
+    });
+    expect(sixth.statusCode).toBe(409);
+    expect(sixth.json().error.code).toBe('GUILD_LIMIT');
+    // Joining other servers is not limited by this.
+    const { guild } = await createGuild(app, bob, 'Bobs');
+    await joinGuild(app, alice, guild.inviteCode);
+  });
+
+  it('storage cap: posts beyond it are refused with 507; admins see the use', async () => {
+    await app.close();
+    app = await buildTestApp({
+      storage: { root: await mkdtemp(join(tmpdir(), 'disslxt-store-')), limitBytes: 20 },
+    });
+    const { general } = await createGuild(app, alice);
+    expect((await sendMessage(app, alice, general.id, 'x'.repeat(15))).statusCode).toBe(201);
+    const full = await sendMessage(app, alice, general.id, 'y'.repeat(10));
+    expect(full.statusCode).toBe(507);
+    expect(full.json().error.code).toBe('STORAGE_FULL');
+
+    expect((await req(app, 'GET', '/api/admin/storage', { cookie: alice.cookie })).statusCode).toBe(
+      403,
+    );
+    await getDb().db.update(users).set({ badge: 'admin' }).where(eq(users.id, alice.user.id));
+    const status = await req(app, 'GET', '/api/admin/storage', { cookie: alice.cookie });
+    expect(status.json()).toEqual({ usedBytes: 15, limitBytes: 20 });
+  });
+});
+
+describe('server tags, status and presence', () => {
+  it('owner sets a tag with emoji; members wear it; changes and removal follow', async () => {
+    const { guild } = await createGuild(app, alice, 'Gamer');
+    await joinGuild(app, bob, guild.inviteCode);
+    const bad = await req(app, 'PATCH', `/api/guilds/${guild.id}`, {
+      cookie: alice.cookie,
+      payload: { tag: 'ABCDE', tagEmoji: 'xx' },
+    });
+    expect(bad.statusCode).toBe(400);
+    const set = await req(app, 'PATCH', `/api/guilds/${guild.id}`, {
+      cookie: alice.cookie,
+      payload: { tag: 'game', tagEmoji: '🎮' },
+    });
+    expect(set.json().guild).toMatchObject({ tag: 'GAME', tagEmoji: '🎮' });
+
+    const wear = await req(app, 'PATCH', '/api/users/me', {
+      cookie: bob.cookie,
+      payload: { tagGuildId: guild.id },
+    });
+    expect(wear.json().user.tag).toEqual({ guildId: guild.id, text: 'GAME', emoji: '🎮' });
+    const notMember = await req(app, 'PATCH', '/api/users/me', {
+      cookie: eve.cookie,
+      payload: { tagGuildId: guild.id },
+    });
+    expect(notMember.statusCode).toBe(403);
+
+    const b = await open(bob);
+    await req(app, 'PATCH', `/api/guilds/${guild.id}`, {
+      cookie: alice.cookie,
+      payload: { tagEmoji: '👾' },
+    });
+    const updated = await b.waitFor('user.updated', (e) => e.data.user.id === bob.user.id);
+    expect(updated.data.user.tag?.emoji).toBe('👾');
+
+    await req(app, 'PATCH', `/api/guilds/${guild.id}`, {
+      cookie: alice.cookie,
+      payload: { tag: '' },
+    });
+    const me = await req(app, 'GET', '/api/auth/me', { cookie: bob.cookie });
+    expect(me.json().user.tag).toBeNull();
+  });
+
+  it('custom status (emoji + text) shows up with the author', async () => {
+    const { general } = await createGuild(app, alice);
+    const res = await req(app, 'PATCH', '/api/users/me', {
+      cookie: alice.cookie,
+      payload: { statusEmoji: '🎧', statusText: ' Höre Musik ' },
+    });
+    expect(res.json().user.status).toEqual({ emoji: '🎧', text: 'Höre Musik' });
+    expect(
+      (
+        await req(app, 'PATCH', '/api/users/me', {
+          cookie: alice.cookie,
+          payload: { statusEmoji: 'hi' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    await sendMessage(app, alice, general.id, 'hey');
+    const list = await req(app, 'GET', `/api/channels/${general.id}/messages`, {
+      cookie: alice.cookie,
+    });
+    expect(list.json().messages[0].author.status).toEqual({ emoji: '🎧', text: 'Höre Musik' });
+    const cleared = await req(app, 'PATCH', '/api/users/me', {
+      cookie: alice.cookie,
+      payload: { statusEmoji: null, statusText: '' },
+    });
+    expect(cleared.json().user.status).toBeNull();
+  });
+
+  it('presence: online, red while in a call, offline', async () => {
+    await befriend(alice, bob);
+    const channelId = await openDm(alice, bob);
+    const a = await open(alice);
+    const b = await open(bob);
+    await a.waitFor(
+      'friend.presence',
+      (e) => e.data.userId === bob.user.id && e.data.presence === 'online',
+    );
+    b.send({ type: 'voice.join', data: { channelId } });
+    await a.waitFor(
+      'friend.presence',
+      (e) => e.data.userId === bob.user.id && e.data.presence === 'call',
+    );
+    const friends = await req(app, 'GET', '/api/friends', { cookie: alice.cookie });
+    expect(friends.json().friends[0].presence).toBe('call');
+    b.send({ type: 'voice.leave' });
+    await a.waitFor(
+      'friend.presence',
+      (e) => e.data.userId === bob.user.id && e.data.presence === 'online',
+      2000,
+      { onlyNew: true },
+    );
   });
 });

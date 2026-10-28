@@ -1,13 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import { nameOf } from '../profile';
 import { useAuthStore } from '../store/auth';
+import { useVoiceStore } from '../store/voice';
 import { Avatar, Icon } from './Icon';
+import { StatusLine, UserBadges } from './Social';
 
 /** Bottom of the sidebars: who is signed in, settings and sign-out. */
 export function UserFooter({ onOpenSettings }: { onOpenSettings: () => void }) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  const inCall = useVoiceStore((s) => s.channelId !== null);
 
   async function onLogout() {
     await logout();
@@ -23,12 +26,22 @@ export function UserFooter({ onOpenSettings }: { onOpenSettings: () => void }) {
         title="Profil bearbeiten"
         onClick={onOpenSettings}
       >
-        <Avatar name={nameOf(user)} url={user?.avatarUrl} size="sm" />
+        <span className="member-avatar online" data-presence={inCall ? 'call' : 'online'}>
+          <Avatar name={nameOf(user)} url={user?.avatarUrl} size="sm" />
+          <span className="presence-dot" aria-hidden="true" />
+        </span>
         <span className="who-names">
-          <span className="current-user" data-testid="current-user">
-            {nameOf(user)}
+          <span className="who-line">
+            <span className="current-user" data-testid="current-user">
+              {nameOf(user)}
+            </span>
+            {user && <UserBadges user={user} />}
           </span>
-          {user?.displayName && <span className="who-handle">@{user.username}</span>}
+          {user?.status ? (
+            <StatusLine status={user.status} />
+          ) : (
+            user?.displayName && <span className="who-handle">@{user.username}</span>
+          )}
         </span>
       </button>
       <span className="footer-actions">

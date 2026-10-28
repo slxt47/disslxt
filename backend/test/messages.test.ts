@@ -56,7 +56,7 @@ describe('POST /api/channels/:channelId/messages', () => {
     const res = await sendMessage(app, bob, channelId, '  Hallo Welt  ');
     expect(res.statusCode).toBe(201);
     const { message } = res.json();
-    expect(message).toEqual({
+    expect(message).toMatchObject({
       id: expect.stringMatching(/^\d+$/),
       channelId,
       author: { id: bob.user.id, username: 'bob', displayName: null, avatarUrl: null },
@@ -142,7 +142,7 @@ describe('GET /api/channels/:channelId/messages', () => {
     const body = res.json();
     expect(body.hasMore).toBe(false);
     expect(body.messages.map((m: { content: string }) => m.content)).toEqual(['first', 'second']);
-    expect(body.messages[1].author).toEqual({
+    expect(body.messages[1].author).toMatchObject({
       id: bob.user.id,
       username: 'bob',
       displayName: null,

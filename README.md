@@ -349,6 +349,33 @@ Sprachnachrichten, Bearbeiten und Löschen funktionieren also genau wie in Serve
 dürfen nur die beiden; schreiben und anrufen nur, solange sie befreundet sind (danach bleibt der
 Verlauf lesbar). Neue Nachrichten zählen als ungelesen (Zahl am „d“) und kommen als Mitteilung.
 
+## Konto: Passwort vergessen, Status, Server-Tags, Grenzen
+
+**Passwort vergessen** (Link auf der Anmeldeseite): Die Adresse eingeben; gibt es ein bestätigtes Konto,
+kommt ein Link (30 Minuten gültig, nur einmal nutzbar – die Antwort ist in jedem Fall gleich, damit
+niemand ausprobieren kann, welche Adressen es gibt). Das neue Passwort muss die Passwort-Regeln erfüllen;
+danach sind **alle anderen Geräte abgemeldet** und dieser Browser angemeldet. Das Token steht nur im
+`#`-Teil der URL (nie in Logs) und verschwindet sofort aus der Adresszeile.
+
+**Status**: Emoji + kurzer Text (höchstens 80 Zeichen), sichtbar unter dem Namen in Mitgliederliste,
+Freunden und eigener Leiste. **Anwesenheit** als Punkt am Profilbild: grün = online, **rot = in einem
+Anruf oder Sprachkanal**, grau = offline (für Screenreader auch als Text).
+
+**Server-Tags**: Besitzer:innen geben ihrem Server in den Server-Einstellungen einen Tag (2–4 Buchstaben
+oder Ziffern) mit Emoji, z. B. „🎮 GAME“. Mitglieder wählen im Profil, welchen Tag sie neben ihrem Namen
+tragen – damit vertreten sie ihren Server. Ändert sich der Tag, sehen es alle sofort; wird er entfernt
+oder verlässt jemand den Server, verschwindet er. Ein **Badge** (z. B. „admin“) kann nur der Betreiber
+in der Datenbank setzen, nie über die API.
+
+**Grenzen**: Jede Person kann höchstens **5 Server** erstellen (beitreten unbegrenzt). Alles Gepostete
+zusammen – Dateien, Bilder, Sprachnachrichten, Profil-/Serverbilder und der Text aller Nachrichten – darf
+höchstens **40 GB** belegen (`STORAGE_LIMIT_GB`); darüber hinaus lehnt der Server Neues mit 507 ab, bis
+etwas gelöscht wird. Konten mit Badge „admin“ sehen die Auslastung in den Einstellungen.
+
+**Alles zurücksetzen** (alle Konten, Server, Nachrichten, Dateien löschen und ein Admin-Konto anlegen):
+`scripts/admin-reset.sh <e-mail> <benutzername> [badge]` – mit Bestätigung, verdeckter Passwortabfrage
+und Backup vorweg.
+
 ## Gruppenchats
 
 Unter „Unterhaltungen“ → **+**: mindestens zwei Freunde wählen, optional ein Name. Bis zu 10 Personen;

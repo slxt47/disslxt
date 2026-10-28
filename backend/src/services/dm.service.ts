@@ -7,7 +7,7 @@ import { channels, dmMembers, messages, users, type Channel } from '../db/schema
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import { isUniqueViolation } from '../lib/pgErrors.js';
 import type { Hub } from '../realtime/hub.js';
-import { toChannelDto, toPublicUser } from './dto.js';
+import { profileColumns, toChannelDto, toPublicUser } from './dto.js';
 import type { FriendService } from './friend.service.js';
 
 /** Both user ids, sorted: the same pair always maps to the same conversation. */
@@ -239,6 +239,7 @@ export class DmService {
       members,
       ownerId: channel.kind === 'group' ? channel.ownerId : null,
       online: members.some((m) => this.hub.isOnline(m.id)),
+      presence: channel.kind === 'dm' && members[0] ? this.hub.presence(members[0].id) : undefined,
       lastMessageAt,
     };
   }
@@ -247,10 +248,7 @@ export class DmService {
     const rows = await this.db
       .select({
         channelId: dmMembers.channelId,
-        id: users.id,
-        username: users.username,
-        displayName: users.displayName,
-        avatarKey: users.avatarKey,
+        ...profileColumns,
       })
       .from(dmMembers)
       .innerJoin(users, eq(users.id, dmMembers.userId))

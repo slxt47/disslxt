@@ -9,6 +9,8 @@ const guild: GuildDto = {
   name: 'Test',
   ownerId: ME.id,
   iconUrl: null,
+  tag: null,
+  tagEmoji: null,
   inviteCode: 'abc123',
   createdAt: '2026-10-20T12:00:00.000Z',
 };

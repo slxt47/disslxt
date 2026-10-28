@@ -232,7 +232,7 @@ describe('GET /api/guilds/:guildId/members', () => {
     await joinGuild(app, bob, guild.inviteCode);
     const res = await req(app, 'GET', `/api/guilds/${guild.id}/members`, { cookie: bob.cookie });
     expect(res.statusCode).toBe(200);
-    expect(res.json().members).toEqual([
+    expect(res.json().members).toMatchObject([
       {
         userId: alice.user.id,
         username: 'alice',

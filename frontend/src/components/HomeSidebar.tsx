@@ -87,7 +87,10 @@ export function HomeSidebar({
                     {group ? (
                       <GroupAvatar members={dm.members} />
                     ) : (
-                      <span className={`member-avatar${dm.online ? ' online' : ''}`}>
+                      <span
+                        className={`member-avatar${dm.online ? ' online' : ''}`}
+                        data-presence={dm.presence ?? (dm.online ? 'online' : 'offline')}
+                      >
                         <Avatar name={name} url={dm.peer.avatarUrl} size="sm" />
                         <span className="presence-dot" aria-hidden="true" />
                       </span>

@@ -65,11 +65,7 @@ export function trackSocial(ev: WsServerMessage, selfId: string): void {
     const auth = useAuthStore.getState();
     if (auth.user) {
       useAuthStore.setState({
-        user: {
-          ...auth.user,
-          displayName: ev.data.user.displayName,
-          avatarUrl: ev.data.user.avatarUrl,
-        },
+        user: { ...auth.user, ...ev.data.user, email: auth.user.email },
       });
     }
   }

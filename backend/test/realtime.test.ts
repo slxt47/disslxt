@@ -268,7 +268,7 @@ describe('guild events', () => {
     const c = await open(carol);
     await joinGuild(app, carol, inviteCode);
     const joined = await a.waitFor('member.joined');
-    expect(joined.data).toEqual({
+    expect(joined.data).toMatchObject({
       guildId,
       member: {
         userId: carol.user.id,

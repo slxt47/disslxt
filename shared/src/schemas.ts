@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   CHANNEL_NAME_MAX_LEN,
   DISPLAY_NAME_MAX_LEN,
+  STATUS_TEXT_MAX_LEN,
   GROUP_MAX_MEMBERS,
   GROUP_NAME_MAX_LEN,
   EMAIL_MAX_LEN,
@@ -69,6 +70,15 @@ export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export const resendVerificationSchema = z.object({ email: emailSchema });
 export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
 
+/** "Passwort vergessen": the same answer whether or not the address has an account. */
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+/** New password from a reset link (policy checked on the server with the account's name). */
+export const resetPasswordSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Ungültiger Link'),
+  password: passwordSchema,
+});
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
@@ -91,12 +101,54 @@ export const createGuildSchema = z.object({
 });
 export type CreateGuildInput = z.infer<typeof createGuildSchema>;
 
-/** Server settings (owner): currently the name; the picture has its own upload route. */
-export const updateGuildSchema = createGuildSchema;
+/**
+ * One emoji (with skin tone, ZWJ sequences, flags): for statuses and server tags. Plain text
+ * or several emojis are rejected.
+ */
+export const emojiSchema = z
+  .string()
+  .trim()
+  .max(16, 'Bitte genau ein Emoji')
+  .regex(
+    /^(?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?)*|[0-9#*]\uFE0F?\u20E3)$/u,
+    'Bitte genau ein Emoji',
+  );
+
+/** Server tag: 2–4 letters or digits, shown in capitals. */
+export const guildTagSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9]{2,4}$/, 'Tag: 2–4 Buchstaben oder Ziffern')
+  .transform((s) => s.toUpperCase());
+
+/** Server settings (owner): name and tag; the picture has its own upload route. */
+export const updateGuildSchema = z.object({
+  name: createGuildSchema.shape.name.optional(),
+  /** Empty string removes the tag (and it disappears from everyone wearing it). */
+  tag: z.union([guildTagSchema, z.literal('')]).optional(),
+  tagEmoji: emojiSchema.nullable().optional(),
+});
 export type UpdateGuildInput = z.infer<typeof updateGuildSchema>;
 
-/** Profile settings. An empty display name removes it (the username is shown again). */
+/**
+ * Profile settings; every field is optional, only what is sent changes. An empty display name or
+ * status text removes it; null clears the status emoji or the worn server tag.
+ */
 export const updateProfileSchema = z.object({
+  statusEmoji: emojiSchema.nullable().optional(),
+  statusText: z
+    .string()
+    .trim()
+    .refine(
+      (s) => textLength(s) <= STATUS_TEXT_MAX_LEN,
+      `Status: höchstens ${STATUS_TEXT_MAX_LEN} Zeichen`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Status enthält unzulässige Steuerzeichen')
+    .transform((s) => (s === '' ? null : s))
+    .nullable()
+    .optional(),
+  /** The server whose tag to wear (must be a member and the server must have a tag). */
+  tagGuildId: z.guid().nullable().optional(),
   displayName: z
     .string()
     .trim()
@@ -106,7 +158,8 @@ export const updateProfileSchema = z.object({
     )
     .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Anzeigename enthält unzulässige Steuerzeichen')
     .transform((s) => (s === '' ? null : s))
-    .nullable(),
+    .nullable()
+    .optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

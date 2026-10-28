@@ -64,6 +64,13 @@
       "when": 1793216432529,
       "tag": "0008_groups_and_gifs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793219740447,
+      "tag": "0009_reset_tags_status",
+      "breakpoints": true
     }
   ]
 }

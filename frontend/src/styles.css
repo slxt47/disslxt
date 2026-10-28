@@ -3136,3 +3136,156 @@ select {
     left: 8px;
   }
 }
+
+/* --- Presence: green online, red in a call, grey offline (also announced as text) --- */
+/* Same weight as the older .member.online / .member-avatar.online rules, later in the file: wins. */
+.member[data-presence='online'] .presence-dot,
+.member-avatar[data-presence='online'] .presence-dot {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+.member[data-presence='call'] .presence-dot,
+.member-avatar[data-presence='call'] .presence-dot {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+.member[data-presence='offline'] .presence-dot,
+.member-avatar[data-presence='offline'] .presence-dot {
+  background: var(--text-tertiary);
+  box-shadow: none;
+}
+.member[data-presence='call'] .avatar {
+  opacity: 1;
+  filter: none;
+}
+.member-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+.member-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.user-footer .member-avatar .presence-dot {
+  border-color: var(--bg-tertiary);
+}
+.who-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* --- Server tags, operator badge, custom status --- */
+.user-badges {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.member-name .user-badges,
+.who-line .user-badges {
+  margin-left: 0;
+}
+.server-tag,
+.user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.server-tag {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.user-badge {
+  background: var(--accent-gradient);
+  color: var(--on-accent);
+  text-transform: uppercase;
+}
+.status-line {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Emoji picker (status, server tag) --- */
+.emoji-picker {
+  position: relative;
+  flex: none;
+}
+.emoji-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  font-size: 1.375rem;
+  cursor: pointer;
+}
+.emoji-empty {
+  color: var(--text-tertiary);
+  font-size: 1.125rem;
+}
+.emoji-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: min(312px, calc(100vw - 48px));
+  max-height: 300px;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  animation: rise-in var(--dur-fast) var(--ease-out);
+}
+.emoji-group {
+  margin: 4px 2px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+.emoji-grid button {
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.emoji-grid button:hover,
+.emoji-grid button.on {
+  background: var(--accent-soft);
+}
+.emoji-clear {
+  width: 100%;
+  margin-top: 8px;
+}
+.status-form {
+  align-items: center;
+}

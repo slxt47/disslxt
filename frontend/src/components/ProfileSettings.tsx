@@ -1,10 +1,12 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { DISPLAY_NAME_MAX_LEN, textLength } from '@disslxt/shared';
+import { DISPLAY_NAME_MAX_LEN, STATUS_TEXT_MAX_LEN, textLength } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { squareImage } from '../lib/image';
 import { nameOf } from '../profile';
 import { useAuthStore } from '../store/auth';
+import { useChatStore } from '../store/chat';
+import { EmojiPicker, UserBadges } from './Social';
 import { Avatar, Icon } from './Icon';
 
 /** "Profil": picture and display name, seen by everyone in your servers and your friends. */
@@ -15,6 +17,10 @@ export function ProfileSettings() {
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [statusEmoji, setStatusEmoji] = useState<string | null>(user?.status?.emoji ?? null);
+  const [statusText, setStatusText] = useState(user?.status?.text ?? '');
+  const guilds = useChatStore((s) => s.guilds);
+  const tagged = guilds.filter((g) => g.tag);
   if (!user) return null;
 
   async function run(action: () => Promise<string>) {
@@ -35,7 +41,7 @@ export function ProfileSettings() {
   function saveName(e: FormEvent) {
     e.preventDefault();
     void run(async () => {
-      const { user: u } = await api.updateProfile(name.trim() || null);
+      const { user: u } = await api.updateProfile({ displayName: name.trim() || null });
       apply(u);
       setName(u.displayName ?? '');
       return u.displayName ? 'Anzeigename gespeichert.' : 'Anzeigename entfernt.';
@@ -127,6 +133,79 @@ export function ProfileSettings() {
           {error}
         </p>
       )}
+      <h4 className="settings-subheading">Status</h4>
+      <form
+        className="inline-form status-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(async () => {
+            const { user: u } = await api.updateProfile({
+              statusEmoji,
+              statusText: statusText.trim(),
+            });
+            apply(u);
+            return u.status ? 'Status gespeichert.' : 'Status entfernt.';
+          });
+        }}
+      >
+        <EmojiPicker
+          value={statusEmoji}
+          onChange={setStatusEmoji}
+          label="Status-Emoji"
+          testId="status-emoji"
+        />
+        <label className="field">
+          <span className="sr-only">Status-Text</span>
+          <input
+            value={statusText}
+            maxLength={STATUS_TEXT_MAX_LEN}
+            placeholder="Was machst du gerade?"
+            data-testid="status-text"
+            onChange={(e) => setStatusText(e.target.value)}
+          />
+        </label>
+        <button className="btn primary" type="submit" disabled={busy} data-testid="status-save">
+          Speichern
+        </button>
+      </form>
+
+      <h4 className="settings-subheading">Server-Tag</h4>
+      {tagged.length === 0 ? (
+        <p className="settings-hint">
+          Keiner deiner Server hat einen Tag. Besitzer:innen legen ihn in den Server-Einstellungen
+          fest.
+        </p>
+      ) : (
+        <label className="field">
+          <span>Diesen Server neben deinem Namen zeigen</span>
+          <select
+            value={user.tag?.guildId ?? ''}
+            disabled={busy}
+            data-testid="tag-select"
+            onChange={(e) =>
+              void run(async () => {
+                const { user: u } = await api.updateProfile({ tagGuildId: e.target.value || null });
+                apply(u);
+                return u.tag ? `Du zeigst jetzt ${u.tag.text}.` : 'Kein Server-Tag mehr.';
+              })
+            }
+          >
+            <option value="">Keinen</option>
+            {tagged.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.tagEmoji ? `${g.tagEmoji} ` : ''}
+                {g.tag} – {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {(user.tag || user.badge) && (
+        <p className="settings-hint">
+          So sehen dich andere: <strong>{nameOf(user)}</strong> <UserBadges user={user} />
+        </p>
+      )}
+
       <p className="settings-hint">
         Dein Benutzername <strong>@{user.username}</strong> bleibt gleich – damit können dich andere
         als Freund hinzufügen. Leer lassen, um ihn auch als Namen zu zeigen.

@@ -21,7 +21,11 @@ const MIME = Object.fromEntries(Object.entries(EXT).map(([m, e]) => [e, m])) as 
  * stored, under a random name whose extension records the type.
  */
 export class ImageStore {
-  constructor(private readonly dir: string) {}
+  constructor(
+    private readonly dir: string,
+    /** Overall storage cap (checked before writing, counted after). */
+    private readonly storage?: { assertRoom(n: number): Promise<void>; added(n: number): void },
+  ) {}
 
   async save(body: unknown): Promise<string> {
     if (!Buffer.isBuffer(body) || body.length === 0) {
@@ -38,9 +42,11 @@ export class ImageStore {
         'Bitte ein Bild als PNG, JPEG, GIF oder WebP wählen',
       );
     }
+    await this.storage?.assertRoom(body.length);
     const key = `${randomBytes(16).toString('hex')}.${EXT[mime]}`;
     await mkdir(this.dir, { recursive: true });
     await writeFile(join(this.dir, key), body);
+    this.storage?.added(body.length);
     return key;
   }
 

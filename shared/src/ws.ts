@@ -49,7 +49,8 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
 ]);
 export type WsClientMessage = z.infer<typeof wsClientMessageSchema>;
 
-export type PresenceStatus = 'online' | 'offline';
+export type { PresenceStatus } from './types.js';
+import type { PresenceStatus } from './types.js';
 
 export type WsServerMessage =
   | { type: 'ready'; data: { userId: string } }
@@ -98,7 +99,10 @@ export type WsServerMessage =
   | { type: 'friend.updated'; data: { friend: FriendDto } }
   /** Friendship ended, or a request was declined / withdrawn. */
   | { type: 'friend.removed'; data: { userId: string } }
-  | { type: 'friend.presence'; data: { userId: string; online: boolean } }
+  | {
+      type: 'friend.presence';
+      data: { userId: string; online: boolean; presence: PresenceStatus };
+    }
   /** A private conversation or group was opened, renamed or its members changed. */
   | { type: 'dm.updated'; data: { dm: DmChannelDto } }
   /** You left a group or were removed from it. */

@@ -15,6 +15,7 @@ import { PushService } from './push.service.js';
 import { TurnUsageService } from './turnUsage.service.js';
 import { UserService } from './user.service.js';
 import { GifService } from './gif.service.js';
+import { StorageService } from './storage.service.js';
 import type { PushSender } from '../lib/push.js';
 
 export interface Services {
@@ -29,6 +30,7 @@ export interface Services {
   dms: DmService;
   users: UserService;
   gifs: GifService;
+  storage: StorageService;
 }
 
 export function createServices(
@@ -42,7 +44,8 @@ export function createServices(
 ): Services {
   const auth = new AuthService(db, config, mailer, log);
   const push = new PushService(db, hub, config, pushSender, log);
-  const images = new ImageStore(config.avatars.dir);
+  const storage = new StorageService(db, config.storage.root, config.storage.limitBytes);
+  const images = new ImageStore(config.avatars.dir, storage);
   const guilds = new GuildService(
     db,
     hub,
@@ -58,8 +61,30 @@ export function createServices(
   const gifs = new GifService(config.giphyApiKey, opts.fetchFn ?? fetch);
   const users = new UserService(db, hub, guilds, friends, images);
   const channels = new ChannelService(db, hub, guilds, friends);
-  const messages = new MessageService(db, hub, channels, push, config.voice.dir, config.files.dir);
+  guilds.profilesChanged = (ids) => users.republish(ids);
+  const messages = new MessageService(
+    db,
+    hub,
+    storage,
+    channels,
+    push,
+    config.voice.dir,
+    config.files.dir,
+  );
   const turnUsage = new TurnUsageService(db, config.ice.monthlyLimitBytes);
   const ice = new IceService(config, log, fetch, async () => (await turnUsage.status()).exhausted);
-  return { auth, guilds, channels, messages, push, ice, turnUsage, friends, dms, users, gifs };
+  return {
+    auth,
+    guilds,
+    channels,
+    messages,
+    push,
+    ice,
+    turnUsage,
+    friends,
+    dms,
+    users,
+    gifs,
+    storage,
+  };
 }

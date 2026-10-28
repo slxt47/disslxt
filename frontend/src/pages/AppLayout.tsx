@@ -9,6 +9,7 @@ import { FriendsView } from '../components/FriendsView';
 import { HomeSidebar } from '../components/HomeSidebar';
 import { IncomingCall } from '../components/IncomingCall';
 import { ProfileSettings } from '../components/ProfileSettings';
+import { AdminSettings } from '../components/AdminSettings';
 import { ConnectionBanner } from '../components/ConnectionBanner';
 import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
@@ -235,6 +236,7 @@ export function AppLayout() {
           extra={
             <>
               <ProfileSettings />
+              <AdminSettings />
               <AppearanceSettings />
               <SpeechSettings />
               <VoiceSettings />

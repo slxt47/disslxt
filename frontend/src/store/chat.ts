@@ -51,7 +51,16 @@ function sortFriends(friends: FriendDto[]): FriendDto[] {
 
 /** Applies a changed profile wherever the person appears. */
 function withProfile<T extends { id: string; username: string }>(u: T, p: PublicUserDto): T {
-  return u.id === p.id ? { ...u, displayName: p.displayName, avatarUrl: p.avatarUrl } : u;
+  return u.id === p.id
+    ? {
+        ...u,
+        displayName: p.displayName,
+        avatarUrl: p.avatarUrl,
+        badge: p.badge,
+        tag: p.tag,
+        status: p.status,
+      }
+    : u;
 }
 
 export interface ChatState {
@@ -312,7 +321,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         const membersByGuild: Record<string, MemberDto[]> = {};
         for (const [g, list] of Object.entries(s.membersByGuild)) {
           membersByGuild[g] = list.map((m) =>
-            m.userId === p.id ? { ...m, displayName: p.displayName, avatarUrl: p.avatarUrl } : m,
+            m.userId === p.id
+              ? {
+                  ...m,
+                  displayName: p.displayName,
+                  avatarUrl: p.avatarUrl,
+                  badge: p.badge,
+                  tag: p.tag,
+                  status: p.status,
+                }
+              : m,
           );
         }
         const messagesByChannel: Record<string, MessageDto[]> = {};
@@ -342,13 +360,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         s.removeFriend(event.data.userId);
         return;
       case 'friend.presence': {
-        const { userId, online } = event.data;
+        const { userId, online, presence } = event.data;
         set({
-          friends: s.friends.map((f) => (f.user.id === userId ? { ...f, online } : f)),
+          friends: s.friends.map((f) => (f.user.id === userId ? { ...f, online, presence } : f)),
           // A conversation is "online" when anyone else in it is; for groups that needs the
           // others' state, which only the server knows for non-friends – keep it for those.
           dms: s.dms.map((d) =>
-            d.channel.kind === 'dm' && d.peer.id === userId ? { ...d, online } : d,
+            d.channel.kind === 'dm' && d.peer.id === userId ? { ...d, online, presence } : d,
           ),
         });
         return;
@@ -389,7 +407,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         if (!list) return;
         s.setMembers(
           guildId,
-          list.map((m) => (m.userId === userId ? { ...m, online: status === 'online' } : m)),
+          list.map((m) =>
+            m.userId === userId ? { ...m, online: status !== 'offline', presence: status } : m,
+          ),
         );
         return;
       }

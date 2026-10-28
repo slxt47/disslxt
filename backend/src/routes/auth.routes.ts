@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  forgotPasswordSchema,
   loginSchema,
+  resetPasswordSchema,
   registerSchema,
   resendVerificationSchema,
   verifyEmailSchema,
@@ -53,6 +55,23 @@ export async function authRoutes(
     const { email } = parse(resendVerificationSchema, req.body);
     await auth.resendVerification(email);
     return reply.status(202).send({ status: 'verification_sent' });
+  });
+
+  app.post('/auth/forgot-password', { config: mailLimit }, async (req, reply) => {
+    const { email } = parse(forgotPasswordSchema, req.body);
+    await auth.forgotPassword(email);
+    return reply.status(202).send({ status: 'reset_sent' });
+  });
+
+  // Ends every session of the account (closing their sockets) and signs this browser in.
+  app.post('/auth/reset-password', { config: loginLimit }, async (req, reply) => {
+    const { token, password } = parse(resetPasswordSchema, req.body);
+    const { user, token: sessionToken } = await auth.resetPassword(token, password);
+    for (const c of opts.hub.allClients()) {
+      if (c.userId === user.id) c.socket.close(WS_CLOSE.UNAUTHORIZED, 'password changed');
+    }
+    app.setSessionCookie(reply, sessionToken);
+    return { user };
   });
 
   app.post('/auth/login', { config: loginLimit }, async (req, reply) => {

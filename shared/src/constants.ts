@@ -7,6 +7,11 @@ export const CHANNEL_NAME_MAX_LEN = 32;
 export const USERNAME_MIN_LEN = 3;
 export const USERNAME_MAX_LEN = 32;
 export const DISPLAY_NAME_MAX_LEN = 32;
+export const STATUS_TEXT_MAX_LEN = 80;
+/** Servers one person may create (owned servers). */
+export const GUILDS_PER_USER_MAX = 5;
+/** "Passwort vergessen" links stay valid this long. */
+export const PASSWORD_RESET_TTL_MINUTES = 30;
 export const PASSWORD_MIN_LEN = 10;
 /** From this length any password counts as a passphrase (no character-class rule). */
 export const PASSWORD_PASSPHRASE_LEN = 16;

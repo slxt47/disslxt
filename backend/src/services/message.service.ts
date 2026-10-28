@@ -7,13 +7,15 @@ import { channels, messages, users, type Channel } from '../db/schema.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import type { Hub } from '../realtime/hub.js';
 import type { ChannelService } from './channel.service.js';
-import { toMessageDto, toPublicUser } from './dto.js';
+import type { StorageService } from './storage.service.js';
+import { profileColumns, toMessageDto, toPublicUser } from './dto.js';
 import type { PushService } from './push.service.js';
 
 export class MessageService {
   constructor(
     private readonly db: Database,
     private readonly hub: Hub,
+    private readonly storage: StorageService,
     private readonly channels: ChannelService,
     private readonly push: PushService,
     /** Directory of voice message files (deleted together with their message). */
@@ -134,6 +136,9 @@ export class MessageService {
 
   async create(user: PublicUserDto, channelId: string, content: string): Promise<MessageDto> {
     const channel = await this.channels.assertTextChannel(user.id, channelId);
+    const bytes = Buffer.byteLength(content);
+    await this.storage.assertRoom(bytes);
+    this.storage.added(bytes);
     const [row] = await this.db
       .insert(messages)
       .values({ channelId, authorId: user.id, content })
@@ -155,12 +160,7 @@ export class MessageService {
     const rows = await this.db
       .select({
         message: messages,
-        author: {
-          id: users.id,
-          username: users.username,
-          displayName: users.displayName,
-          avatarKey: users.avatarKey,
-        },
+        author: profileColumns,
       })
       .from(messages)
       .innerJoin(users, eq(users.id, messages.authorId))
@@ -206,6 +206,7 @@ export class MessageService {
     if (deleted.length === 0) throw notFound('Nachricht nicht gefunden');
     if (msg.audioKey) await rm(join(this.voiceDir, msg.audioKey), { force: true });
     if (msg.fileKey) await rm(join(this.fileDir, msg.fileKey), { force: true });
+    this.storage.changed();
     await this.channels.publish(
       { id: msg.channelId, kind: msg.channelKind },
       { type: 'message.deleted', data: { id: msg.id.toString(), channelId: msg.channelId } },
