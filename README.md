@@ -326,6 +326,42 @@ kann so nie als Seite auf disslxt laufen. Dateinamen werden bereinigt (keine Pfa
 Steuer- oder Richtungszeichen wie in `rechnung‮fdp.exe`). Abrufen nur für Mitglieder; Löschen
 der Nachricht oder des Servers entfernt die Datei.
 
+## Profil, Freunde und private Unterhaltungen
+
+**Profil** (Einstellungen → Profil, oder Klick auf den eigenen Namen unten links): Anzeigename
+(höchstens 32 Zeichen, leer = Benutzername wird gezeigt) und **Profilbild**. Das Bild wird im
+Browser quadratisch auf 256 px zugeschnitten (WebP, sonst JPEG) und erst dann hochgeladen; der
+Server nimmt nur echte PNG/JPEG/GIF/WebP bis 2 MB (an den Bytes erkannt) und speichert es unter
+einem Zufallsnamen in `UPLOAD_DIR/avatars`. Änderungen sehen alle in gemeinsamen Servern und alle
+Freunde sofort (`user.updated`). Benutzernamen sind eindeutig (Groß-/Kleinschreibung egal), denn
+über sie fügt man Freunde hinzu.
+
+**Server-Einstellungen** (nur Besitzer:in, Server-Menü): Name und Serverbild – für alle Mitglieder
+sofort sichtbar (`guild.updated`). Serverbilder sehen nur Mitglieder.
+
+**Freunde** (oben links das „d“): Anfrage über den Benutzernamen, annehmen, ablehnen,
+zurückziehen, entfernen. Schicken sich zwei gleichzeitig eine Anfrage, sind sie direkt befreundet.
+Freunde sehen, wer online ist. Höchstens 50 offene Anfragen pro Person.
+
+**Private Unterhaltungen** gibt es nur zwischen Freunden. Technisch sind sie Kanäle der Art `dm`
+ohne Server (Tabellen `channels` mit `dm_key` + `dm_members`) – Text, Dateien, Bilder,
+Sprachnachrichten, Bearbeiten und Löschen funktionieren also genau wie in Server-Kanälen. Lesen
+dürfen nur die beiden; schreiben und anrufen nur, solange sie befreundet sind (danach bleibt der
+Verlauf lesbar). Neue Nachrichten zählen als ungelesen (Zahl am „d“) und kommen als Mitteilung.
+
+## Video- und Sprachanrufe
+
+In einer privaten Unterhaltung: Telefon- oder Kamera-Symbol oben rechts. Beim Gegenüber klingelt
+es (Banner mit Ton auf jedem offenen Gerät, Mitteilung auf den anderen) – annehmen mit oder ohne
+Kamera, oder ablehnen. Auch in **Sprachkanälen** lässt sich die Kamera jetzt einschalten.
+
+Technik: dasselbe WebRTC-Mesh wie die Sprachkanäle (bis zu 6 Personen). Die Seite, die anbietet,
+legt immer eine Videospur an; die Kamera wird nur per `replaceTrack` hinein- und herausgetauscht,
+ohne neu zu verhandeln. 640×480 bei bis zu 24 fps, höchstens 600 kbit/s pro Verbindung (wichtig
+bei TURN wegen des Monatskontingents). Der Server gibt Anrufe nur zwischen Freunden frei und
+meldet `call.ring` / `call.ended` (angenommen, abgelehnt, aufgelegt). Die Kamera braucht
+`Permissions-Policy: camera=(self)` (in `deploy/Caddyfile`).
+
 ## Server verlassen und löschen
 
 Mitglieder: „Server verlassen“ unten in der Kanalleiste. Besitzer:innen können ihren Server
@@ -354,6 +390,14 @@ und iOS lassen das nicht zu – dort entscheidet das System (iPhone: Kontrollzen
 
 Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
 Gerät; `/theme-init.js` setzt die Wahl vor dem ersten Zeichnen, damit nichts hell aufblitzt.
+
+**Themes:** acht fertige Farbthemes (Ozean, Wald, Sonnenuntergang, Nord, OLED Schwarz, Sakura, Sand,
+Minze) und **eigene** (bis zu 12): Grundton hell/dunkel, zwei Akzentfarben, Farbton und Stärke der
+Hintergrund-Tönung, optional echtes Schwarz. Der Editor zeigt jede Änderung sofort in der ganzen App.
+Aus diesen wenigen Werten leitet `frontend/src/theme/themes.ts` alle Design-Tokens ab und dunkelt bzw.
+hellt Textfarben so lange nach, bis sie WCAG AA (4,5 : 1) erreichen – auch ein blassgelber Akzent
+bleibt lesbar (Test: `__tests__/themes.test.ts`). Die abgeleiteten Werte liegen zusätzlich in
+`localStorage` (`disslxt:theme-vars`), damit `/theme-init.js` sie schon vor dem ersten Zeichnen setzt.
 
 Design: Dark-first mit Violett→Blau-Akzent (Tokens am Anfang von `frontend/src/styles.css`). Avatare
 und Server-Symbole bekommen eine feste Farbe aus dem Namen. Aufeinanderfolgende Nachrichten einer

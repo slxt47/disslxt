@@ -46,8 +46,8 @@
 		# listed explicitly for older ones.
 		# worker-src: /sw.js; media-src blob:: preview of a voice message before sending.
 		header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{host}; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-		# Microphone for dictation, voice messages and voice channels; nothing else.
-		header Permissions-Policy "microphone=(self), camera=(), geolocation=(), payment=()"
+		# Microphone (dictation, voice messages, calls) and camera (video calls); nothing else.
+		header Permissions-Policy "microphone=(self), camera=(self), geolocation=(), payment=()"
 		header /assets/* Cache-Control "public, max-age=31536000, immutable"
 		# Always revalidate the shell, the service worker and the manifest, so a deploy is picked
 		# up on the next start (the service worker itself updates on every check).
