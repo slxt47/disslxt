@@ -32,3 +32,11 @@ export const forbidden = (message = 'Keine Berechtigung', code: ErrorCode = 'FOR
 export const notFound = (message = 'Nicht gefunden', code: ErrorCode = 'NOT_FOUND') =>
   new AppError(code, 404, message);
 export const conflict = (code: ErrorCode, message: string) => new AppError(code, 409, message);
+export const usernameTaken = () =>
+  conflict('USERNAME_TAKEN', 'Dieser Benutzername ist schon vergeben. Bitte wähle einen anderen.');
+export const resetInvalid = () =>
+  new AppError(
+    'RESET_INVALID',
+    400,
+    'Der Link ist ungültig oder abgelaufen. Fordere einfach einen neuen an.',
+  );

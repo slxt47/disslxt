@@ -1,5 +1,7 @@
 import { useChatStore } from '../store/chat';
+import { nameOf } from '../profile';
 import { Avatar } from './Icon';
+import { PRESENCE_TEXT, StatusLine, UserBadges } from './Social';
 
 export function MemberList({ guildId }: { guildId: string }) {
   const members = useChatStore((s) => s.membersByGuild[guildId]);
@@ -17,13 +19,22 @@ export function MemberList({ guildId }: { guildId: string }) {
             className={`member${m.online ? ' online' : ''}`}
             data-testid={`member-${m.username}`}
             data-online={m.online ? 'true' : 'false'}
+            data-presence={m.presence ?? (m.online ? 'online' : 'offline')}
           >
             <span className="member-avatar">
-              <Avatar name={m.username} size="sm" />
+              <Avatar name={nameOf(m)} url={m.avatarUrl} size="sm" />
               <span className="presence-dot" aria-hidden="true" />
             </span>
-            <span className="member-name">{m.username}</span>
-            <span className="sr-only">{m.online ? 'online' : 'offline'}</span>
+            <span className="member-text">
+              <span className="member-name" title={`@${m.username}`}>
+                {nameOf(m)}
+                <UserBadges user={m} />
+              </span>
+              <StatusLine status={m.status} />
+            </span>
+            <span className="sr-only">
+              {PRESENCE_TEXT[m.presence ?? (m.online ? 'online' : 'offline')]}
+            </span>
           </li>
         ))}
       </ul>

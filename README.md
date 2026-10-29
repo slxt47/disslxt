@@ -109,7 +109,13 @@ Adresse weiter. Ohne das würden alle Nutzer dasselbe Rate-Limit teilen.
 
 Nach Änderungen an `.env`: `docker compose up -d --build`.
 
-Optionaler E2E-Smoke-Test gegen den laufenden Stack über den Tunnel (legt zwei Testnutzer an):
+**Härtung der Container:** Backend und Caddy laufen mit schreibgeschütztem Dateisystem (nur `/tmp`
+als tmpfs sowie die Volumes sind beschreibbar), ohne Linux-Capabilities (Caddy behält nur
+`NET_BIND_SERVICE` für Port 80) und mit `no-new-privileges`; die Datenbanken mit
+`no-new-privileges`. Braucht ein neues Feature weitere Schreibpfade, gehören sie in ein Volume oder
+in `tmpfs`.
+
+Optionaler E2E-Smoke-Test gegen den laufenden Stack über den Tunnel (nur lesend, legt keine Konten an):
 
 ```bash
 E2E_BASE_URL=https://disslxt.slxt.org pnpm e2e:docker
@@ -320,6 +326,88 @@ kann so nie als Seite auf disslxt laufen. Dateinamen werden bereinigt (keine Pfa
 Steuer- oder Richtungszeichen wie in `rechnung‮fdp.exe`). Abrufen nur für Mitglieder; Löschen
 der Nachricht oder des Servers entfernt die Datei.
 
+## Profil, Freunde und private Unterhaltungen
+
+**Profil** (Einstellungen → Profil, oder Klick auf den eigenen Namen unten links): Anzeigename
+(höchstens 32 Zeichen, leer = Benutzername wird gezeigt) und **Profilbild**. Das Bild wird im
+Browser quadratisch auf 256 px zugeschnitten (WebP, sonst JPEG) und erst dann hochgeladen; der
+Server nimmt nur echte PNG/JPEG/GIF/WebP bis 2 MB (an den Bytes erkannt) und speichert es unter
+einem Zufallsnamen in `UPLOAD_DIR/avatars`. Änderungen sehen alle in gemeinsamen Servern und alle
+Freunde sofort (`user.updated`). Benutzernamen sind eindeutig (Groß-/Kleinschreibung egal), denn
+über sie fügt man Freunde hinzu.
+
+**Server-Einstellungen** (nur Besitzer:in, Server-Menü): Name und Serverbild – für alle Mitglieder
+sofort sichtbar (`guild.updated`). Serverbilder sehen nur Mitglieder.
+
+**Freunde** (oben links das „d“): Anfrage über den Benutzernamen, annehmen, ablehnen,
+zurückziehen, entfernen. Schicken sich zwei gleichzeitig eine Anfrage, sind sie direkt befreundet.
+Freunde sehen, wer online ist. Höchstens 50 offene Anfragen pro Person.
+
+**Private Unterhaltungen** gibt es nur zwischen Freunden. Technisch sind sie Kanäle der Art `dm`
+ohne Server (Tabellen `channels` mit `dm_key` + `dm_members`) – Text, Dateien, Bilder,
+Sprachnachrichten, Bearbeiten und Löschen funktionieren also genau wie in Server-Kanälen. Lesen
+dürfen nur die beiden; schreiben und anrufen nur, solange sie befreundet sind (danach bleibt der
+Verlauf lesbar). Neue Nachrichten zählen als ungelesen (Zahl am „d“) und kommen als Mitteilung.
+
+## Konto: Passwort vergessen, Status, Server-Tags, Grenzen
+
+**Passwort vergessen** (Link auf der Anmeldeseite): Die Adresse eingeben; gibt es ein bestätigtes Konto,
+kommt ein Link (30 Minuten gültig, nur einmal nutzbar – die Antwort ist in jedem Fall gleich, damit
+niemand ausprobieren kann, welche Adressen es gibt). Das neue Passwort muss die Passwort-Regeln erfüllen;
+danach sind **alle anderen Geräte abgemeldet** und dieser Browser angemeldet. Das Token steht nur im
+`#`-Teil der URL (nie in Logs) und verschwindet sofort aus der Adresszeile.
+
+**Status**: Emoji + kurzer Text (höchstens 80 Zeichen), sichtbar unter dem Namen in Mitgliederliste,
+Freunden und eigener Leiste. **Anwesenheit** als Punkt am Profilbild: grün = online, **rot = in einem
+Anruf oder Sprachkanal**, grau = offline (für Screenreader auch als Text).
+
+**Server-Tags**: Besitzer:innen geben ihrem Server in den Server-Einstellungen einen Tag (2–4 Buchstaben
+oder Ziffern) mit Emoji, z. B. „🎮 GAME“. Mitglieder wählen im Profil, welchen Tag sie neben ihrem Namen
+tragen – damit vertreten sie ihren Server. Ändert sich der Tag, sehen es alle sofort; wird er entfernt
+oder verlässt jemand den Server, verschwindet er. Ein **Badge** (z. B. „admin“) kann nur der Betreiber
+in der Datenbank setzen, nie über die API.
+
+**Grenzen**: Jede Person kann höchstens **5 Server** erstellen (beitreten unbegrenzt). Alles Gepostete
+zusammen – Dateien, Bilder, Sprachnachrichten, Profil-/Serverbilder und der Text aller Nachrichten – darf
+höchstens **40 GB** belegen (`STORAGE_LIMIT_GB`); darüber hinaus lehnt der Server Neues mit 507 ab, bis
+etwas gelöscht wird. Konten mit Badge „admin“ sehen die Auslastung in den Einstellungen.
+
+**Alles zurücksetzen** (alle Konten, Server, Nachrichten, Dateien löschen und ein Admin-Konto anlegen):
+`scripts/admin-reset.sh <e-mail> <benutzername> [badge]` – mit Bestätigung, verdeckter Passwortabfrage
+und Backup vorweg.
+
+## Gruppenchats
+
+Unter „Unterhaltungen“ → **+**: mindestens zwei Freunde wählen, optional ein Name. Bis zu 10 Personen;
+alle in der Gruppe können schreiben, Dateien/GIFs schicken und anrufen – auch wenn sie untereinander
+nicht befreundet sind. Jede:r darf umbenennen und **eigene** Freunde hinzufügen; entfernen kann nur,
+wer die Gruppe erstellt hat (verlässt diese Person die Gruppe, geht die Rolle weiter). Wer als Letztes
+geht, löscht die Gruppe samt Nachrichten und Dateien. Technisch: Kanäle der Art `group` ohne Server
+(`dm_members` für die Mitglieder, `channels.owner_id`). Bei einem Gruppenanruf klingelt es bei allen;
+annehmen oder ablehnen beendet nur das eigene Klingeln.
+
+## GIFs
+
+Knopf **GIF** im Eingabefeld: Suche (ohne Suchwort: Trends), antippen schickt das GIF. Die Suche läuft
+über den Server mit dem offiziellen GIPHY-API-Schlüssel (`GIPHY_API_KEY`, ohne Schlüssel kein Knopf),
+der Schlüssel erreicht nie den Browser. Ergebnisse werden 5 Minuten zwischengespeichert, Filter
+„pg-13“. Gespeichert wird nur die GIPHY-ID; die Browser laden das GIF (als kleines MP4) direkt von
+`media.giphy.com` – so verlangen es die GIPHY-Bedingungen (einbetten, nicht kopieren), und die CSP
+erlaubt genau diesen Host. Bei „Bewegung reduzieren“ laufen GIFs erst nach einem Tipp.
+
+## Video- und Sprachanrufe
+
+In einer privaten Unterhaltung: Telefon- oder Kamera-Symbol oben rechts. Beim Gegenüber klingelt
+es (Banner mit Ton auf jedem offenen Gerät, Mitteilung auf den anderen) – annehmen mit oder ohne
+Kamera, oder ablehnen. Auch in **Sprachkanälen** lässt sich die Kamera jetzt einschalten.
+
+Technik: dasselbe WebRTC-Mesh wie die Sprachkanäle (bis zu 6 Personen). Die Seite, die anbietet,
+legt immer eine Videospur an; die Kamera wird nur per `replaceTrack` hinein- und herausgetauscht,
+ohne neu zu verhandeln. 640×480 bei bis zu 24 fps, höchstens 600 kbit/s pro Verbindung (wichtig
+bei TURN wegen des Monatskontingents). Der Server gibt Anrufe nur zwischen Freunden frei und
+meldet `call.ring` / `call.ended` (angenommen, abgelehnt, aufgelegt). Die Kamera braucht
+`Permissions-Policy: camera=(self)` (in `deploy/Caddyfile`).
+
 ## Server verlassen und löschen
 
 Mitglieder: „Server verlassen“ unten in der Kanalleiste. Besitzer:innen können ihren Server
@@ -348,6 +436,14 @@ und iOS lassen das nicht zu – dort entscheidet das System (iPhone: Kontrollzen
 
 Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
 Gerät; `/theme-init.js` setzt die Wahl vor dem ersten Zeichnen, damit nichts hell aufblitzt.
+
+**Themes:** acht fertige Farbthemes (Ozean, Wald, Sonnenuntergang, Nord, OLED Schwarz, Sakura, Sand,
+Minze) und **eigene** (bis zu 12): Grundton hell/dunkel, zwei Akzentfarben, Farbton und Stärke der
+Hintergrund-Tönung, optional echtes Schwarz. Der Editor zeigt jede Änderung sofort in der ganzen App.
+Aus diesen wenigen Werten leitet `frontend/src/theme/themes.ts` alle Design-Tokens ab und dunkelt bzw.
+hellt Textfarben so lange nach, bis sie WCAG AA (4,5 : 1) erreichen – auch ein blassgelber Akzent
+bleibt lesbar (Test: `__tests__/themes.test.ts`). Die abgeleiteten Werte liegen zusätzlich in
+`localStorage` (`disslxt:theme-vars`), damit `/theme-init.js` sie schon vor dem ersten Zeichnen setzt.
 
 Design: Dark-first mit Violett→Blau-Akzent (Tokens am Anfang von `frontend/src/styles.css`). Avatare
 und Server-Symbole bekommen eine feste Farbe aus dem Namen. Aufeinanderfolgende Nachrichten einer

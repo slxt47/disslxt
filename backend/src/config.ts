@@ -74,6 +74,10 @@ const envSchema = z.object({
   // TURN is switched off for the rest of the month once this much was relayed (Cloudflare: first
   // 1000 GB free; the default keeps a margin for credentials still in use and unmeasured traffic).
   TURN_MONTHLY_LIMIT_GB: z.coerce.number().positive().default(900),
+  // GIF search: official GIPHY API key (https://developers.giphy.com). Empty = no GIF button.
+  GIPHY_API_KEY: z.string().default(''),
+  // Cap for everything posted (uploads + message text), in GB.
+  STORAGE_LIMIT_GB: z.coerce.number().positive().default(40),
 });
 
 export interface MailConfig {
@@ -114,6 +118,9 @@ export interface Config {
   mail: MailConfig;
   /** null = push disabled (no VAPID keys). */
   push: PushConfig | null;
+  /** GIPHY API key for the GIF picker; null = GIFs switched off. */
+  giphyApiKey: string | null;
+  storage: { root: string; limitBytes: number };
   ice: {
     stunUrls: string[];
     cloudflare: { keyId: string; apiToken: string } | null;
@@ -122,6 +129,10 @@ export interface Config {
   };
   files: {
     /** Absolute directory for shared files. */
+    dir: string;
+  };
+  avatars: {
+    /** Absolute directory for profile and server pictures. */
     dir: string;
   };
   voice: {
@@ -206,7 +217,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         : null,
       monthlyLimitBytes: Math.round(e.TURN_MONTHLY_LIMIT_GB * 1e9),
     },
+    giphyApiKey: e.GIPHY_API_KEY.trim() || null,
+    storage: { root: resolve(e.UPLOAD_DIR), limitBytes: Math.round(e.STORAGE_LIMIT_GB * 1e9) },
     files: { dir: resolve(e.UPLOAD_DIR, 'files') },
+    avatars: { dir: resolve(e.UPLOAD_DIR, 'avatars') },
     voice: {
       dir: resolve(e.UPLOAD_DIR, 'voice'),
       transcode: e.VOICE_TRANSCODE,

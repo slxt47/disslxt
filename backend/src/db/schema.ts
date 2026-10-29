@@ -25,12 +25,33 @@ export const users = pgTable(
     email: varchar('email', { length: 254 }).notNull(),
     username: varchar('username', { length: 32 }).notNull(),
     passwordHash: text('password_hash').notNull(),
+    /** Shown instead of the username where set (profile settings). */
+    displayName: varchar('display_name', { length: 32 }),
+    /** Profile picture: file name in UPLOAD_DIR/avatars (a new name per upload busts caches). */
+    avatarKey: varchar('avatar_key', { length: 64 }),
+    /** Badge set by the operator (e.g. 'admin'); never changeable through the API. */
+    badge: varchar('badge', { length: 16 }),
+    /** Custom status: an emoji and/or a short text. */
+    statusEmoji: varchar('status_emoji', { length: 16 }),
+    statusText: varchar('status_text', { length: 80 }),
+    /**
+     * The server tag this person wears next to their name (a guild they are a member of). Text and
+     * emoji are copied here so every message author etc. can be shown without another join; they
+     * are updated when the owner changes the tag and cleared when it goes away.
+     */
+    tagGuildId: uuid('tag_guild_id'),
+    tagText: varchar('tag_text', { length: 4 }),
+    tagEmoji: varchar('tag_emoji', { length: 16 }),
     // Accounts are only created once the address is confirmed, so this is always set for new
     // users; the migration backfills accounts that existed before verification was introduced.
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('users_email_lower_uq').on(sql`lower(${t.email})`)],
+  (t) => [
+    uniqueIndex('users_email_lower_uq').on(sql`lower(${t.email})`),
+    // Friends are added by username, so it must name exactly one person.
+    uniqueIndex('users_username_lower_uq').on(sql`lower(${t.username})`),
+  ],
 );
 
 /**
@@ -53,6 +74,21 @@ export const pendingRegistrations = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },
   (t) => [index('pending_registrations_email_idx').on(sql`lower(${t.email})`)],
+);
+
+/** "Passwort vergessen": one-time link, valid for a short time. */
+export const passwordResets = pgTable(
+  'password_resets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: char('token_hash', { length: 64 }).notNull().unique('password_resets_token_uq'),
+    createdAt: createdAt(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('password_resets_user_idx').on(t.userId)],
 );
 
 /** One row per e-mail sent to an address; backs the per-address limit against mail bombing. */
@@ -89,6 +125,11 @@ export const guilds = pgTable('guilds', {
     .notNull()
     .references(() => users.id),
   inviteCode: varchar('invite_code', { length: 16 }).notNull().unique('guilds_invite_code_uq'),
+  /** Server picture: file name in UPLOAD_DIR/avatars (set by the owner). */
+  iconKey: varchar('icon_key', { length: 64 }),
+  /** Server tag (2–4 letters/digits) and its emoji; members can wear it next to their name. */
+  tag: varchar('tag', { length: 4 }),
+  tagEmoji: varchar('tag_emoji', { length: 16 }),
   createdAt: createdAt(),
 });
 
@@ -113,16 +154,70 @@ export const channels = pgTable(
   'channels',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    guildId: uuid('guild_id')
-      .notNull()
-      .references(() => guilds.id, { onDelete: 'cascade' }),
+    /** Null for direct messages (kind 'dm'), which belong to two friends instead of a guild. */
+    guildId: uuid('guild_id').references(() => guilds.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 32 }).notNull(),
     kind: varchar('kind', { length: 16 }).notNull().default('text'),
+    /** Direct messages: both user ids, sorted and joined by ':' (one conversation per pair). */
+    dmKey: varchar('dm_key', { length: 80 }).unique('channels_dm_key_uq'),
+    /** Group chats: who started it (may rename, add and remove people); passes on when they leave. */
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
   (t) => [
     unique('channels_guild_id_name_uq').on(t.guildId, t.name),
     index('channels_guild_id_idx').on(t.guildId),
+    // Private conversations ('dm', 'group') have no guild; only a 'dm' has a pair key.
+    check(
+      'channels_dm_shape_chk',
+      sql`(${t.kind} in ('dm', 'group')) = (${t.guildId} is null) and (${t.kind} = 'dm') = (${t.dmKey} is not null)`,
+    ),
+  ],
+);
+
+/** The two participants of a direct-message channel. */
+export const dmMembers = pgTable(
+  'dm_members',
+  {
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.channelId, t.userId] }),
+    index('dm_members_user_id_idx').on(t.userId),
+  ],
+);
+
+/**
+ * Friendship between two users. A request is a 'pending' row from requester to addressee; once
+ * accepted both are friends. At most one row per pair, whichever direction it was sent in.
+ */
+export const friendships = pgTable(
+  'friendships',
+  {
+    requesterId: uuid('requester_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    addresseeId: uuid('addressee_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 16 }).notNull().default('pending'),
+    createdAt: createdAt(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.requesterId, t.addresseeId] }),
+    uniqueIndex('friendships_pair_uq').on(
+      sql`least(${t.requesterId}, ${t.addresseeId})`,
+      sql`greatest(${t.requesterId}, ${t.addresseeId})`,
+    ),
+    index('friendships_addressee_idx').on(t.addresseeId),
+    check('friendships_not_self_chk', sql`${t.requesterId} <> ${t.addresseeId}`),
+    check('friendships_status_chk', sql`${t.status} in ('pending', 'accepted')`),
   ],
 );
 
@@ -147,13 +242,17 @@ export const messages = pgTable(
     fileName: varchar('file_name', { length: 255 }),
     fileSize: integer('file_size'),
     fileMime: varchar('file_mime', { length: 64 }),
+    /** GIFs: the GIPHY id (embedded from GIPHY, never stored here) and its size for the layout. */
+    gifId: varchar('gif_id', { length: 64 }),
+    gifWidth: integer('gif_width'),
+    gifHeight: integer('gif_height'),
     createdAt: createdAt(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
   },
   (t) => [
     check(
       'messages_content_len_chk',
-      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000)`,
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000)`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
   ],

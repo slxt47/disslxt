@@ -1,22 +1,56 @@
-export interface UserDto {
-  id: string;
-  email: string;
-  username: string;
+/** A short server tag (e.g. "GAME" + 🎮) someone wears next to their name. */
+export interface UserTagDto {
+  guildId: string;
+  text: string;
+  emoji: string | null;
 }
+
+/** Custom status: an emoji and/or a short text ("🎧 Hört Musik"). */
+export interface UserStatusDto {
+  emoji: string | null;
+  text: string | null;
+}
+
+/** What other people see of a user. */
+export interface PublicUserDto {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  /** Set by the operator only, e.g. 'admin'. */
+  badge?: string | null;
+  tag?: UserTagDto | null;
+  status?: UserStatusDto | null;
+}
+
+/** The signed-in user: their public profile plus the e-mail address. */
+export interface UserDto extends PublicUserDto {
+  email: string;
+}
+
+/** Green = online, red = in a call, grey = offline. */
+export type PresenceStatus = 'online' | 'call' | 'offline';
 
 export interface GuildDto {
   id: string;
   name: string;
   ownerId: string;
   inviteCode: string;
+  /** Same-origin URL of the server picture, null → initials. */
+  iconUrl: string | null;
+  /** Server tag members can wear (2–4 letters/digits) and its emoji. */
+  tag: string | null;
+  tagEmoji: string | null;
   createdAt: string;
 }
 
-export type ChannelKind = 'text' | 'voice';
+/** 'dm': a private conversation of two friends; 'group': a group chat (text, files and calls). */
+export type ChannelKind = 'text' | 'voice' | 'dm' | 'group';
 
 export interface ChannelDto {
   id: string;
-  guildId: string;
+  /** Null for direct messages. */
+  guildId: string | null;
   name: string;
   kind: ChannelKind;
   createdAt: string;
@@ -28,15 +62,16 @@ export interface VoicePeerDto {
   peerId: string;
   userId: string;
   username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
   muted: boolean;
+  /** Camera is on. */
+  video: boolean;
 }
 
-export interface MessageAuthorDto {
-  id: string;
-  username: string;
-}
+export type MessageAuthorDto = PublicUserDto;
 
-export type MessageKind = 'text' | 'voice' | 'file';
+export type MessageKind = 'text' | 'voice' | 'file' | 'gif';
 
 export interface FileAttachmentDto {
   /** Same-origin URL, only readable by members of the guild. */
@@ -45,6 +80,17 @@ export interface FileAttachmentDto {
   size: number;
   /** Only real images (checked by their bytes) are shown inline; everything else downloads. */
   isImage: boolean;
+}
+
+/** A GIF from GIPHY: embedded from GIPHY's servers, never copied to ours. */
+export interface GifDto {
+  id: string;
+  /** Short looping video (smaller than the .gif) and a still/animated WebP fallback. */
+  mp4: string;
+  webp: string;
+  width: number;
+  height: number;
+  title: string;
 }
 
 export interface VoiceAudioDto {
@@ -64,6 +110,7 @@ export interface MessageDto {
   content: string;
   audio: VoiceAudioDto | null;
   file: FileAttachmentDto | null;
+  gif: GifDto | null;
   createdAt: string;
   editedAt: string | null;
 }
@@ -71,7 +118,45 @@ export interface MessageDto {
 export interface MemberDto {
   userId: string;
   username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
   online: boolean;
+  presence?: PresenceStatus;
+  badge?: string | null;
+  tag?: UserTagDto | null;
+  status?: UserStatusDto | null;
+}
+
+/** 'friend' once accepted; otherwise a request sent to me ('incoming') or by me ('outgoing'). */
+export type FriendStatus = 'friend' | 'incoming' | 'outgoing';
+
+export interface FriendDto {
+  user: PublicUserDto;
+  status: FriendStatus;
+  online: boolean;
+  presence?: PresenceStatus;
+  /** When the request was sent, or when it was accepted for friends. */
+  since: string;
+}
+
+/**
+ * A private conversation: with one friend (kind 'dm') or a group chat (kind 'group', its name is
+ * channel.name, empty = not named yet).
+ */
+export interface DmChannelDto {
+  channel: ChannelDto;
+  /** The other person; in a group the first other member. */
+  peer: PublicUserDto;
+  /** Everyone else in the conversation (one person in a 'dm'). */
+  members: PublicUserDto[];
+  /** Group chats: may rename and remove people. Null for a 'dm'. */
+  ownerId: string | null;
+  /** The other person (or anyone else in a group) is online. */
+  online: boolean;
+  /** Of the other person in a conversation of two. */
+  presence?: PresenceStatus;
+  /** Newest message, for sorting the list (null: nothing written yet). */
+  lastMessageAt: string | null;
 }
 
 export interface TurnUsageDto {
@@ -122,6 +207,11 @@ export type ErrorCode =
   | 'INVITE_NOT_FOUND'
   | 'CONFLICT'
   | 'CHANNEL_EXISTS'
+  | 'USERNAME_TAKEN'
+  | 'GUILD_LIMIT'
+  | 'STORAGE_FULL'
+  | 'RESET_INVALID'
+  | 'NOT_FRIENDS'
   | 'OWNER_CANNOT_LEAVE'
   | 'RATE_LIMITED'
   | 'SERVICE_UNAVAILABLE'

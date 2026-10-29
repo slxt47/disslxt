@@ -30,10 +30,12 @@ const creds = { email: 'Alice@Example.com', username: 'alice', password: 'Correc
 describe('POST /api/auth/register', () => {
   it('stores only an argon2id hash; the account exists only after confirmation', async () => {
     const u = await registerUser(app, creds);
-    expect(u.user).toEqual({
+    expect(u.user).toMatchObject({
       id: expect.any(String),
       email: 'alice@example.com',
       username: 'alice',
+      displayName: null,
+      avatarUrl: null,
     });
     expect(u.user).not.toHaveProperty('passwordHash');
 

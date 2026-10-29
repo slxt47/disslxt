@@ -26,3 +26,30 @@ test('dark mode in the settings overrides the system and survives a reload', asy
   await page.getByTestId('theme-system').click();
   expect(await background(page)).toBe('rgb(14, 14, 21)');
 });
+
+test('colour themes: a preset and a self-made one, both kept after a reload', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await registerViaUi(page, uniqueUser('themes'));
+  await page.getByTestId('settings-button').click();
+
+  await page.getByTestId('theme-ocean').click();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
+  const ocean = await background(page);
+  expect(ocean).not.toBe('rgb(14, 14, 21)');
+
+  await page.getByTestId('theme-create').click();
+  await page.getByTestId('theme-name').fill('Lila Nacht');
+  await page.getByTestId('theme-accent').fill('#c026d3');
+  await page.getByTestId('theme-save').click();
+  await expect(page.getByRole('radio', { name: 'Lila Nacht' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  const accent = () =>
+    page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent'));
+  expect((await accent()).trim()).toBe('#c026d3');
+
+  await page.reload();
+  expect((await accent()).trim()).toBe('#c026d3');
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
+});

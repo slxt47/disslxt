@@ -1,21 +1,21 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { and, desc, eq, lt } from 'drizzle-orm';
-import type { ListMessagesQuery, MessageDto, UserDto } from '@disslxt/shared';
+import type { GifDto, ListMessagesQuery, MessageDto, PublicUserDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
-import { channels, messages, users } from '../db/schema.js';
+import { channels, messages, users, type Channel } from '../db/schema.js';
 import { AppError, forbidden, notFound } from '../lib/errors.js';
 import type { Hub } from '../realtime/hub.js';
 import type { ChannelService } from './channel.service.js';
-import { toMessageDto } from './dto.js';
-import type { GuildService } from './guild.service.js';
+import type { StorageService } from './storage.service.js';
+import { profileColumns, toMessageDto, toPublicUser } from './dto.js';
 import type { PushService } from './push.service.js';
 
 export class MessageService {
   constructor(
     private readonly db: Database,
     private readonly hub: Hub,
-    private readonly guilds: GuildService,
+    private readonly storage: StorageService,
     private readonly channels: ChannelService,
     private readonly push: PushService,
     /** Directory of voice message files (deleted together with their message). */
@@ -26,14 +26,14 @@ export class MessageService {
 
   /** Stores a file message whose file is already in the file directory. */
   async createFile(
-    user: Pick<UserDto, 'id' | 'username'>,
-    channelId: string,
+    user: PublicUserDto,
+    channel: Channel,
     file: { key: string; name: string; size: number; mime: string },
   ): Promise<MessageDto> {
     const [row] = await this.db
       .insert(messages)
       .values({
-        channelId,
+        channelId: channel.id,
         authorId: user.id,
         kind: 'file',
         content: '',
@@ -44,13 +44,35 @@ export class MessageService {
       })
       .returning();
     if (!row) throw new Error('insert returned no row');
-    const message = toMessageDto(row, user);
-    this.hub.publishToChannel(channelId, { type: 'message.created', data: { message } });
+    return this.published(channel, toMessageDto(row, user));
+  }
+
+  /** New message: to everyone reading the channel, and as push to the others. */
+  private async published(channel: Channel, message: MessageDto): Promise<MessageDto> {
+    await this.channels.publish(channel, { type: 'message.created', data: { message } });
     this.push.messageCreated(message);
     return message;
   }
 
-  /** Stored file of a message, for members of its guild only (404 / 403 otherwise). */
+  /** A GIF from GIPHY (already checked to exist); its title is the message text. */
+  async createGif(user: PublicUserDto, channel: Channel, gif: GifDto): Promise<MessageDto> {
+    const [row] = await this.db
+      .insert(messages)
+      .values({
+        channelId: channel.id,
+        authorId: user.id,
+        kind: 'gif',
+        content: gif.title.slice(0, 2000),
+        gifId: gif.id,
+        gifWidth: gif.width,
+        gifHeight: gif.height,
+      })
+      .returning();
+    if (!row) throw new Error('insert returned no row');
+    return this.published(channel, toMessageDto(row, user));
+  }
+
+  /** Stored file of a message, for readers of its channel only (404 / 403 otherwise). */
   async sharedFile(
     userId: string,
     messageId: string,
@@ -60,14 +82,13 @@ export class MessageService {
         fileKey: messages.fileKey,
         fileMime: messages.fileMime,
         fileName: messages.fileName,
-        guildId: channels.guildId,
+        channelId: messages.channelId,
       })
       .from(messages)
-      .innerJoin(channels, eq(channels.id, messages.channelId))
       .where(and(eq(messages.id, BigInt(messageId)), eq(messages.kind, 'file')))
       .limit(1);
     if (!row?.fileKey) throw notFound('Datei nicht gefunden');
-    await this.guilds.assertMember(userId, row.guildId);
+    await this.channels.assertAccess(userId, row.channelId);
     return {
       path: join(this.fileDir, row.fileKey),
       mime: row.fileMime ?? 'application/octet-stream',
@@ -77,14 +98,14 @@ export class MessageService {
 
   /** Stores a voice message whose file is already in the voice directory. */
   async createVoice(
-    user: Pick<UserDto, 'id' | 'username'>,
-    channelId: string,
+    user: PublicUserDto,
+    channel: Channel,
     audio: { key: string; mime: string; durationMs: number },
   ): Promise<MessageDto> {
     const [row] = await this.db
       .insert(messages)
       .values({
-        channelId,
+        channelId: channel.id,
         authorId: user.id,
         kind: 'voice',
         content: '',
@@ -94,44 +115,36 @@ export class MessageService {
       })
       .returning();
     if (!row) throw new Error('insert returned no row');
-    const message = toMessageDto(row, user);
-    this.hub.publishToChannel(channelId, { type: 'message.created', data: { message } });
-    this.push.messageCreated(message);
-    return message;
+    return this.published(channel, toMessageDto(row, user));
   }
 
-  /** Voice file of a message, for members of its guild only (404 / 403 otherwise). */
+  /** Voice file of a message, for readers of its channel only (404 / 403 otherwise). */
   async voiceFile(userId: string, messageId: string): Promise<{ path: string; mime: string }> {
     const [row] = await this.db
       .select({
         audioKey: messages.audioKey,
         audioMime: messages.audioMime,
-        guildId: channels.guildId,
+        channelId: messages.channelId,
       })
       .from(messages)
-      .innerJoin(channels, eq(channels.id, messages.channelId))
       .where(and(eq(messages.id, BigInt(messageId)), eq(messages.kind, 'voice')))
       .limit(1);
     if (!row?.audioKey) throw notFound('Sprachnachricht nicht gefunden');
-    await this.guilds.assertMember(userId, row.guildId);
+    await this.channels.assertAccess(userId, row.channelId);
     return { path: join(this.voiceDir, row.audioKey), mime: row.audioMime ?? 'audio/mp4' };
   }
 
-  async create(
-    user: Pick<UserDto, 'id' | 'username'>,
-    channelId: string,
-    content: string,
-  ): Promise<MessageDto> {
-    await this.channels.assertTextChannel(user.id, channelId);
+  async create(user: PublicUserDto, channelId: string, content: string): Promise<MessageDto> {
+    const channel = await this.channels.assertTextChannel(user.id, channelId);
+    const bytes = Buffer.byteLength(content);
+    await this.storage.assertRoom(bytes);
+    this.storage.added(bytes);
     const [row] = await this.db
       .insert(messages)
       .values({ channelId, authorId: user.id, content })
       .returning();
     if (!row) throw new Error('insert returned no row');
-    const message = toMessageDto(row, user);
-    this.hub.publishToChannel(channelId, { type: 'message.created', data: { message } });
-    this.push.messageCreated(message);
-    return message;
+    return this.published(channel, toMessageDto(row, user));
   }
 
   /** Newest `limit` messages with id < before, returned in ascending order. */
@@ -145,7 +158,10 @@ export class MessageService {
       ? and(eq(messages.channelId, channelId), lt(messages.id, BigInt(query.before)))
       : eq(messages.channelId, channelId);
     const rows = await this.db
-      .select({ message: messages, author: { id: users.id, username: users.username } })
+      .select({
+        message: messages,
+        author: profileColumns,
+      })
       .from(messages)
       .innerJoin(users, eq(users.id, messages.authorId))
       .where(where)
@@ -153,20 +169,19 @@ export class MessageService {
       .limit(query.limit + 1);
     const hasMore = rows.length > query.limit;
     const page = rows.slice(0, query.limit).reverse();
-    return { messages: page.map((r) => toMessageDto(r.message, r.author)), hasMore };
+    return {
+      messages: page.map((r) => toMessageDto(r.message, toPublicUser(r.author))),
+      hasMore,
+    };
   }
 
-  async edit(
-    user: Pick<UserDto, 'id' | 'username'>,
-    messageId: string,
-    content: string,
-  ): Promise<MessageDto> {
+  async edit(user: PublicUserDto, messageId: string, content: string): Promise<MessageDto> {
     const msg = await this.assertAuthor(user.id, messageId);
     if (msg.kind === 'voice') {
       throw new AppError('BAD_REQUEST', 400, 'Sprachnachrichten können nicht bearbeitet werden');
     }
-    if (msg.kind === 'file') {
-      throw new AppError('BAD_REQUEST', 400, 'Dateien können nicht bearbeitet werden');
+    if (msg.kind === 'file' || msg.kind === 'gif') {
+      throw new AppError('BAD_REQUEST', 400, 'Dateien und GIFs können nicht bearbeitet werden');
     }
     const [row] = await this.db
       .update(messages)
@@ -175,7 +190,10 @@ export class MessageService {
       .returning();
     if (!row) throw notFound('Nachricht nicht gefunden');
     const message = toMessageDto(row, user);
-    this.hub.publishToChannel(row.channelId, { type: 'message.updated', data: { message } });
+    await this.channels.publish(
+      { id: row.channelId, kind: msg.channelKind },
+      { type: 'message.updated', data: { message } },
+    );
     return message;
   }
 
@@ -188,13 +206,14 @@ export class MessageService {
     if (deleted.length === 0) throw notFound('Nachricht nicht gefunden');
     if (msg.audioKey) await rm(join(this.voiceDir, msg.audioKey), { force: true });
     if (msg.fileKey) await rm(join(this.fileDir, msg.fileKey), { force: true });
-    this.hub.publishToChannel(msg.channelId, {
-      type: 'message.deleted',
-      data: { id: msg.id.toString(), channelId: msg.channelId },
-    });
+    this.storage.changed();
+    await this.channels.publish(
+      { id: msg.channelId, kind: msg.channelKind },
+      { type: 'message.deleted', data: { id: msg.id.toString(), channelId: msg.channelId } },
+    );
   }
 
-  /** 404 if missing, 403 FORBIDDEN if not a guild member, 403 NOT_AUTHOR if not the author. */
+  /** 404 if missing, 403 FORBIDDEN without access to the channel, 403 NOT_AUTHOR if not the author. */
   private async assertAuthor(userId: string, messageId: string) {
     const [row] = await this.db
       .select({
@@ -204,14 +223,14 @@ export class MessageService {
         kind: messages.kind,
         audioKey: messages.audioKey,
         fileKey: messages.fileKey,
-        guildId: channels.guildId,
+        channelKind: channels.kind,
       })
       .from(messages)
       .innerJoin(channels, eq(channels.id, messages.channelId))
       .where(eq(messages.id, BigInt(messageId)))
       .limit(1);
     if (!row) throw notFound('Nachricht nicht gefunden');
-    await this.guilds.assertMember(userId, row.guildId);
+    await this.channels.assertAccess(userId, row.channelId);
     if (row.authorId !== userId) {
       throw forbidden('Nur der Autor darf diese Nachricht ändern', 'NOT_AUTHOR');
     }

@@ -24,7 +24,11 @@ export const activeView: { guildId: string | null; channelId: string | null } = 
 export async function refetchAfterReconnect(): Promise<void> {
   const chat = useChatStore.getState();
   const { guildId, channelId } = activeView;
-  const tasks: Promise<unknown>[] = [api.listGuilds().then((r) => chat.setGuilds(r.guilds))];
+  const tasks: Promise<unknown>[] = [
+    api.listGuilds().then((r) => chat.setGuilds(r.guilds)),
+    api.listFriends().then((r) => chat.setFriends(r.friends)),
+    api.listDms().then((r) => chat.setDms(r.dms)),
+  ];
   if (guildId) {
     tasks.push(
       api.listChannels(guildId).then(async (r) => {
@@ -43,6 +47,28 @@ export async function refetchAfterReconnect(): Promise<void> {
     );
   }
   await Promise.allSettled(tasks);
+}
+
+/**
+ * Bookkeeping that needs more than the store: unread private messages (not counted while the
+ * conversation is open and visible) and the own profile changed from another tab.
+ */
+export function trackSocial(ev: WsServerMessage, selfId: string): void {
+  if (ev.type === 'message.created') {
+    const { message } = ev.data;
+    const chat = useChatStore.getState();
+    if (!chat.dms.some((d) => d.channel.id === message.channelId)) return;
+    const looking =
+      message.channelId === activeView.channelId && document.visibilityState === 'visible';
+    chat.bumpDm(message.channelId, message.createdAt, message.author.id !== selfId && !looking);
+  } else if (ev.type === 'user.updated' && ev.data.user.id === selfId) {
+    const auth = useAuthStore.getState();
+    if (auth.user) {
+      useAuthStore.setState({
+        user: { ...auth.user, ...ev.data.user, email: auth.user.email },
+      });
+    }
+  }
 }
 
 /** Reads new messages of others in the open channel aloud, if switched on in the settings. */
@@ -66,6 +92,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const chat = useChatStore.getState();
     const offEvent = c.onEvent((ev) => {
       useChatStore.getState().applyEvent(ev, userId);
+      trackSocial(ev, userId);
       autoRead(ev, userId);
     });
     const offStatus = c.onStatus((status) => {

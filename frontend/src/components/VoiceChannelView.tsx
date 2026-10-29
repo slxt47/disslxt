@@ -4,18 +4,11 @@ import { useAuthStore } from '../store/auth';
 import { useVoiceStore, type VoicePeerState } from '../store/voice';
 import { useVoice, voiceSupported } from '../voice/VoiceProvider';
 import { ConnectionBanner } from './ConnectionBanner';
-import { Avatar, Icon } from './Icon';
+import { CallControls, CallTiles } from './CallTiles';
+import { Icon } from './Icon';
 import { VoiceSetupDialog } from './VoiceSetupDialog';
 
 const EMPTY: never[] = [];
-
-const CONNECTION_TEXT: Record<string, string> = {
-  new: 'Verbinde…',
-  connecting: 'Verbinde…',
-  disconnected: 'Verbindung unterbrochen…',
-  failed: 'Keine Verbindung',
-  closed: 'Getrennt',
-};
 
 /** Main pane of a voice channel: who is there, join/leave, mute. */
 export function VoiceChannelView({
@@ -29,8 +22,6 @@ export function VoiceChannelView({
   const me = useAuthStore((s) => s.user);
   const inChannelId = useVoiceStore((s) => s.channelId);
   const status = useVoiceStore((s) => s.status);
-  const muted = useVoiceStore((s) => s.muted);
-  const selfSpeaking = useVoiceStore((s) => s.selfSpeaking);
   const peers = useVoiceStore((s) => s.peers);
   const error = useVoiceStore((s) => s.error);
   const participants = useVoiceStore((s) => s.participants[channel.id] ?? EMPTY);
@@ -43,7 +34,7 @@ export function VoiceChannelView({
     ? Object.values(peers)
     : participants
         .filter((p) => p.userId !== me?.id)
-        .map((p) => ({ ...p, connection: 'new', speaking: false }));
+        .map((p) => ({ ...p, connection: 'new' as const, speaking: false }));
   const failed = here && others.some((p) => p.connection === 'failed');
 
   return (
@@ -69,42 +60,7 @@ export function VoiceChannelView({
         data-testid="voice-stage"
         data-status={here ? status : 'outside'}
       >
-        <ul className="voice-tiles">
-          {here && me && (
-            <li
-              className={`voice-tile self${selfSpeaking ? ' speaking' : ''}`}
-              data-testid={`voice-tile-${me.username}`}
-            >
-              <Avatar name={me.username} />
-              <span className="voice-name">{me.username} (du)</span>
-              <span className="voice-sub">
-                {status === 'joining' ? 'Verbinde…' : muted ? 'Stummgeschaltet' : 'Verbunden'}
-              </span>
-              {muted && <Icon name="mic-off" size={16} />}
-            </li>
-          )}
-          {others.map((p) => (
-            <li
-              key={p.peerId}
-              className={`voice-tile${p.speaking ? ' speaking' : ''}`}
-              data-testid={`voice-tile-${p.username}`}
-              data-connection={here ? p.connection : 'outside'}
-            >
-              <Avatar name={p.username} />
-              <span className="voice-name">{p.username}</span>
-              <span className="voice-sub">
-                {here
-                  ? p.connection === 'connected'
-                    ? p.muted
-                      ? 'Stummgeschaltet'
-                      : 'Verbunden'
-                    : (CONNECTION_TEXT[p.connection] ?? '')
-                  : 'Im Kanal'}
-              </span>
-              {p.muted && <Icon name="mic-off" size={16} />}
-            </li>
-          ))}
-        </ul>
+        <CallTiles here={here} me={me} others={others} />
         {!here && others.length === 0 && (
           <p className="voice-empty muted">
             Noch niemand da. Tritt bei und die anderen bekommen Bescheid.
@@ -127,36 +83,7 @@ export function VoiceChannelView({
         {!supported ? (
           <p className="muted">Dieser Browser unterstützt keine Sprachkanäle.</p>
         ) : here ? (
-          <>
-            <button
-              className={`btn round${muted ? ' active' : ''}`}
-              data-testid="voice-mute"
-              aria-pressed={muted}
-              aria-label={muted ? 'Stummschaltung aufheben' : 'Stummschalten'}
-              title={muted ? 'Stummschaltung aufheben' : 'Stummschalten'}
-              onClick={() => voice?.setMuted(!muted)}
-            >
-              <Icon name={muted ? 'mic-off' : 'mic'} size={22} />
-            </button>
-            <button
-              className="btn round"
-              data-testid="voice-devices"
-              aria-label="Audio-Geräte"
-              title="Audio-Geräte"
-              onClick={() => setSetup('call')}
-            >
-              <Icon name="gear" size={22} />
-            </button>
-            <button
-              className="btn round danger"
-              data-testid="voice-leave"
-              aria-label="Verlassen"
-              title="Verlassen"
-              onClick={() => voice?.leave()}
-            >
-              <Icon name="phone-off" size={22} />
-            </button>
-          </>
+          <CallControls onDevices={() => setSetup('call')} />
         ) : (
           <button
             className="btn primary"

@@ -1,15 +1,28 @@
 import { and, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
-import type { LoginInput, RegisterInput, UserDto } from '@disslxt/shared';
+import {
+  PASSWORD_RESET_TTL_MINUTES,
+  passwordProblems,
+  type LoginInput,
+  type RegisterInput,
+  type UserDto,
+} from '@disslxt/shared';
 import type { Config } from '../config.js';
 import type { Database } from '../db/client.js';
-import { mailLog, pendingRegistrations, sessions, users } from '../db/schema.js';
-import { emailNotVerified, invalidCredentials, verificationInvalid } from '../lib/errors.js';
+import { mailLog, passwordResets, pendingRegistrations, sessions, users } from '../db/schema.js';
+import {
+  emailNotVerified,
+  invalidCredentials,
+  resetInvalid,
+  usernameTaken,
+  validationError,
+  verificationInvalid,
+} from '../lib/errors.js';
 import type { Mailer, MailMessage } from '../lib/mailer.js';
-import { accountExistsMail, verificationMail } from '../lib/mailTemplates.js';
+import { accountExistsMail, passwordResetMail, verificationMail } from '../lib/mailTemplates.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { randomToken, sha256 } from '../lib/tokens.js';
-import { toUserDto } from './dto.js';
+import { profileColumns, toUserDto } from './dto.js';
 
 export interface AuthResult {
   user: UserDto;
@@ -21,7 +34,7 @@ export interface VerifyResult extends AuthResult {
   next: string | null;
 }
 
-type MailKind = 'verification' | 'account_exists';
+type MailKind = 'verification' | 'account_exists' | 'password_reset';
 
 const MAIL_ATTEMPTS = 3;
 const MAIL_RETRY_BASE_MS = 2000;
@@ -63,6 +76,7 @@ export class AuthService {
       return;
     }
 
+    if (await this.usernameTaken(this.db, input.username)) throw usernameTaken();
     if (!(await this.reserveMailSlot(email, 'verification'))) return;
     const token = randomToken();
     await this.db.insert(pendingRegistrations).values({
@@ -94,6 +108,8 @@ export class AuthService {
         .for('update')
         .limit(1);
       if (!pending) throw verificationInvalid();
+      // Taken by someone who confirmed first while this link was waiting.
+      if (await this.usernameTaken(tx, pending.username)) throw usernameTaken();
 
       const [row] = await tx
         .insert(users)
@@ -154,6 +170,75 @@ export class AuthService {
     this.dispatch('verification', this.verificationMailFor(email, pending.username, token));
   }
 
+  /**
+   * "Passwort vergessen": mails a one-time link if the address has a confirmed account. The
+   * answer is the same either way (and the mail limit per address applies), so nobody can probe
+   * which addresses exist.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const address = email.toLowerCase();
+    // Same work in every branch, so the response time reveals nothing.
+    await this.getDummyHash();
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(sql`lower(${users.email})`, address))
+      .limit(1);
+    if (!user?.emailVerifiedAt) return;
+    if (!(await this.reserveMailSlot(address, 'password_reset'))) return;
+    const token = randomToken();
+    // Only the newest link works.
+    await this.db.delete(passwordResets).where(eq(passwordResets.userId, user.id));
+    await this.db.insert(passwordResets).values({
+      userId: user.id,
+      tokenHash: sha256(token),
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60_000),
+    });
+    this.dispatch(
+      'password_reset',
+      passwordResetMail({
+        to: user.email,
+        username: user.username,
+        // Token in the fragment: never in server logs, proxies or Referer headers.
+        link: `${this.config.publicUrl}/reset-password#token=${token}`,
+        ttlMinutes: PASSWORD_RESET_TTL_MINUTES,
+      }),
+    );
+  }
+
+  /**
+   * Sets the new password from a reset link: the link is used up, every existing session ends
+   * (all devices are signed out) and this browser is signed in with a fresh session.
+   */
+  async resetPassword(token: string, password: string): Promise<AuthResult> {
+    const user = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .delete(passwordResets)
+        .where(
+          and(
+            eq(passwordResets.tokenHash, sha256(token)),
+            gt(passwordResets.expiresAt, sql`now()`),
+          ),
+        )
+        .returning({ userId: passwordResets.userId });
+      if (!row) throw resetInvalid();
+      const [u] = await tx.select().from(users).where(eq(users.id, row.userId)).limit(1);
+      if (!u) throw resetInvalid();
+      const problems = passwordProblems(password, { username: u.username, email: u.email });
+      if (problems.length > 0) {
+        throw validationError([{ path: ['password'], message: problems[0] }], problems[0]);
+      }
+      await tx
+        .update(users)
+        .set({ passwordHash: await hashPassword(password) })
+        .where(eq(users.id, u.id));
+      await tx.delete(sessions).where(eq(sessions.userId, u.id));
+      return u;
+    });
+    const sessionToken = await this.createSession(user.id);
+    return { user: toUserDto(user), token: sessionToken };
+  }
+
   async login(input: LoginInput): Promise<AuthResult> {
     const email = input.email.toLowerCase();
     const [row] = await this.db
@@ -193,12 +278,24 @@ export class AuthService {
 
   async getUserBySession(token: string): Promise<UserDto | null> {
     const [row] = await this.db
-      .select({ id: users.id, email: users.email, username: users.username })
+      .select({
+        ...profileColumns,
+        email: users.email,
+      })
       .from(sessions)
       .innerJoin(users, eq(users.id, sessions.userId))
       .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, sql`now()`)))
       .limit(1);
-    return row ?? null;
+    return row ? toUserDto(row) : null;
+  }
+
+  private async usernameTaken(db: Pick<Database, 'select'>, username: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(sql`lower(${users.username})`, username.toLowerCase()))
+      .limit(1);
+    return !!row;
   }
 
   private async createSession(userId: string): Promise<string> {

@@ -4,6 +4,7 @@ import type { InvitePreviewDto } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useChatStore } from '../store/chat';
+import { LegalLinks } from '../components/LegalLinks';
 
 type State =
   | { kind: 'loading' }
@@ -95,6 +96,7 @@ export function InvitePage() {
           </>
         )}
       </div>
+      <LegalLinks />
     </main>
   );
 }

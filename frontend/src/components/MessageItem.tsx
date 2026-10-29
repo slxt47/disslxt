@@ -5,8 +5,11 @@ import { speak, spokenText, ttsSupported } from '../speech/tts';
 import { usePrefs } from '../store/prefs';
 import { isSubmitKey } from './Composer';
 import { FileAttachment } from './FileAttachment';
+import { GifView } from './Gif';
+import { UserBadges } from './Social';
 import { VoicePlayer } from './VoicePlayer';
 import { Avatar, Icon } from './Icon';
+import { nameOf } from '../profile';
 
 export interface MessageItemProps {
   message: MessageDto;
@@ -125,13 +128,18 @@ function MessageItemImpl({
           {timeFormat.format(created)}
         </time>
       ) : (
-        <Avatar name={message.author.username} />
+        <Avatar name={nameOf(message.author)} url={message.author.avatarUrl} />
       )}
       {/* In a group the header is only for screen readers (who wrote it, when). */}
       <div className={`message-meta${grouped ? ' sr-only' : ''}`}>
-        <span className="message-author" data-testid="message-author">
-          {message.author.username}
+        <span
+          className="message-author"
+          data-testid="message-author"
+          title={message.author.displayName ? `@${message.author.username}` : undefined}
+        >
+          {nameOf(message.author)}
         </span>
+        <UserBadges user={message.author} />
         <time
           className="message-time"
           dateTime={message.createdAt}
@@ -181,6 +189,8 @@ function MessageItemImpl({
         <VoicePlayer audio={message.audio} />
       ) : message.kind === 'file' && message.file ? (
         <FileAttachment file={message.file} />
+      ) : message.kind === 'gif' && message.gif ? (
+        <GifView gif={message.gif} />
       ) : (
         <div className="message-content" data-testid="message-content">
           {message.content}

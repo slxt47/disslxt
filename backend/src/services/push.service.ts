@@ -10,6 +10,7 @@ import type { Config } from '../config.js';
 import type { Database } from '../db/client.js';
 import {
   channels,
+  dmMembers,
   guildMembers,
   guildNotificationSettings,
   guilds,
@@ -33,6 +34,10 @@ export function mentionedNames(content: string): Set<string> {
   }
   return names;
 }
+
+/** Display name where set, else the username. */
+const nameOf = (u: { username: string; displayName?: string | null }): string =>
+  u.displayName ?? u.username;
 
 function truncate(s: string, max = BODY_MAX): string {
   const chars = [...s.replace(/\s+/g, ' ').trim()];
@@ -145,6 +150,13 @@ export class PushService {
   messageCreated(message: MessageDto): void {
     if (!this.enabled) return;
     this.background(async () => {
+      const [channel] = await this.db
+        .select({ kind: channels.kind, name: channels.name })
+        .from(channels)
+        .where(eq(channels.id, message.channelId))
+        .limit(1);
+      if (channel?.kind === 'dm') return this.directMessage(message, null);
+      if (channel?.kind === 'group') return this.directMessage(message, channel.name || 'Gruppe');
       const [ctx] = await this.db
         .select({ guildId: guilds.id, guildName: guilds.name, channelName: channels.name })
         .from(channels)
@@ -155,14 +167,7 @@ export class PushService {
       const members = await this.recipients(ctx.guildId, message.author.id);
       const mentioned = mentionedNames(message.content);
       const url = `/guilds/${ctx.guildId}/channels/${message.channelId}`;
-      const text =
-        message.kind === 'voice'
-          ? `${message.author.username}: 🎤 Sprachnachricht`
-          : message.kind === 'file'
-            ? truncate(
-                `${message.author.username}: ${message.file?.isImage ? '🖼️ Bild' : '📎'} ${message.file?.name ?? ''}`,
-              )
-            : truncate(`${message.author.username}: ${message.content}`);
+      const text = truncate(`${nameOf(message.author)}: ${preview(message)}`);
 
       const plain: string[] = [];
       const mentions: string[] = [];
@@ -179,7 +184,7 @@ export class PushService {
           tag: `channel-${message.channelId}`,
         }),
         this.sendToUsers(mentions, {
-          title: `${message.author.username} hat dich erwähnt`,
+          title: `${nameOf(message.author)} hat dich erwähnt`,
           body: truncate(`#${ctx.channelName}: ${message.content}`),
           url,
           tag: `mention-${message.id}`,
@@ -188,8 +193,53 @@ export class PushService {
     });
   }
 
+  /**
+   * Private or group message: the others get it (unless they are looking at it right now).
+   * `group`: name of the group chat (title), null between two.
+   */
+  private async directMessage(message: MessageDto, group: string | null): Promise<void> {
+    const to = (await this.dmPeers(message.channelId, message.author.id)).filter(
+      (id) => !this.hub.isViewingChannel(id, message.channelId),
+    );
+    await this.sendToUsers(to, {
+      title: group ?? nameOf(message.author),
+      body: truncate(group ? `${nameOf(message.author)}: ${preview(message)}` : preview(message)),
+      url: `/me/${message.channelId}`,
+      tag: `channel-${message.channelId}`,
+    });
+  }
+
+  /** A friend calls: ring the other person's devices too. */
+  callStarted(
+    channelId: string,
+    user: { id: string; username: string; displayName: string | null },
+    video: boolean,
+    group: string | null = null,
+  ): void {
+    if (!this.enabled) return;
+    this.background(async () => {
+      await this.sendToUsers(await this.dmPeers(channelId, user.id), {
+        title: `${video ? '📹 Videoanruf' : '📞 Anruf'} von ${nameOf(user)}${group ? ` in ${group}` : ''}`,
+        body: 'Tippe, um ranzugehen.',
+        url: `/me/${channelId}`,
+        tag: `call-${channelId}`,
+      });
+    });
+  }
+
+  private async dmPeers(channelId: string, exceptUserId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ userId: dmMembers.userId })
+      .from(dmMembers)
+      .where(and(eq(dmMembers.channelId, channelId), ne(dmMembers.userId, exceptUserId)));
+    return rows.map((r) => r.userId);
+  }
+
   /** Someone joined via invite: tell the owner (unless muted or it is the owner). */
-  memberJoined(guildId: string, user: { id: string; username: string }): void {
+  memberJoined(
+    guildId: string,
+    user: { id: string; username: string; displayName?: string | null },
+  ): void {
     if (!this.enabled) return;
     this.background(async () => {
       const [guild] = await this.db.select().from(guilds).where(eq(guilds.id, guildId)).limit(1);
@@ -197,7 +247,7 @@ export class PushService {
       if ((await this.mutedGuildIds(guild.ownerId)).includes(guildId)) return;
       await this.sendToUsers([guild.ownerId], {
         title: guild.name,
-        body: `${user.username} ist dem Server beigetreten.`,
+        body: `${nameOf(user)} ist dem Server beigetreten.`,
         url: `/guilds/${guildId}`,
         tag: `members-${guildId}`,
       });
@@ -205,7 +255,10 @@ export class PushService {
   }
 
   /** The first person entered a voice channel: invite the other members (mute applies). */
-  voiceStarted(channelId: string, user: { id: string; username: string }): void {
+  voiceStarted(
+    channelId: string,
+    user: { id: string; username: string; displayName?: string | null },
+  ): void {
     if (!this.enabled) return;
     this.background(async () => {
       const [ctx] = await this.db
@@ -220,7 +273,7 @@ export class PushService {
         members.filter((m) => !m.muted).map((m) => m.userId),
         {
           title: `🔊 ${ctx.channelName} · ${ctx.guildName}`,
-          body: `${user.username} ist im Sprachkanal. Komm dazu!`,
+          body: `${nameOf(user)} ist im Sprachkanal. Komm dazu!`,
           url: `/guilds/${ctx.guildId}/channels/${channelId}`,
           tag: `voice-${channelId}`,
         },
@@ -292,4 +345,14 @@ export class PushService {
       .finally(() => this.pending.delete(p));
     this.pending.add(p);
   }
+}
+
+/** Short text for a message in a notification. */
+function preview(message: MessageDto): string {
+  if (message.kind === 'voice') return '🎤 Sprachnachricht';
+  if (message.kind === 'gif') return '🎞️ GIF';
+  if (message.kind === 'file') {
+    return `${message.file?.isImage ? '🖼️ Bild' : '📎'} ${message.file?.name ?? ''}`.trim();
+  }
+  return message.content;
 }

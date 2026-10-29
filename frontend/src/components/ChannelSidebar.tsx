@@ -8,9 +8,12 @@ import { useChatStore } from '../store/chat';
 import { usePushStore } from '../store/push';
 import { CreateChannelDialog } from './CreateChannelDialog';
 import { DeleteGuildDialog } from './DeleteGuildDialog';
+import { GuildSettingsDialog } from './GuildSettingsDialog';
 import { Avatar, Icon } from './Icon';
+import { UserFooter } from './UserFooter';
 import { VoiceBar } from './VoiceBar';
 import { useVoiceStore } from '../store/voice';
+import { nameOf } from '../profile';
 
 const NO_PEERS: never[] = [];
 
@@ -22,8 +25,8 @@ function VoiceParticipants({ channelId }: { channelId: string }) {
     <ul className="voice-participants" data-testid={`voice-participants-${channelId}`}>
       {peers.map((p) => (
         <li key={p.peerId} data-testid={`voice-participant-${p.username}`}>
-          <Avatar name={p.username} size="sm" />
-          <span>{p.username}</span>
+          <Avatar name={nameOf(p)} url={p.avatarUrl} size="sm" />
+          <span>{nameOf(p)}</span>
           {p.muted && <Icon name="mic-off" size={14} />}
         </li>
       ))}
@@ -49,13 +52,13 @@ export function ChannelSidebar({
   onOpenSettings,
 }: ChannelSidebarProps) {
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
   const channels = useChatStore((s) => (guild ? s.channelsByGuild[guild.id] : undefined));
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -125,11 +128,6 @@ export function ChannelSidebar({
     } finally {
       setBusy(false);
     }
-  }
-
-  async function onLogout() {
-    await logout();
-    navigate('/login', { replace: true });
   }
 
   return (
@@ -210,6 +208,17 @@ export function ChannelSidebar({
                     ))}
                   {isOwner && (
                     <>
+                      <button
+                        className="menu-item"
+                        data-testid="guild-settings-button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setEditing(true);
+                        }}
+                      >
+                        <Icon name="gear" size={18} />
+                        Server-Einstellungen
+                      </button>
                       <button
                         className="menu-item danger"
                         data-testid="delete-guild-button"
@@ -292,6 +301,7 @@ export function ChannelSidebar({
             </div>
           )}
           {deleting && <DeleteGuildDialog guild={guild} onClose={() => setDeleting(false)} />}
+          {editing && <GuildSettingsDialog guild={guild} onClose={() => setEditing(false)} />}
           {creating && (
             <CreateChannelDialog guildId={guild.id} onClose={() => setCreating(false)} />
           )}
@@ -302,34 +312,7 @@ export function ChannelSidebar({
         </header>
       )}
       <VoiceBar onNavigate={onNavigate} />
-      <footer className="user-footer">
-        <span className="who">
-          <Avatar name={user?.username ?? '?'} size="sm" />
-          <span className="current-user" data-testid="current-user">
-            {user?.username}
-          </span>
-        </span>
-        <span className="footer-actions">
-          <button
-            className="icon-btn"
-            data-testid="settings-button"
-            aria-label="Einstellungen"
-            title="Einstellungen"
-            onClick={onOpenSettings}
-          >
-            <Icon name="gear" size={20} />
-          </button>
-          <button
-            className="icon-btn"
-            data-testid="logout-button"
-            aria-label="Abmelden"
-            title="Abmelden"
-            onClick={() => void onLogout()}
-          >
-            <Icon name="logout" size={20} />
-          </button>
-        </span>
-      </footer>
+      <UserFooter onOpenSettings={onOpenSettings} />
     </div>
   );
 }

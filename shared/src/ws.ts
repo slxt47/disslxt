@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import type { ChannelDto, MemberDto, MessageDto, VoicePeerDto } from './types.js';
+import type {
+  ChannelDto,
+  DmChannelDto,
+  FriendDto,
+  GuildDto,
+  MemberDto,
+  MessageDto,
+  PublicUserDto,
+  VoicePeerDto,
+} from './types.js';
 
 /** WebRTC signalling payload relayed between two peers of a voice channel. */
 export const voiceSignalSchema = z.discriminatedUnion('type', [
@@ -23,9 +32,16 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ping'), data: z.unknown().optional() }),
   // Whether the tab is in the foreground; a visible tab on a channel gets no push for it.
   z.object({ type: z.literal('visibility'), data: z.object({ visible: z.boolean() }) }),
-  z.object({ type: z.literal('voice.join'), data: z.object({ channelId: z.guid() }) }),
+  // `video`: start with the camera on (in a private conversation this also rings as a video call).
+  z.object({
+    type: z.literal('voice.join'),
+    data: z.object({ channelId: z.guid(), video: z.boolean().optional() }),
+  }),
   z.object({ type: z.literal('voice.leave'), data: z.unknown().optional() }),
   z.object({ type: z.literal('voice.mute'), data: z.object({ muted: z.boolean() }) }),
+  z.object({ type: z.literal('voice.video'), data: z.object({ video: z.boolean() }) }),
+  // Turn down an incoming call in a private conversation (the caller is told).
+  z.object({ type: z.literal('call.decline'), data: z.object({ channelId: z.guid() }) }),
   z.object({
     type: z.literal('voice.signal'),
     data: z.object({ to: peerIdSchema, signal: voiceSignalSchema }),
@@ -33,7 +49,8 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
 ]);
 export type WsClientMessage = z.infer<typeof wsClientMessageSchema>;
 
-export type PresenceStatus = 'online' | 'offline';
+export type { PresenceStatus } from './types.js';
+import type { PresenceStatus } from './types.js';
 
 export type WsServerMessage =
   | { type: 'ready'; data: { userId: string } }
@@ -67,8 +84,39 @@ export type WsServerMessage =
   | { type: 'voice.peer-joined'; data: { channelId: string; peer: VoicePeerDto } }
   | { type: 'voice.peer-left'; data: { channelId: string; peerId: string } }
   | { type: 'voice.peer-muted'; data: { channelId: string; peerId: string; muted: boolean } }
+  | { type: 'voice.peer-video'; data: { channelId: string; peerId: string; video: boolean } }
   | { type: 'voice.signal'; data: { from: string; signal: VoiceSignal } }
   /** To the whole guild: who is in which voice channel (for the channel list). */
-  | { type: 'voice.state'; data: { guildId: string; channelId: string; peers: VoicePeerDto[] } };
+  | {
+      type: 'voice.state';
+      data: { guildId: string | null; channelId: string; peers: VoicePeerDto[] };
+    }
+  /** Someone changed their display name or picture (to everyone who shares a server or is a friend). */
+  | { type: 'user.updated'; data: { user: PublicUserDto } }
+  /** The owner renamed the server or changed its picture. */
+  | { type: 'guild.updated'; data: { guild: GuildDto } }
+  /** A friend request arrived, was sent from another tab, or was accepted. */
+  | { type: 'friend.updated'; data: { friend: FriendDto } }
+  /** Friendship ended, or a request was declined / withdrawn. */
+  | { type: 'friend.removed'; data: { userId: string } }
+  | {
+      type: 'friend.presence';
+      data: { userId: string; online: boolean; presence: PresenceStatus };
+    }
+  /** A private conversation or group was opened, renamed or its members changed. */
+  | { type: 'dm.updated'; data: { dm: DmChannelDto } }
+  /** You left a group or were removed from it. */
+  | { type: 'dm.removed'; data: { channelId: string } }
+  /** A friend started a call in your private conversation. */
+  | {
+      type: 'call.ring';
+      /** `group`: name of the group chat (null in a private conversation of two). */
+      data: { channelId: string; from: PublicUserDto; video: boolean; group: string | null };
+    }
+  /** The call stopped ringing: the other side declined, joined on another device, or hung up. */
+  | {
+      type: 'call.ended';
+      data: { channelId: string; reason: 'declined' | 'answered' | 'cancelled' };
+    };
 
 export type WsServerMessageType = WsServerMessage['type'];

@@ -28,6 +28,7 @@ export function spokenText(
   if (message.kind === 'file') {
     return `${message.author.username} hat ${message.file?.isImage ? 'ein Bild' : 'eine Datei'} geschickt: ${message.file?.name ?? ''}`;
   }
+  if (message.kind === 'gif') return `${message.author.username} hat ein GIF geschickt.`;
   return `${message.author.username}: ${message.content}`;
 }
 

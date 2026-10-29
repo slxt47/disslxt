@@ -59,6 +59,21 @@ export async function relayedBytes(pc: RTCPeerConnection): Promise<Map<string, n
   return out;
 }
 
+const CAMERA_ERRORS: Record<string, string> = {
+  NotAllowedError: 'Kamera-Zugriff verweigert. Erlaube ihn in den Einstellungen deines Browsers.',
+  NotFoundError: 'Keine Kamera gefunden.',
+  NotReadableError: 'Die Kamera wird gerade von einer anderen App benutzt.',
+};
+
+/** Camera picture: modest resolution and bitrate, because every participant sends to everyone. */
+const CAMERA: MediaTrackConstraints = {
+  facingMode: 'user',
+  width: { ideal: 640 },
+  height: { ideal: 480 },
+  frameRate: { ideal: 24, max: 30 },
+};
+const VIDEO_MAX_BITRATE = 600_000;
+
 const MIC_ERRORS: Record<string, string> = {
   NotAllowedError: 'Mikrofon-Zugriff verweigert. Erlaube ihn in den Einstellungen deines Browsers.',
   NotFoundError: 'Kein Mikrofon gefunden.',
@@ -76,6 +91,10 @@ interface Link {
   /** ICE candidates that arrived before the remote description. */
   pending: RTCIceCandidateInit[];
   audio: HTMLAudioElement;
+  /** Carries the camera picture; exists from the first negotiation on, with or without camera. */
+  video?: RTCRtpTransceiver;
+  /** Everything received from this participant (audio and video). */
+  remote?: MediaStream;
   analyser?: AnalyserNode;
   /** Relayed bytes already reported, per candidate pair. */
   reported: Map<string, number>;
@@ -88,6 +107,7 @@ interface Link {
  */
 export class VoiceClient {
   private local: MediaStream | null = null;
+  private camera: MediaStreamTrack | null = null;
   private links = new Map<string, Link>();
   private iceServers: RTCIceServer[] = [];
   private audioContext: AudioContext | null = null;
@@ -99,11 +119,15 @@ export class VoiceClient {
 
   constructor(private readonly deps: VoiceDeps) {}
 
-  /** Joins a voice channel. Must run from a click: microphone and audio playback need it (iOS). */
+  /**
+   * Joins a voice channel or the call of a private conversation (guildId null). Must run from a
+   * click: microphone, camera and audio playback need it (iOS).
+   */
   async join(
     channelId: string,
-    guildId: string,
+    guildId: string | null,
     devices: { inputId?: string; outputId?: string } = {},
+    opts: { video?: boolean } = {},
   ): Promise<void> {
     this.outputId = devices.outputId ?? '';
     const state = useVoiceStore.getState();
@@ -130,7 +154,8 @@ export class VoiceClient {
     }
     this.applyMute(useVoiceStore.getState().muted);
     this.watchLocal();
-    if (!this.deps.send({ type: 'voice.join', data: { channelId } })) {
+    if (opts.video) await this.startCamera().catch((err: unknown) => this.cameraFailed(err));
+    if (!this.deps.send({ type: 'voice.join', data: { channelId, video: !!this.camera } })) {
       this.teardown('Keine Verbindung zum Server.');
     }
   }
@@ -146,6 +171,60 @@ export class VoiceClient {
     this.applyMute(muted);
     if (useVoiceStore.getState().status === 'connected') {
       this.deps.send({ type: 'voice.mute', data: { muted } });
+    }
+  }
+
+  /** Camera on or off mid-call: the picture is swapped into every connection, no renegotiation. */
+  async setVideo(on: boolean): Promise<void> {
+    if (on === !!this.camera) return;
+    if (on) {
+      try {
+        await this.startCamera();
+      } catch (err) {
+        this.cameraFailed(err);
+        return;
+      }
+    } else {
+      this.stopCamera();
+    }
+    await Promise.all([...this.links.values()].map((l) => this.sendCamera(l)));
+    if (useVoiceStore.getState().status === 'connected') {
+      this.deps.send({ type: 'voice.video', data: { video: on } });
+    }
+  }
+
+  private async startCamera(): Promise<void> {
+    const stream = await this.deps.getUserMedia({ audio: false, video: CAMERA });
+    const track = stream.getVideoTracks()[0];
+    if (!track) throw new DOMException('no camera', 'NotFoundError');
+    this.camera = track;
+    useVoiceStore.setState({ video: true, localVideo: stream, error: null });
+  }
+
+  private stopCamera(): void {
+    this.camera?.stop();
+    this.camera = null;
+    useVoiceStore.setState({ video: false, localVideo: null });
+  }
+
+  private cameraFailed(err: unknown): void {
+    const name = err instanceof DOMException ? err.name : '';
+    useVoiceStore.setState({ error: CAMERA_ERRORS[name] ?? 'Kamera nicht verfügbar.' });
+  }
+
+  /** Puts the current camera picture (or nothing) on a connection's video sender. */
+  private async sendCamera(link: Link): Promise<void> {
+    const sender = link.video?.sender;
+    if (!sender) return;
+    try {
+      await sender.replaceTrack(this.camera);
+      if (!this.camera || !sender.getParameters) return;
+      const params = sender.getParameters();
+      if (!params.encodings?.length) params.encodings = [{}];
+      params.encodings[0]!.maxBitrate = VIDEO_MAX_BITRATE;
+      await sender.setParameters(params);
+    } catch {
+      // Older browsers: the picture still goes out, just without the bitrate cap.
     }
   }
 
@@ -185,7 +264,7 @@ export class VoiceClient {
     if (!channelId || !this.local) return;
     this.closeLinks();
     useVoiceStore.setState({ status: 'joining', peers: {} });
-    this.deps.send({ type: 'voice.join', data: { channelId } });
+    this.deps.send({ type: 'voice.join', data: { channelId, video: !!this.camera } });
   }
 
   handle(ev: WsServerMessage): void {
@@ -204,6 +283,8 @@ export class VoiceClient {
           peers: Object.fromEntries(ev.data.peers.map((p) => [p.peerId, peerState(p)])),
         });
         if (state.muted) this.deps.send({ type: 'voice.mute', data: { muted: true } });
+        if (state.incoming?.channelId === ev.data.channelId)
+          useVoiceStore.setState({ incoming: null });
         if (this.deps.reportTurnUsage && !this.meterTimer) {
           this.meterTimer = setInterval(() => {
             for (const link of this.links.values()) void this.meter(link);
@@ -231,6 +312,28 @@ export class VoiceClient {
       case 'voice.peer-muted':
         patchPeer(ev.data.peerId, { muted: ev.data.muted });
         return;
+      case 'voice.peer-video':
+        patchPeer(ev.data.peerId, { video: ev.data.video });
+        return;
+      case 'call.ring':
+        // Already in this call (e.g. on this device): nothing to answer.
+        if (state.channelId === ev.data.channelId) return;
+        useVoiceStore.setState({ incoming: ev.data });
+        return;
+      case 'call.ended': {
+        if (state.incoming?.channelId === ev.data.channelId)
+          useVoiceStore.setState({ incoming: null });
+        // Our call was turned down while we were still alone in it.
+        if (
+          ev.data.reason === 'declined' &&
+          state.channelId === ev.data.channelId &&
+          Object.keys(state.peers).length === 0
+        ) {
+          this.leave();
+          useVoiceStore.setState({ error: 'Der Anruf wurde abgelehnt.' });
+        }
+        return;
+      }
       case 'voice.left':
         if (ev.data.channelId !== state.channelId) return;
         this.teardown(
@@ -273,6 +376,16 @@ export class VoiceClient {
       if (signal.type === 'offer') {
         const link = this.links.get(from) ?? this.link(from, false);
         await link.pc.setRemoteDescription({ type: 'offer', sdp: signal.sdp });
+        if (!link.video) {
+          // The offer brought a video line: answer it as sendrecv, with our camera if it is on.
+          link.video = link.pc
+            .getTransceivers?.()
+            .find((t) => t.receiver.track?.kind === 'video' && t.currentDirection !== 'stopped');
+          if (link.video) {
+            link.video.direction = 'sendrecv';
+            await this.sendCamera(link);
+          }
+        }
         await this.flush(link);
         const answer = await link.pc.createAnswer();
         await link.pc.setLocalDescription(answer);
@@ -306,6 +419,14 @@ export class VoiceClient {
     const link: Link = { peerId, pc, initiator, pending: [], audio, reported: new Map() };
     this.links.set(peerId, link);
     for (const track of this.local?.getTracks() ?? []) pc.addTrack(track, this.local!);
+    // The offering side always opens a video line, so the camera can be switched on later.
+    if (initiator && pc.addTransceiver) {
+      link.video = pc.addTransceiver(this.camera ?? 'video', {
+        direction: 'sendrecv',
+        streams: this.local ? [this.local] : [],
+      });
+      if (this.camera) void this.sendCamera(link);
+    }
 
     pc.onicecandidate = (ev) => {
       if (!ev.candidate) return;
@@ -321,10 +442,14 @@ export class VoiceClient {
       });
     };
     pc.ontrack = (ev) => {
-      const stream = ev.streams[0] ?? new MediaStream([ev.track]);
-      audio.srcObject = stream;
+      // Audio and video may arrive in different streams (browsers differ): keep one per person.
+      if (!link.remote) link.remote = ev.streams[0] ?? new MediaStream([ev.track]);
+      else if (!link.remote.getTracks().includes(ev.track)) link.remote.addTrack(ev.track);
+      const stream = link.remote;
+      if (audio.srcObject !== stream) audio.srcObject = stream;
       void audio.play().catch(() => undefined);
-      link.analyser = this.analyse(stream) ?? undefined;
+      if (ev.track.kind === 'audio') link.analyser = this.analyse(stream) ?? undefined;
+      useVoiceStore.setState((s) => ({ streams: { ...s.streams, [peerId]: stream } }));
     };
     pc.onconnectionstatechange = () => {
       patchPeer(peerId, { connection: pc.connectionState });
@@ -379,6 +504,12 @@ export class VoiceClient {
     }
     link.audio.srcObject = null;
     link.audio.remove();
+    useVoiceStore.setState((s) => {
+      if (!s.streams[peerId]) return {};
+      const streams = { ...s.streams };
+      delete streams[peerId];
+      return { streams };
+    });
   }
 
   private closeLinks(): void {
@@ -389,6 +520,8 @@ export class VoiceClient {
     this.closeLinks();
     this.local?.getTracks().forEach((t) => t.stop());
     this.local = null;
+    this.camera?.stop();
+    this.camera = null;
     if (this.levelTimer) clearInterval(this.levelTimer);
     this.levelTimer = null;
     if (this.meterTimer) clearInterval(this.meterTimer);
@@ -402,6 +535,9 @@ export class VoiceClient {
       status: 'idle',
       selfPeerId: null,
       selfSpeaking: false,
+      video: false,
+      localVideo: null,
+      streams: {},
       peers: {},
       error,
     });

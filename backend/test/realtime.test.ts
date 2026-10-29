@@ -268,9 +268,15 @@ describe('guild events', () => {
     const c = await open(carol);
     await joinGuild(app, carol, inviteCode);
     const joined = await a.waitFor('member.joined');
-    expect(joined.data).toEqual({
+    expect(joined.data).toMatchObject({
       guildId,
-      member: { userId: carol.user.id, username: 'carol', online: true },
+      member: {
+        userId: carol.user.id,
+        username: 'carol',
+        displayName: null,
+        avatarUrl: null,
+        online: true,
+      },
     });
     await a.waitFor('presence.update', (e) => e.data.userId === carol.user.id);
     // carol's existing socket now belongs to the guild room

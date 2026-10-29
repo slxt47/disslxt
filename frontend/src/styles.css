@@ -442,6 +442,9 @@ label {
   grid-template-rows: 1fr auto 1fr;
   isolation: isolate;
 }
+.auth-page > :not(.legal-links) {
+  grid-row: 2;
+}
 /* Two soft colour glows behind the card. */
 .auth-page::after {
   content: '';
@@ -540,7 +543,7 @@ label {
   margin-bottom: 4px;
   border-radius: 16px;
   background: var(--accent-gradient);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: var(--glow);
   font-size: 1.5rem;
   font-weight: 800;
@@ -2220,6 +2223,9 @@ select:focus {
 .file-image {
   display: block;
   justify-self: start;
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
   width: fit-content;
   max-width: min(360px, 100%);
   margin-top: 4px;
@@ -2356,4 +2362,1121 @@ select:focus {
   font-weight: 600;
   pointer-events: none;
   animation: fade-in var(--dur-fast) var(--ease-out);
+}
+
+/* ==========================================================================
+   Profiles, server pictures, friends, private conversations and calls
+   ========================================================================== */
+img.avatar {
+  object-fit: cover;
+  background: var(--fill);
+}
+.avatar.lg {
+  width: 72px;
+  height: 72px;
+  font-size: 1.5rem;
+}
+.guild-icon img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+a.guild-icon.has-image,
+a.guild-icon.has-image:hover,
+a.guild-icon.has-image.active {
+  overflow: hidden;
+  padding: 0;
+  background: var(--bg-elevated);
+}
+a.guild-icon.has-image.active {
+  box-shadow:
+    0 0 0 2px var(--bg-tertiary),
+    0 0 0 4px var(--accent);
+}
+
+/* The "d" mark is the home button: friends and private conversations. */
+a.brand-mark {
+  position: relative;
+  text-decoration: none;
+  transition:
+    border-radius var(--dur) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+a.brand-mark:hover {
+  text-decoration: none;
+  border-radius: 14px;
+}
+a.brand-mark:active {
+  transform: scale(0.94);
+}
+a.brand-mark.active {
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 2px var(--bg-tertiary),
+    0 0 0 4px var(--accent),
+    var(--glow);
+}
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border: 2px solid var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0;
+  text-align: center;
+}
+.badge.inline {
+  position: static;
+  margin-left: auto;
+  border: 0;
+  line-height: 20px;
+}
+
+/* Footer: the whole "who" block opens the profile. */
+.user-footer button.who {
+  flex: 1;
+  padding: 2px 4px 2px 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.user-footer button.who:hover {
+  background: var(--fill);
+}
+.who-names {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+.who-handle {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Settings: picture + actions, name field + save. */
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.inline-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.inline-form .field {
+  flex: 1;
+  min-width: 0;
+}
+.guild-icon-preview {
+  --hue: 262;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  object-fit: cover;
+  background: linear-gradient(145deg, hsl(var(--hue) 72% 60%), hsl(calc(var(--hue) + 30) 72% 50%));
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Online dot outside the member list (DM list, friends, chat title). */
+.member-avatar.online .presence-dot {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+.dm-link {
+  gap: 10px;
+}
+.dm-link .presence-dot {
+  border-color: var(--bg-secondary);
+}
+.dm-link.unread .dm-name {
+  color: var(--text);
+  font-weight: 700;
+}
+.dm-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dm-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dm-title .presence-dot {
+  border-color: var(--bg);
+}
+.dm-title-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Friends page */
+.friends-body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 22px 20px calc(24px + var(--safe-bottom));
+  overflow-y: auto;
+}
+.add-friend {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+.add-friend .field {
+  flex: 1;
+  min-width: 0;
+}
+.friend-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 10px;
+  border-radius: var(--radius-lg);
+  animation: rise-in var(--dur) var(--ease-out);
+}
+.friend-row:hover {
+  background: var(--fill);
+}
+.friend-row .presence-dot {
+  border-color: var(--bg);
+}
+.friend-names {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+.friend-names > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friend-names .muted {
+  font-size: 0.8125rem;
+}
+.friend-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Calls: tiles with camera pictures (FaceTime-like: rounded, filled, name on the picture). */
+.call-panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 0;
+  border-bottom: 1px solid var(--separator);
+  background: var(--bg-secondary);
+  animation: fade-in var(--dur) var(--ease-out);
+}
+.call-panel .voice-controls {
+  padding: 4px 0 14px;
+}
+.call-note {
+  margin: 0;
+  padding: 10px 16px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.voice-tiles.has-video {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 420px));
+}
+/* In a conversation the call sits above the messages: small tiles, side by side. */
+.call-panel .voice-tiles,
+.call-panel .voice-tiles.has-video {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 240px));
+  gap: 10px;
+}
+.voice-tile.video {
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  background: #000;
+  color: #fff;
+}
+.voice-tile.video .call-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.voice-tile.video .voice-name,
+.voice-tile.video .voice-sub {
+  position: absolute;
+  left: 12px;
+  z-index: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.voice-tile.video .voice-name {
+  bottom: 28px;
+  font-weight: 600;
+}
+.voice-tile.video .voice-sub {
+  bottom: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.75rem;
+}
+.voice-tile.video > .icon {
+  z-index: 1;
+}
+.voice-tile.video.speaking {
+  box-shadow: 0 0 0 3px var(--success);
+}
+.call-video.mirror {
+  transform: scaleX(-1);
+}
+.call-panel .voice-tile:not(.video) {
+  padding: 16px 10px 12px;
+}
+.call-panel .voice-tile:not(.video) .avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 1.125rem;
+}
+.btn.round.on {
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
+}
+.btn.round.accept {
+  background: var(--success);
+  color: #fff;
+}
+
+/* Incoming call: a floating card at the top, like a banner on iOS. */
+.incoming-call {
+  position: fixed;
+  top: calc(14px + var(--safe-top));
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(440px, calc(100vw - 24px));
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-xl);
+  background: var(--bg-translucent);
+  box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+  transform: translateX(-50%);
+  animation: ring-in var(--dur-slow) var(--ease-spring);
+}
+.incoming-call .avatar {
+  width: 52px;
+  height: 52px;
+  animation: ring-pulse 1.6s var(--ease-out) infinite;
+}
+.incoming-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+.incoming-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.incoming-text span {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.incoming-actions {
+  display: flex;
+  gap: 10px;
+}
+.incoming-actions .btn.round {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+}
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(0.96);
+  }
+}
+@keyframes ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .incoming-call,
+  .incoming-call .avatar,
+  .friend-row,
+  .call-panel {
+    animation: none;
+  }
+}
+@media (max-width: 768px) {
+  .add-friend,
+  .inline-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .friend-row {
+    flex-wrap: wrap;
+  }
+  .friend-actions {
+    margin-left: auto;
+  }
+  .voice-tiles.has-video,
+  .call-panel .voice-tiles,
+  .call-panel .voice-tiles.has-video {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* --- Colour themes (settings) --- */
+.settings-subheading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 18px 0 10px;
+  font-size: 0.9375rem;
+}
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+.theme-card-wrap {
+  position: relative;
+}
+.theme-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 6px 10px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.theme-card:hover {
+  background: var(--fill-strong);
+}
+.theme-card:active {
+  transform: scale(0.97);
+}
+.theme-card[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.theme-swatch {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sw-bg);
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.18);
+}
+.theme-swatch i:nth-child(1) {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 54%;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--sw-card);
+}
+.theme-swatch i:nth-child(2) {
+  position: absolute;
+  top: 27px;
+  left: 9px;
+  width: 34%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--sw-text);
+  opacity: 0.45;
+}
+.theme-swatch i:nth-child(3) {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--sw-a), var(--sw-b));
+}
+.theme-swatch.add {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--fill-strong);
+  color: var(--accent-text);
+}
+.theme-edit {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 30px;
+  height: 30px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+.theme-editor {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--fill);
+  animation: rise-in var(--dur) var(--ease-out);
+}
+.color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.color-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+.color-field input[type='color'] {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.color-field input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.color-field input[type='color']::-webkit-color-swatch {
+  border: 2px solid var(--separator);
+  border-radius: 50%;
+}
+.color-field input[type='color']::-moz-color-swatch {
+  border: 2px solid var(--separator);
+  border-radius: 50%;
+}
+.hue-range {
+  background: linear-gradient(
+    90deg,
+    hsl(0 70% 55%),
+    hsl(60 70% 55%),
+    hsl(120 70% 55%),
+    hsl(180 70% 55%),
+    hsl(240 70% 55%),
+    hsl(300 70% 55%),
+    hsl(359 70% 55%)
+  );
+  border-radius: 999px;
+}
+
+/* --- Group chats --- */
+.group-avatar {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 34px;
+  height: 28px;
+}
+.group-avatar .avatar {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  font-size: 0.5625rem;
+  box-shadow: 0 0 0 2px var(--bg-secondary);
+}
+.group-avatar .avatar:first-child {
+  top: 0;
+  left: 0;
+}
+.group-avatar .avatar:nth-child(2) {
+  right: 0;
+  bottom: 0;
+}
+.group-avatar.single .avatar {
+  inset: 0;
+  width: 28px;
+  height: 28px;
+  font-size: 0.6875rem;
+}
+button.group-title {
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+button.group-title:hover {
+  background: var(--fill);
+}
+.group-count {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.group-form {
+  display: grid;
+  gap: 14px;
+}
+.pick-list {
+  display: grid;
+  gap: 2px;
+  max-height: 46vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 0;
+}
+.pick-list legend {
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.pick-row:hover {
+  background: var(--fill);
+}
+.pick-row.on {
+  background: var(--accent-soft);
+}
+.pick-row input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+.pick-row .muted {
+  margin-left: auto;
+  font-size: 0.8125rem;
+}
+select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+}
+
+/* --- GIFs --- */
+.composer {
+  position: relative;
+}
+.gif-button {
+  width: auto;
+  min-width: 40px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.gif-picker {
+  position: absolute;
+  right: 18px;
+  bottom: calc(100% - 2px);
+  left: 18px;
+  z-index: 20;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  max-width: 460px;
+  height: min(440px, 60dvh);
+  margin-left: auto;
+  padding: 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  animation: rise-in var(--dur) var(--ease-out);
+}
+.gif-grid {
+  columns: 2 140px;
+  column-gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.gif-tile {
+  display: block;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 0;
+  overflow: hidden;
+  break-inside: avoid;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--fill);
+  cursor: pointer;
+}
+.gif-tile img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.gif-tile:hover,
+.gif-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.gif-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gif-attribution {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gif-message {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  margin: 4px 0 0;
+}
+.gif-open {
+  position: relative;
+  display: block;
+  width: min(320px, 100%);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  cursor: zoom-in;
+}
+.gif-message video {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius);
+  background: var(--fill);
+  object-fit: cover;
+}
+.file-image:focus-visible,
+.gif-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.gif-message figcaption {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+.gif-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .gif-picker {
+    right: 8px;
+    left: 8px;
+  }
+}
+
+/* --- Presence: green online, red in a call, grey offline (also announced as text) --- */
+/* Same weight as the older .member.online / .member-avatar.online rules, later in the file: wins. */
+.member[data-presence='online'] .presence-dot,
+.member-avatar[data-presence='online'] .presence-dot {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+.member[data-presence='call'] .presence-dot,
+.member-avatar[data-presence='call'] .presence-dot {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+.member[data-presence='offline'] .presence-dot,
+.member-avatar[data-presence='offline'] .presence-dot {
+  background: var(--text-tertiary);
+  box-shadow: none;
+}
+.member[data-presence='call'] .avatar {
+  opacity: 1;
+  filter: none;
+}
+.member-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+.member-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.user-footer .member-avatar .presence-dot {
+  border-color: var(--bg-tertiary);
+}
+.who-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* --- Server tags, operator badge, custom status --- */
+.user-badges {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.member-name .user-badges,
+.who-line .user-badges {
+  margin-left: 0;
+}
+.server-tag,
+.user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.server-tag {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.user-badge {
+  background: var(--accent-gradient);
+  color: var(--on-accent);
+  text-transform: uppercase;
+}
+.status-line {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Emoji picker (status, server tag) --- */
+.emoji-picker {
+  position: relative;
+  flex: none;
+}
+.emoji-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  font-size: 1.375rem;
+  cursor: pointer;
+}
+.emoji-empty {
+  color: var(--text-tertiary);
+  font-size: 1.125rem;
+}
+.emoji-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: min(312px, calc(100vw - 48px));
+  max-height: 300px;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  animation: rise-in var(--dur-fast) var(--ease-out);
+}
+.emoji-group {
+  margin: 4px 2px;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+.emoji-grid button {
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.emoji-grid button:hover,
+.emoji-grid button.on {
+  background: var(--accent-soft);
+}
+.emoji-clear {
+  width: 100%;
+  margin-top: 8px;
+}
+.status-form {
+  align-items: center;
+}
+
+/* ==========================================================================
+   Lightbox: pictures and GIFs full screen
+   ========================================================================== */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: var(--safe-top) 0 var(--safe-bottom);
+  background: rgba(4, 4, 10, 0.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  color: #fff;
+  animation: fade-in var(--dur) var(--ease-out);
+}
+.lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 20px;
+}
+.lightbox-title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.lightbox-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lightbox-title small {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+.lightbox-button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease-out);
+}
+.lightbox-button:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.lightbox-button:focus-visible,
+.lightbox-play:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.lightbox-stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 8px 16px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.lightbox-media {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 100px - var(--safe-top) - var(--safe-bottom));
+  border-radius: var(--radius);
+  object-fit: contain;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: lightbox-in var(--dur) var(--ease-out);
+}
+img.lightbox-media {
+  cursor: zoom-in;
+}
+img.lightbox-media.zoomed {
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  cursor: zoom-out;
+}
+.lightbox-stage:has(.zoomed) {
+  place-items: start;
+}
+.lightbox-gif {
+  position: relative;
+}
+.lightbox-gif .lightbox-media {
+  width: auto;
+  height: auto;
+  min-width: min(320px, 100%);
+  cursor: pointer;
+}
+.lightbox-play {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+}
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lightbox,
+  .lightbox-media {
+    animation: none;
+  }
+}
+
+/* Help, imprint, privacy: under the sign-in card and at the end of the settings. */
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  font-size: 0.8125rem;
+}
+.auth-page > .legal-links {
+  grid-row: 3;
+  align-self: end;
+  padding-top: 24px;
+}
+.legal-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.legal-links a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.legal-links.in-settings {
+  justify-content: flex-start;
+}
+
+/* "Konto löschen" in the settings: a quiet row that unfolds into a red-edged confirmation. */
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.account-row p {
+  flex: 1 1 220px;
+  margin: 0;
+}
+.danger-zone {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+.danger-zone p {
+  margin: 0;
 }

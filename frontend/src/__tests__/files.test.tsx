@@ -1,4 +1,4 @@
-import { act, render, renderHook, screen } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FILE_MAX_BYTES } from '@disslxt/shared';
@@ -67,6 +67,15 @@ describe('sharing files', () => {
     expect(screen.getByTestId('file-image').querySelector('img')!.getAttribute('src')).toBe(
       '/api/files/1',
     );
+    // A tap opens the viewer (not a new tab); Escape closes it again.
+    fireEvent.click(screen.getByTestId('file-image'));
+    expect(screen.getByTestId('lightbox').getAttribute('aria-label')).toBe('strand.jpg');
+    expect(screen.getByTestId('lightbox-download').getAttribute('download')).toBe('strand.jpg');
+    const big = screen.getByTestId('lightbox-image');
+    fireEvent.click(big);
+    expect(big.getAttribute('data-zoomed')).toBe('true');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('lightbox')).toBeNull();
     rerender(
       <FileAttachment
         file={{ url: '/api/files/2', name: 'Bericht.pdf', size: 3_400_000, isImage: false }}
@@ -83,7 +92,7 @@ describe('sharing files', () => {
     expect(formatBytes(20_480)).toBe('20 KB');
     expect(
       spokenText({
-        author: { id: 'x', username: 'bob' },
+        author: { id: 'x', username: 'bob', displayName: null, avatarUrl: null },
         content: '',
         kind: 'file',
         file: { name: 'a.png', isImage: true },

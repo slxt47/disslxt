@@ -33,7 +33,7 @@ export async function closeDb(): Promise<void> {
 
 export async function resetDb(): Promise<void> {
   await getDb().db.execute(
-    sql`TRUNCATE users, sessions, guilds, guild_members, channels, messages, pending_registrations, mail_log, push_subscriptions, guild_notification_settings RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE users, sessions, guilds, guild_members, channels, dm_members, friendships, messages, pending_registrations, mail_log, push_subscriptions, guild_notification_settings RESTART IDENTITY CASCADE`,
   );
 }
 
@@ -160,7 +160,7 @@ export async function bulkCreateUsers(n: number): Promise<TestUser[]> {
     .db.insert(sessions)
     .values(rows.map((r, i) => ({ userId: r.id, tokenHash: sha256(tokens[i]!), expiresAt })));
   return rows.map((r, i) => ({
-    user: { id: r.id, email: r.email, username: r.username },
+    user: { id: r.id, email: r.email, username: r.username, displayName: null, avatarUrl: null },
     cookie: `sid=${tokens[i]}`,
     token: tokens[i]!,
     password,

@@ -3,15 +3,21 @@ import { MESSAGE_MAX_LEN, textLength, VOICE_MAX_SECONDS } from '@disslxt/shared'
 import { ApiRequestError, errorMessage } from '../api/client';
 import { useDictation } from '../speech/useDictation';
 import { formatDuration, useVoiceRecorder } from '../speech/useVoiceRecorder';
+import type { GifDto } from '@disslxt/shared';
+import { GifPicker, useGifsEnabled } from './Gif';
 import { Icon } from './Icon';
 
 export interface ComposerProps {
   channelName: string;
+  /** Who the message goes to, e.g. "@Bob" in a private conversation (default: #channel). */
+  target?: string;
   onSend: (content: string) => Promise<void>;
   /** Sends a recorded voice message; without it there is no record button. */
   onSendVoice?: (audio: Blob, durationMs: number) => Promise<void>;
   /** Files picked, pasted or dropped; without it there is no attach button. */
   onAttachFiles?: (files: File[]) => void;
+  /** Posts a GIF from the picker; without it (or without a GIPHY key) there is no GIF button. */
+  onSendGif?: (gif: GifDto) => Promise<void>;
 }
 
 /** Counter appears this many characters before the limit. */
@@ -22,7 +28,16 @@ export function isSubmitKey(e: KeyboardEvent<HTMLTextAreaElement>): boolean {
   return e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229;
 }
 
-export function Composer({ channelName, onSend, onSendVoice, onAttachFiles }: ComposerProps) {
+export function Composer({
+  channelName,
+  target = `#${channelName}`,
+  onSend,
+  onSendVoice,
+  onAttachFiles,
+  onSendGif,
+}: ComposerProps) {
+  const gifsEnabled = useGifsEnabled();
+  const [gifOpen, setGifOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
@@ -105,6 +120,16 @@ export function Composer({ channelName, onSend, onSendVoice, onAttachFiles }: Co
         void submit();
       }}
     >
+      {gifOpen && onSendGif && (
+        <GifPicker
+          onClose={() => setGifOpen(false)}
+          onPick={(gif) => {
+            setGifOpen(false);
+            setError(null);
+            onSendGif(gif).catch((err: unknown) => setError(errorMessage(err)));
+          }}
+        />
+      )}
       {(error ?? dictation.error ?? recorder.error) && (
         <p className="composer-error" role="alert" data-testid="composer-error">
           {error ?? dictation.error ?? recorder.error}
@@ -171,13 +196,26 @@ export function Composer({ channelName, onSend, onSendVoice, onAttachFiles }: Co
               />
             </>
           )}
+          {onSendGif && gifsEnabled && (
+            <button
+              type="button"
+              className={`icon-btn composer-tool gif-button${gifOpen ? ' active' : ''}`}
+              data-testid="gif-button"
+              aria-label="GIF senden"
+              aria-expanded={gifOpen}
+              title="GIF senden"
+              onClick={() => setGifOpen((o) => !o)}
+            >
+              GIF
+            </button>
+          )}
           <textarea
             ref={ref}
             data-testid="composer-input"
             className="composer-input"
             rows={1}
-            placeholder={dictation.listening ? 'Sprich jetzt…' : `Nachricht an #${channelName}`}
-            aria-label={`Nachricht an #${channelName}`}
+            placeholder={dictation.listening ? 'Sprich jetzt…' : `Nachricht an ${target}`}
+            aria-label={`Nachricht an ${target}`}
             value={value}
             disabled={sending}
             onChange={(e) => setValue(e.target.value)}

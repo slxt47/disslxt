@@ -59,7 +59,7 @@ export async function voiceRoutes(
         notFound('Kanal nicht gefunden'),
       );
       const user = currentUser(req);
-      await channels.assertTextChannel(user.id, channelId);
+      const channel = await channels.assertTextChannel(user.id, channelId);
 
       const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
       if (!(VOICE_UPLOAD_TYPES as readonly string[]).includes(type)) {
@@ -72,6 +72,7 @@ export async function voiceRoutes(
       const container = sniffAudio(body);
       if (!container) throw unsupported();
 
+      await opts.services.storage.assertRoom(body.length);
       const hint = Number(req.query.durationMs);
       const clientDurationMs = Number.isFinite(hint) ? hint : VOICE_MAX_SECONDS * 1000;
       await mkdir(dir, { recursive: true });
@@ -83,7 +84,8 @@ export async function voiceRoutes(
         throw err;
       }
       try {
-        const message = await messages.createVoice(user, channelId, audio);
+        opts.services.storage.added(body.length);
+        const message = await messages.createVoice(user, channel, audio);
         return reply.status(201).send({ message });
       } catch (err) {
         await rm(join(dir, audio.key), { force: true });

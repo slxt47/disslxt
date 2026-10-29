@@ -1,6 +1,9 @@
 import type {
   ChannelDto,
   ChannelKind,
+  DmChannelDto,
+  FriendDto,
+  GifDto,
   VoicePeerDto,
   GuildDto,
   InvitePreviewDto,
@@ -24,6 +27,12 @@ export const api = {
   login: (input: { email: string; password: string }) =>
     apiRequest<{ user: UserDto }>('POST', '/auth/login', input),
   logout: () => apiRequest<void>('POST', '/auth/logout'),
+  forgotPassword: (email: string) =>
+    apiRequest<{ status: 'reset_sent' }>('POST', '/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    apiRequest<{ user: UserDto }>('POST', '/auth/reset-password', { token, password }),
+  adminStorage: () =>
+    apiRequest<{ usedBytes: number; limitBytes: number }>('GET', '/admin/storage'),
   me: () => apiRequest<{ user: UserDto }>('GET', '/auth/me'),
 
   listGuilds: () => apiRequest<{ guilds: GuildDto[] }>('GET', '/guilds'),
@@ -94,6 +103,61 @@ export const api = {
       onProgress,
       signal,
     ),
+
+  updateProfile: (patch: {
+    displayName?: string | null;
+    statusEmoji?: string | null;
+    statusText?: string | null;
+    tagGuildId?: string | null;
+  }) => apiRequest<{ user: UserDto }>('PATCH', '/users/me', patch),
+  uploadAvatar: (image: Blob) =>
+    apiUpload<{ user: UserDto }>('/users/me/avatar', image, 'application/octet-stream', 'PUT'),
+  removeAvatar: () => apiRequest<{ user: UserDto }>('DELETE', '/users/me/avatar'),
+  deleteAccount: (password: string) => apiRequest<void>('DELETE', '/users/me', { password }),
+
+  updateGuild: (
+    guildId: string,
+    patch: { name?: string; tag?: string; tagEmoji?: string | null },
+  ) => apiRequest<{ guild: GuildDto }>('PATCH', `/guilds/${enc(guildId)}`, patch),
+  uploadGuildIcon: (guildId: string, image: Blob) =>
+    apiUpload<{ guild: GuildDto }>(
+      `/guilds/${enc(guildId)}/icon`,
+      image,
+      'application/octet-stream',
+      'PUT',
+    ),
+  removeGuildIcon: (guildId: string) =>
+    apiRequest<{ guild: GuildDto }>('DELETE', `/guilds/${enc(guildId)}/icon`),
+
+  listFriends: () => apiRequest<{ friends: FriendDto[] }>('GET', '/friends'),
+  requestFriend: (username: string) =>
+    apiRequest<{ friend: FriendDto }>('POST', '/friends/requests', { username }),
+  acceptFriend: (userId: string) =>
+    apiRequest<{ friend: FriendDto }>('POST', `/friends/${enc(userId)}/accept`),
+  removeFriend: (userId: string) => apiRequest<void>('DELETE', `/friends/${enc(userId)}`),
+  listDms: () => apiRequest<{ dms: DmChannelDto[] }>('GET', '/dms'),
+  openDm: (userId: string) => apiRequest<{ dm: DmChannelDto }>('POST', '/dms', { userId }),
+  createGroup: (userIds: string[], name?: string) =>
+    apiRequest<{ dm: DmChannelDto }>('POST', '/groups', { userIds, ...(name ? { name } : {}) }),
+  renameGroup: (channelId: string, name: string) =>
+    apiRequest<{ dm: DmChannelDto }>('PATCH', `/groups/${enc(channelId)}`, { name }),
+  addGroupMember: (channelId: string, userId: string) =>
+    apiRequest<{ dm: DmChannelDto }>('POST', `/groups/${enc(channelId)}/members`, { userId }),
+  /** `userId` 'me' leaves the group. */
+  removeGroupMember: (channelId: string, userId: string) =>
+    apiRequest<void>('DELETE', `/groups/${enc(channelId)}/members/${enc(userId)}`),
+
+  gifStatus: () => apiRequest<{ enabled: boolean }>('GET', '/gifs/status'),
+  searchGifs: (q: string, offset = 0) =>
+    apiRequest<{ gifs: GifDto[] }>(
+      'GET',
+      `/gifs/search?${new URLSearchParams({ ...(q ? { q } : {}), offset: String(offset) }).toString()}`,
+    ),
+  sendGif: (channelId: string, id: string) =>
+    apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/gifs`, { id }),
+
+  callPeers: (channelId: string) =>
+    apiRequest<{ peers: VoicePeerDto[] }>('GET', `/dms/${enc(channelId)}/call`),
 
   pushConfig: () => apiRequest<PushConfigDto>('GET', '/push/config'),
   subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>

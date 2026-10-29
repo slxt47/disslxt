@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NotFound } from './pages/NotFound';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages';
 import { ServiceWorkerBridge } from './pwa/ServiceWorkerBridge';
 import { RealtimeProvider } from './realtime/RealtimeProvider';
 import { VoiceProvider } from './voice/VoiceProvider';
@@ -59,13 +60,17 @@ export function AppRoutes() {
       <Route element={<GuestOnly />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
       {/* Reachable logged in or out: the link may be opened in any browser. */}
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<AppLayout />} />
         <Route path="/guilds/:guildId" element={<AppLayout />} />
         <Route path="/guilds/:guildId/channels/:channelId" element={<AppLayout />} />
+        <Route path="/me" element={<AppLayout />} />
+        <Route path="/me/:channelId" element={<AppLayout />} />
         <Route path="/invite/:code" element={<InvitePage />} />
       </Route>
       <Route path="*" element={<NotFound />} />

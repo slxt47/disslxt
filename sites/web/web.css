@@ -1,0 +1,434 @@
+/* Produktseite: Hero mit gezeichnetem App-Fenster, Funktionen, Datenschutz, Start in drei Schritten. */
+.hero {
+  position: relative;
+  padding: 72px 0 40px;
+  text-align: center;
+  isolation: isolate;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: -120px 0 auto;
+  z-index: -1;
+  height: 720px;
+  background:
+    radial-gradient(40% 50% at 30% 30%, rgba(139, 92, 255, 0.28), transparent 70%),
+    radial-gradient(40% 50% at 72% 26%, rgba(63, 123, 255, 0.24), transparent 70%);
+  filter: blur(20px);
+  animation: glow 14s ease-in-out infinite alternate;
+}
+@keyframes glow {
+  to {
+    transform: translate3d(0, 30px, 0) scale(1.08);
+  }
+}
+.hero h1 {
+  max-width: 14ch;
+  margin-inline: auto;
+}
+.hero .lead {
+  max-width: 40ch;
+  margin: 0 auto 32px;
+}
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+.hero-note {
+  margin-top: 18px;
+  color: var(--text-3);
+  font-size: 0.92rem;
+}
+
+/* --- Gezeichnetes App-Fenster (reines HTML/CSS, keine Screenshots) --- */
+.mock {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px 200px 1fr;
+  width: min(980px, 100%);
+  height: 470px;
+  margin: 56px auto 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow:
+    var(--shadow),
+    0 40px 120px rgba(80, 50, 200, 0.18);
+  text-align: left;
+  font-size: 0.9rem;
+  transform: perspective(1600px) rotateX(6deg);
+  transform-origin: 50% 0;
+  transition: transform 0.8s var(--ease);
+}
+.mock:hover {
+  transform: none;
+}
+.mock-servers {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  background: var(--bg-3);
+}
+.mock-servers span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--card);
+  font-size: 1.15rem;
+}
+.mock-servers span.on {
+  background: var(--gradient);
+  color: #fff;
+  font-weight: 700;
+}
+.mock-side {
+  padding: 16px 12px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.mock-side b {
+  display: block;
+  margin: 0 8px 14px;
+  font-size: 0.95rem;
+}
+.mock-side small {
+  display: block;
+  margin: 12px 8px 6px;
+  color: var(--text-3);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mock-side i {
+  display: block;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-style: normal;
+}
+.mock-side i.on {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.mock-side .voice-user {
+  padding-left: 22px;
+  font-size: 0.85rem;
+}
+.mock-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 22px;
+  min-width: 0;
+}
+.mock-title {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 650;
+}
+.msg {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 4px 12px;
+}
+.avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+}
+.avatar::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 12px;
+  height: 12px;
+  border: 2.5px solid var(--card);
+  border-radius: 50%;
+  background: var(--online);
+}
+.avatar.call::after {
+  background: var(--danger);
+}
+.a1 {
+  background: linear-gradient(135deg, #ff8a5c, #ff4f8b);
+}
+.a2 {
+  background: linear-gradient(135deg, #35c88a, #2c8cff);
+}
+.a3 {
+  background: linear-gradient(135deg, #ffc145, #ff7a45);
+}
+.msg-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.msg-head b {
+  font-weight: 650;
+}
+.msg-head time {
+  color: var(--text-3);
+  font-size: 0.75rem;
+}
+.pill {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.msg p {
+  grid-column: 2;
+  margin: 0;
+  color: var(--text-2);
+}
+.msg .pic {
+  grid-column: 2;
+  width: 210px;
+  height: 120px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 75% 30%, #ffe7a8 0 14px, transparent 15px),
+    linear-gradient(180deg, #8ec5ff 0%, #c7b6ff 55%, #5a46c9 56%, #2e2a7a 100%);
+  cursor: zoom-in;
+}
+.typing {
+  margin-top: auto;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-3);
+}
+
+/* --- Abschnitte --- */
+section {
+  padding: 96px 0 0;
+}
+.section-head {
+  max-width: 680px;
+  margin-bottom: 40px;
+}
+.section-head.center {
+  margin-inline: auto;
+  text-align: center;
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: 16px;
+}
+.feature {
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  transition:
+    transform 0.3s var(--ease),
+    box-shadow 0.3s var(--ease);
+}
+.feature:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+.feature .ico {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  font-size: 1.4rem;
+}
+.feature p {
+  margin: 0;
+  color: var(--text-2);
+}
+.feature.big {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  align-items: center;
+  gap: 32px;
+  padding: 40px;
+  background:
+    linear-gradient(135deg, rgba(139, 92, 255, 0.1), rgba(63, 123, 255, 0.08)), var(--card);
+}
+.feature.big h3 {
+  font-size: 1.6rem;
+}
+.presence-demo {
+  display: grid;
+  gap: 10px;
+}
+.presence-demo div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.presence-demo .avatar.off::after {
+  background: var(--text-3);
+}
+.presence-demo span:last-child {
+  display: grid;
+  line-height: 1.3;
+}
+.presence-demo small {
+  color: var(--text-3);
+}
+
+/* Datenschutz-Abschnitt */
+.privacy {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 16px;
+}
+.privacy div {
+  padding: 22px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+}
+.privacy b {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1.05rem;
+}
+.privacy p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.97rem;
+}
+
+/* Drei Schritte */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 16px;
+  counter-reset: step;
+  padding: 0;
+  list-style: none;
+}
+.steps li {
+  position: relative;
+  padding: 28px 26px 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  counter-increment: step;
+}
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: var(--gradient);
+  color: #fff;
+  font-weight: 700;
+}
+.steps p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.final {
+  margin-top: 96px;
+  padding: 64px 24px;
+  border-radius: 32px;
+  background: var(--gradient);
+  color: #fff;
+  text-align: center;
+}
+.final h2 {
+  color: #fff;
+}
+.final p {
+  max-width: 46ch;
+  margin: 0 auto 28px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.final .btn.primary {
+  background: #fff;
+  color: #4b2fd6;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.final .btn.ghost {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  color: #fff;
+}
+
+/* Sanftes Einblenden beim Scrollen (nur mit JavaScript; ohne bleibt alles sichtbar). */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease);
+}
+.js .reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (max-width: 860px) {
+  .mock {
+    grid-template-columns: 52px 1fr;
+    height: 430px;
+    transform: none;
+  }
+  .mock-side {
+    display: none;
+  }
+  .feature.big {
+    grid-template-columns: 1fr;
+    padding: 28px;
+  }
+}
+@media (max-width: 480px) {
+  .hero {
+    padding-top: 48px;
+  }
+  .mock {
+    grid-template-columns: 1fr;
+    height: 400px;
+  }
+  .mock-servers {
+    display: none;
+  }
+  .mock-chat {
+    padding: 14px;
+  }
+  .msg .pic {
+    width: 100%;
+  }
+  section {
+    padding-top: 72px;
+  }
+}
+.after-privacy {
+  margin-top: 20px;
+}
