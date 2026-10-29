@@ -3458,3 +3458,25 @@ img.lightbox-media.zoomed {
 .legal-links.in-settings {
   justify-content: flex-start;
 }
+
+/* "Konto löschen" in the settings: a quiet row that unfolds into a red-edged confirmation. */
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.account-row p {
+  flex: 1 1 220px;
+  margin: 0;
+}
+.danger-zone {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+.danger-zone p {
+  margin: 0;
+}

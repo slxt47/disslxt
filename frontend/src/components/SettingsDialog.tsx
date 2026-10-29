@@ -6,6 +6,7 @@ import { currentPushState, disablePush, enablePush, type PushState } from '../pw
 import { usePushStore } from '../store/push';
 import { InstallGuide } from './InstallGuide';
 import { Modal } from './Modal';
+import { AccountSettings } from './AccountSettings';
 import { LegalLinks } from './LegalLinks';
 
 const STATE_TEXT: Record<PushState, string> = {
@@ -131,6 +132,7 @@ export function SettingsDialog({
         </p>
       </section>
       {extra}
+      <AccountSettings />
       <LegalLinks className="legal-links in-settings" />
       <div className="dialog-actions">
         <button className="btn" onClick={onClose}>

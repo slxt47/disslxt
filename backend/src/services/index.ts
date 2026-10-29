@@ -16,6 +16,7 @@ import { TurnUsageService } from './turnUsage.service.js';
 import { UserService } from './user.service.js';
 import { GifService } from './gif.service.js';
 import { StorageService } from './storage.service.js';
+import { AccountService } from './account.service.js';
 import type { PushSender } from '../lib/push.js';
 
 export interface Services {
@@ -31,6 +32,7 @@ export interface Services {
   users: UserService;
   gifs: GifService;
   storage: StorageService;
+  accounts: AccountService;
 }
 
 export function createServices(
@@ -71,6 +73,10 @@ export function createServices(
     config.voice.dir,
     config.files.dir,
   );
+  const accounts = new AccountService(db, hub, guilds, channels, dms, images, storage, {
+    voiceDir: config.voice.dir,
+    fileDir: config.files.dir,
+  });
   const turnUsage = new TurnUsageService(db, config.ice.monthlyLimitBytes);
   const ice = new IceService(config, log, fetch, async () => (await turnUsage.status()).exhausted);
   return {
@@ -86,5 +92,6 @@ export function createServices(
     users,
     gifs,
     storage,
+    accounts,
   };
 }

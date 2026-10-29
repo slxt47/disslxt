@@ -10,7 +10,7 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     # Logs (can contain IP addresses) roll over at a fixed size – see the privacy policy.
-    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+    logging: { driver: json-file, options: { max-size: 10m, max-file: '3' } }
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chat}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
@@ -32,7 +32,7 @@ services:
       dockerfile: backend/Dockerfile
     restart: unless-stopped
     # Logs (can contain IP addresses) roll over at a fixed size – see the privacy policy.
-    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+    logging: { driver: json-file, options: { max-size: 10m, max-file: '3' } }
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-chat}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-disslxt}
@@ -112,7 +112,7 @@ services:
       dockerfile: deploy/caddy.Dockerfile
     restart: unless-stopped
     # Logs (can contain IP addresses) roll over at a fixed size – see the privacy policy.
-    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+    logging: { driver: json-file, options: { max-size: 10m, max-file: '3' } }
     ports:
       # Loopback only: the app must not be reachable except through the tunnel.
       - '127.0.0.1:${HTTP_PORT:-8091}:80'

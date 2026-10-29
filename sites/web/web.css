@@ -54,7 +54,9 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--card);
-  box-shadow: var(--shadow), 0 40px 120px rgba(80, 50, 200, 0.18);
+  box-shadow:
+    var(--shadow),
+    0 40px 120px rgba(80, 50, 200, 0.18);
   text-align: left;
   font-size: 0.9rem;
   transform: perspective(1600px) rotateX(6deg);
@@ -266,7 +268,8 @@ section {
   align-items: center;
   gap: 32px;
   padding: 40px;
-  background: linear-gradient(135deg, rgba(139, 92, 255, 0.1), rgba(63, 123, 255, 0.08)), var(--card);
+  background:
+    linear-gradient(135deg, rgba(139, 92, 255, 0.1), rgba(63, 123, 255, 0.08)), var(--card);
 }
 .feature.big h3 {
   font-size: 1.6rem;

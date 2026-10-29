@@ -85,6 +85,11 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/** Deleting your own account: the current password confirms it is really you. */
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
+});
+
 /** Deleting a guild needs its name typed again, so it cannot happen by a stray click. */
 export const deleteGuildSchema = z.object({ name: z.string().max(200) });
 

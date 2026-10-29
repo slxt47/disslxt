@@ -113,6 +113,7 @@ export const api = {
   uploadAvatar: (image: Blob) =>
     apiUpload<{ user: UserDto }>('/users/me/avatar', image, 'application/octet-stream', 'PUT'),
   removeAvatar: () => apiRequest<{ user: UserDto }>('DELETE', '/users/me/avatar'),
+  deleteAccount: (password: string) => apiRequest<void>('DELETE', '/users/me', { password }),
 
   updateGuild: (
     guildId: string,

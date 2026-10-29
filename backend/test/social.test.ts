@@ -724,3 +724,85 @@ describe('server tags, status and presence', () => {
     );
   });
 });
+
+describe('deleting your account', () => {
+  const del = (user: TestUser, password: string) =>
+    req(app, 'DELETE', '/api/users/me', { cookie: user.cookie, payload: { password } });
+
+  it('needs the right password and changes nothing otherwise', async () => {
+    const wrong = await del(alice, 'falsches passwort');
+    expect(wrong.statusCode).toBe(401);
+    expect(wrong.json().error.code).toBe('INVALID_CREDENTIALS');
+    expect((await req(app, 'GET', '/api/auth/me', { cookie: alice.cookie })).statusCode).toBe(200);
+  });
+
+  it('removes own servers, messages, chats, friendships and signs every tab out', async () => {
+    // Alice owns a server, writes in Bob's server, has a private chat, a group and a picture.
+    const own = await createGuild(app, alice, 'Alices Server');
+    await joinGuild(app, bob, own.guild.inviteCode);
+    const bobs = await createGuild(app, bob, 'Bobs Server');
+    await joinGuild(app, alice, bobs.guild.inviteCode);
+    const kept = await sendMessage(app, bob, bobs.general.id, 'bleibt');
+    const gone = await sendMessage(app, alice, bobs.general.id, 'verschwindet');
+    await befriend(alice, bob);
+    await befriend(alice, eve);
+    const dmId = await openDm(alice, bob);
+    const pic = await app.inject({
+      method: 'POST',
+      url: `/api/channels/${dmId}/files?name=bild.png`,
+      headers: { cookie: alice.cookie, 'content-type': 'application/octet-stream' },
+      payload: PNG,
+    });
+    expect(pic.statusCode).toBe(201);
+    const group = (
+      await req(app, 'POST', '/api/groups', {
+        cookie: alice.cookie,
+        payload: { userIds: [bob.user.id, eve.user.id] },
+      })
+    ).json().dm;
+
+    const a = await open(alice);
+    const b = await open(bob);
+    await b.subscribe(bobs.general.id);
+    const res = await del(alice, alice.password);
+    expect(res.statusCode).toBe(204);
+    expect(res.headers['set-cookie']).toMatch(/sid=;/);
+
+    expect((await a.closed).code).toBe(4401);
+    const deletedMsg = await b.waitFor(
+      'message.deleted',
+      (e) => e.data.channelId === bobs.general.id,
+    );
+    expect(deletedMsg.data.id).toBe(gone.json().message.id);
+    await b.waitFor('friend.removed', (e) => e.data.userId === alice.user.id);
+    await b.waitFor('dm.removed', (e) => e.data.channelId === dmId);
+
+    // The account is gone and its session no longer works.
+    expect((await req(app, 'GET', '/api/auth/me', { cookie: alice.cookie })).statusCode).toBe(401);
+    const login = await req(app, 'POST', '/api/auth/login', {
+      payload: { email: alice.user.email, password: alice.password },
+    });
+    expect(login.statusCode).toBe(401);
+    const rows = await getDb().db.select().from(users).where(eq(users.id, alice.user.id));
+    expect(rows).toHaveLength(0);
+
+    // Bob: Alice's server and the private chat are gone, his own message stays, the group goes on.
+    const guildsOfBob = (await req(app, 'GET', '/api/guilds', { cookie: bob.cookie })).json()
+      .guilds;
+    expect(guildsOfBob.map((g: { name: string }) => g.name)).toEqual(['Bobs Server']);
+    const msgs = (
+      await req(app, 'GET', `/api/channels/${bobs.general.id}/messages`, { cookie: bob.cookie })
+    ).json().messages;
+    expect(msgs.map((m: { id: string }) => m.id)).toEqual([kept.json().message.id]);
+    const dms = (await req(app, 'GET', '/api/dms', { cookie: bob.cookie })).json().dms;
+    expect(dms.map((d: { channel: { id: string } }) => d.channel.id)).toEqual([group.channel.id]);
+    expect(dms[0].ownerId).not.toBe(alice.user.id);
+    expect((await req(app, 'GET', '/api/friends', { cookie: bob.cookie })).json().friends).toEqual(
+      [],
+    );
+    // Alice's name is free again.
+    expect((await registerUser(app, { username: alice.user.username })).user.username).toBe(
+      alice.user.username,
+    );
+  });
+});

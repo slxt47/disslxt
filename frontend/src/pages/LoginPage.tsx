@@ -8,6 +8,7 @@ import { LegalLinks } from '../components/LegalLinks';
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
+  const accountDeleted = useAuthStore((s) => s.accountDeleted);
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +43,11 @@ export function LoginPage() {
     <main className="auth-page">
       <form className="auth-card" onSubmit={onSubmit} noValidate aria-labelledby="login-title">
         <h1 id="login-title">Anmelden</h1>
+        {accountDeleted && (
+          <p className="form-info" role="status" data-testid="account-deleted">
+            Dein Konto wurde gelöscht – mit allen Nachrichten, Dateien und eigenen Servern.
+          </p>
+        )}
         <label>
           E-Mail
           <input

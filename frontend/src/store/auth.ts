@@ -11,6 +11,8 @@ interface AuthState {
   status: AuthStatus;
   /** True right after an explicit logout (redirect to /login without a `next`). */
   loggedOut: boolean;
+  /** True after the account was deleted (the sign-in page says so). */
+  accountDeleted: boolean;
   loadMe: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   /** Starts a sign-up; the account exists only after the e-mail link is confirmed. */
@@ -18,6 +20,8 @@ interface AuthState {
   /** Redeems a confirmation link and logs in. Returns the in-app path to continue at. */
   verifyEmail: (token: string) => Promise<string | null>;
   logout: () => Promise<void>;
+  /** Deletes the account for good (password as confirmation) and ends up signed out. */
+  deleteAccount: (password: string) => Promise<void>;
   /** Session is gone (401 / WS 4401). */
   setGuest: () => void;
 }
@@ -26,6 +30,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   status: 'unknown',
   loggedOut: false,
+  accountDeleted: false,
 
   loadMe: async () => {
     try {
@@ -65,6 +70,11 @@ export const useAuthStore = create<AuthState>()((set) => ({
       // The session may already be gone; the client state is reset either way.
     }
     set({ user: null, status: 'guest', loggedOut: true });
+  },
+
+  deleteAccount: async (password) => {
+    await api.deleteAccount(password);
+    set({ user: null, status: 'guest', loggedOut: true, accountDeleted: true });
   },
 
   setGuest: () => set({ user: null, status: 'guest' }),

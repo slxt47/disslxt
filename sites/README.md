@@ -2,11 +2,11 @@
 
 Zwei statische Seiten ohne Build-Schritt, je ein gehärteter nginx-Container:
 
-| Ordner   | Inhalt                                              | Lokal                   | Öffentlich (Tunnel)               |
-| -------- | --------------------------------------------------- | ----------------------- | --------------------------------- |
-| `web/`   | Produktseite, Impressum, Datenschutzerklärung        | `http://127.0.0.1:8092` | `https://disslxt-info.slxt.org`   |
-| `hilfe/` | Hilfe für neue Nutzer (Suche, alle Funktionen)       | `http://127.0.0.1:8093` | `https://disslxt-hilfe.slxt.org`  |
-| `shared/`| gemeinsames Stylesheet, Skript und Icons (unter `/_/`) |                       |                                   |
+| Ordner    | Inhalt                                                 | Lokal                   | Öffentlich (Tunnel)              |
+| --------- | ------------------------------------------------------ | ----------------------- | -------------------------------- |
+| `web/`    | Produktseite, Impressum, Datenschutzerklärung          | `http://127.0.0.1:8092` | `https://disslxt-info.slxt.org`  |
+| `hilfe/`  | Hilfe für neue Nutzer (Suche, alle Funktionen)         | `http://127.0.0.1:8093` | `https://disslxt-hilfe.slxt.org` |
+| `shared/` | gemeinsames Stylesheet, Skript und Icons (unter `/_/`) |                         |                                  |
 
 Starten / nach Änderungen an `deploy/nginx.conf` neu laden:
 

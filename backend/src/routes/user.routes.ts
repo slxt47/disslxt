@@ -1,5 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { AVATAR_MAX_BYTES, updateProfileSchema, uuidSchema } from '@disslxt/shared';
+import {
+  AVATAR_MAX_BYTES,
+  deleteAccountSchema,
+  updateProfileSchema,
+  uuidSchema,
+} from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { forbidden, notFound } from '../lib/errors.js';
 import { acceptImageUploads, sendImage } from '../lib/imageReply.js';
@@ -28,6 +33,26 @@ export async function userRoutes(
       user: await users.updateProfile(currentUser(req).id, parse(updateProfileSchema, req.body)),
     };
   });
+
+  // Deletes the account with everything in it (see AccountService); the password confirms it.
+  // Rate-limited like the login, since a wrong password here is a password guess as well.
+  app.delete(
+    '/users/me',
+    {
+      config: {
+        rateLimit: {
+          max: opts.config.rateLimit.loginMax,
+          timeWindow: opts.config.rateLimit.loginWindowMs,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { password } = parse(deleteAccountSchema, req.body);
+      await opts.services.accounts.delete(currentUser(req).id, password);
+      app.clearSessionCookie(reply);
+      return reply.status(204).send();
+    },
+  );
 
   app.put(
     '/users/me/avatar',
