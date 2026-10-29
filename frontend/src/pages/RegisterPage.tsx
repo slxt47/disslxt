@@ -6,6 +6,7 @@ import { errorMessage } from '../api/client';
 import { CheckInbox } from '../components/CheckInbox';
 import { PasswordChecklist } from '../components/PasswordChecklist';
 import { useAuthStore } from '../store/auth';
+import { LegalLinks } from '../components/LegalLinks';
 
 export function RegisterPage() {
   const register = useAuthStore((s) => s.register);
@@ -63,6 +64,7 @@ export function RegisterPage() {
             </Link>
           </p>
         </section>
+        <LegalLinks />
       </main>
     );
   }
@@ -123,6 +125,7 @@ export function RegisterPage() {
           </Link>
         </p>
       </form>
+      <LegalLinks />
     </main>
   );
 }

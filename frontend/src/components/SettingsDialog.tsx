@@ -6,6 +6,7 @@ import { currentPushState, disablePush, enablePush, type PushState } from '../pw
 import { usePushStore } from '../store/push';
 import { InstallGuide } from './InstallGuide';
 import { Modal } from './Modal';
+import { LegalLinks } from './LegalLinks';
 
 const STATE_TEXT: Record<PushState, string> = {
   'server-disabled': 'Mitteilungen sind auf diesem Server noch nicht eingerichtet.',
@@ -130,6 +131,7 @@ export function SettingsDialog({
         </p>
       </section>
       {extra}
+      <LegalLinks className="legal-links in-settings" />
       <div className="dialog-actions">
         <button className="btn" onClick={onClose}>
           Fertig

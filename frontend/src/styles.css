@@ -442,6 +442,9 @@ label {
   grid-template-rows: 1fr auto 1fr;
   isolation: isolate;
 }
+.auth-page > :not(.legal-links) {
+  grid-row: 2;
+}
 /* Two soft colour glows behind the card. */
 .auth-page::after {
   content: '';
@@ -3429,4 +3432,29 @@ img.lightbox-media.zoomed {
   .lightbox-media {
     animation: none;
   }
+}
+
+/* Help, imprint, privacy: under the sign-in card and at the end of the settings. */
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  font-size: 0.8125rem;
+}
+.auth-page > .legal-links {
+  grid-row: 3;
+  align-self: end;
+  padding-top: 24px;
+}
+.legal-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.legal-links a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.legal-links.in-settings {
+  justify-content: flex-start;
 }

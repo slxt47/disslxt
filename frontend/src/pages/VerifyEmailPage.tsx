@@ -4,6 +4,7 @@ import { verifyEmailSchema } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
 import { safePath } from '../navigation';
 import { useAuthStore } from '../store/auth';
+import { LegalLinks } from '../components/LegalLinks';
 
 function tokenFromHash(hash: string): string | null {
   return new URLSearchParams(hash.slice(1)).get('token');
@@ -84,6 +85,7 @@ export function VerifyEmailPage() {
           <Link to="/register">Neu registrieren</Link>
         </p>
       </section>
+      <LegalLinks />
     </main>
   );
 }

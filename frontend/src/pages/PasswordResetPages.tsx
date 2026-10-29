@@ -9,6 +9,7 @@ import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { PasswordChecklist } from '../components/PasswordChecklist';
 import { useAuthStore } from '../store/auth';
+import { LegalLinks } from '../components/LegalLinks';
 
 /** "Passwort vergessen": asks for the address; the answer is the same whether it exists or not. */
 export function ForgotPasswordPage() {
@@ -82,6 +83,7 @@ export function ForgotPasswordPage() {
           <Link to="/login">Zurück zur Anmeldung</Link>
         </p>
       </form>
+      <LegalLinks />
     </main>
   );
 }
@@ -133,6 +135,7 @@ export function ResetPasswordPage() {
             Neuen Link anfordern
           </Link>
         </div>
+        <LegalLinks />
       </main>
     );
   }
@@ -174,6 +177,7 @@ export function ResetPasswordPage() {
         </button>
         <p className="settings-hint">Danach bist du auf allen anderen Geräten abgemeldet.</p>
       </form>
+      <LegalLinks />
     </main>
   );
 }

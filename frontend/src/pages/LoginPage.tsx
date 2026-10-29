@@ -4,6 +4,7 @@ import { loginSchema } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
 import { CheckInbox } from '../components/CheckInbox';
 import { useAuthStore } from '../store/auth';
+import { LegalLinks } from '../components/LegalLinks';
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
@@ -90,6 +91,7 @@ export function LoginPage() {
           </Link>
         </p>
       </form>
+      <LegalLinks />
     </main>
   );
 }
