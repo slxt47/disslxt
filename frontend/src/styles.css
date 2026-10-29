@@ -2220,6 +2220,9 @@ select:focus {
 .file-image {
   display: block;
   justify-self: start;
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
   width: fit-content;
   max-width: min(360px, 100%);
   margin-top: 4px;
@@ -3105,14 +3108,28 @@ select {
   gap: 2px;
   margin: 4px 0 0;
 }
-.gif-message video {
+.gif-open {
+  position: relative;
   display: block;
   width: min(320px, 100%);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  cursor: zoom-in;
+}
+.gif-message video {
+  display: block;
+  width: 100%;
   max-height: 320px;
   border-radius: var(--radius);
   background: var(--fill);
   object-fit: cover;
-  cursor: pointer;
+}
+.file-image:focus-visible,
+.gif-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .gif-message figcaption {
   color: var(--text-tertiary);
@@ -3288,4 +3305,128 @@ select {
 }
 .status-form {
   align-items: center;
+}
+
+/* ==========================================================================
+   Lightbox: pictures and GIFs full screen
+   ========================================================================== */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: var(--safe-top) 0 var(--safe-bottom);
+  background: rgba(4, 4, 10, 0.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  color: #fff;
+  animation: fade-in var(--dur) var(--ease-out);
+}
+.lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 20px;
+}
+.lightbox-title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.lightbox-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lightbox-title small {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+.lightbox-button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease-out);
+}
+.lightbox-button:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.lightbox-button:focus-visible,
+.lightbox-play:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.lightbox-stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 8px 16px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.lightbox-media {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 100px - var(--safe-top) - var(--safe-bottom));
+  border-radius: var(--radius);
+  object-fit: contain;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: lightbox-in var(--dur) var(--ease-out);
+}
+img.lightbox-media {
+  cursor: zoom-in;
+}
+img.lightbox-media.zoomed {
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  cursor: zoom-out;
+}
+.lightbox-stage:has(.zoomed) {
+  place-items: start;
+}
+.lightbox-gif {
+  position: relative;
+}
+.lightbox-gif .lightbox-media {
+  width: auto;
+  height: auto;
+  min-width: min(320px, 100%);
+  cursor: pointer;
+}
+.lightbox-play {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+}
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lightbox,
+  .lightbox-media {
+    animation: none;
+  }
 }

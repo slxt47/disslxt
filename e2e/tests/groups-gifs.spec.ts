@@ -109,4 +109,12 @@ test('GIF picker: search, pick, shown in the chat (GIPHY simulated)', async ({ p
   await expect(page.getByTestId('gif-picker')).toHaveCount(0);
   await expect(page.getByTestId('gif-message')).toBeVisible();
   expect(posted).toBe('cat222');
+
+  // A tap opens the GIF in the viewer instead of pausing it; the close button brings you back.
+  await page.getByTestId('gif-open').click();
+  await expect(page.getByTestId('lightbox')).toBeVisible();
+  await expect(page.getByTestId('lightbox-gif')).toBeVisible();
+  await page.getByTestId('lightbox-close').click();
+  await expect(page.getByTestId('lightbox')).toHaveCount(0);
+  await expect(page.getByTestId('gif-message')).toBeVisible();
 });

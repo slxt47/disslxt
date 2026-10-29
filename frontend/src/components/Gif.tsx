@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { GifDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
+import { Icon } from './Icon';
+import { Lightbox } from './Lightbox';
 
 let statusPromise: Promise<boolean> | null = null;
 /** Whether the server has a GIPHY key (asked once per session). */
@@ -25,42 +27,88 @@ const reducedMotion = () =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** A GIF in the chat: GIPHY's MP4 loops silently; with reduced motion it waits for a tap. */
+/**
+ * A GIF in the chat: GIPHY's MP4 loops silently (with reduced motion it stands still).
+ * A tap opens it large in the viewer, where a tap pauses and resumes it.
+ */
 export function GifView({ gif }: { gif: GifDto }) {
-  const ref = useRef<HTMLVideoElement>(null);
   const [still] = useState(reducedMotion);
-  const [playing, setPlaying] = useState(!still);
+  const [open, setOpen] = useState(false);
   const ratio = { aspectRatio: `${gif.width} / ${gif.height}` } as CSSProperties;
+  const title = gif.title || 'GIF';
   return (
     <figure className="gif-message" data-testid="gif-message">
+      <button
+        type="button"
+        className="gif-open"
+        aria-label={`GIF ansehen: ${title}`}
+        data-testid="gif-open"
+        onClick={() => setOpen(true)}
+      >
+        <video
+          src={gif.mp4}
+          poster={gif.webp}
+          style={ratio}
+          autoPlay={!still}
+          loop
+          muted
+          playsInline
+          preload={still ? 'metadata' : 'auto'}
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+        {still && <span className="gif-badge">GIF ▶</span>}
+      </button>
+      <figcaption>via GIPHY</figcaption>
+      {open && (
+        <Lightbox title={title} detail="via GIPHY" onClose={() => setOpen(false)}>
+          <LightboxGif gif={gif} />
+        </Lightbox>
+      )}
+    </figure>
+  );
+}
+
+/** The GIF in the viewer: plays right away (it was opened on purpose), a tap pauses it. */
+function LightboxGif({ gif }: { gif: GifDto }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const toggle = () => {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) void v.play().catch(() => undefined);
+    else v.pause();
+  };
+  return (
+    <div className="lightbox-gif">
       <video
         ref={ref}
+        className="lightbox-media"
         src={gif.mp4}
         poster={gif.webp}
-        style={ratio}
-        autoPlay={!still}
+        width={gif.width}
+        height={gif.height}
+        autoPlay
         loop
         muted
         playsInline
-        preload={still ? 'metadata' : 'auto'}
         aria-label={gif.title || 'GIF'}
-        onClick={() => {
-          const v = ref.current;
-          if (!v) return;
-          if (v.paused)
-            void v.play().then(
-              () => setPlaying(true),
-              () => undefined,
-            );
-          else {
-            v.pause();
-            setPlaying(false);
-          }
-        }}
+        data-testid="lightbox-gif"
+        data-playing={playing}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onClick={toggle}
       />
-      {!playing && <span className="gif-badge">GIF ▶</span>}
-      <figcaption>via GIPHY</figcaption>
-    </figure>
+      <button
+        type="button"
+        className="lightbox-play"
+        aria-label={playing ? 'Pausieren' : 'Abspielen'}
+        data-testid="lightbox-gif-toggle"
+        onClick={toggle}
+      >
+        <Icon name={playing ? 'pause' : 'play'} size={18} />
+      </button>
+    </div>
   );
 }
 

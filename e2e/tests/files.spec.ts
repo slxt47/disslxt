@@ -20,6 +20,14 @@ test('share an image and a file; the other member sees and downloads them', asyn
   await expect(img).toBeVisible();
   await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1);
 
+  // A tap opens it large in the viewer, in the same tab; Escape closes it.
+  await b.page.getByTestId('file-image').click();
+  await expect(b.page.getByTestId('lightbox')).toBeVisible();
+  await expect(b.page.getByTestId('lightbox-image')).toBeVisible();
+  expect(b.page.context().pages()).toHaveLength(1);
+  await b.page.keyboard.press('Escape');
+  await expect(b.page.getByTestId('lightbox')).toHaveCount(0);
+
   // The HTML file is only a download card, never rendered.
   const card = b.page.getByTestId('file-card');
   await expect(card).toContainText('notiz.html');
