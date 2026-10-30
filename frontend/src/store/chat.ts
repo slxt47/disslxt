@@ -56,7 +56,8 @@ function withProfile<T extends { id: string; username: string }>(u: T, p: Public
         ...u,
         displayName: p.displayName,
         avatarUrl: p.avatarUrl,
-        badge: p.badge,
+        role: p.role,
+        badges: p.badges,
         tag: p.tag,
         status: p.status,
       }
@@ -326,7 +327,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
                   ...m,
                   displayName: p.displayName,
                   avatarUrl: p.avatarUrl,
-                  badge: p.badge,
+                  role: p.role,
+                  badges: p.badges,
                   tag: p.tag,
                   status: p.status,
                 }

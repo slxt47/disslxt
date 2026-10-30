@@ -6,7 +6,7 @@ import type { UserDto, WsServerMessage } from '@disslxt/shared';
 import { buildApp, type BuildAppOptions } from '../src/app.js';
 import { loadConfig, type Config } from '../src/config.js';
 import { createDb, type DbHandle } from '../src/db/client.js';
-import { sessions, users } from '../src/db/schema.js';
+import { sessions, userBadges, users } from '../src/db/schema.js';
 import { MemoryMailer, type MailMessage } from '../src/lib/mailer.js';
 import { hashPassword } from '../src/lib/password.js';
 import { randomToken, sha256 } from '../src/lib/tokens.js';
@@ -319,3 +319,8 @@ export async function wsReady(host: string, cookie: string): Promise<TestSocket>
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Grants a 'manual' badge (the operator does this with SQL). */
+export async function userBadgesInsert(user: TestUser, badgeId: string): Promise<void> {
+  await getDb().db.insert(userBadges).values({ userId: user.user.id, badgeId });
+}

@@ -28,6 +28,9 @@ export const VOICE_CHANNEL_MAX_PARTICIPANTS = 6;
 export const FILE_MAX_BYTES = 25 * 1024 * 1024;
 export const FILE_NAME_MAX_LEN = 200;
 
+/** How many badges one person can show next to their name. */
+export const BADGES_SHOWN_MAX = 3;
+
 /** Profile and server pictures (resized in the browser to 256 px before upload). */
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 

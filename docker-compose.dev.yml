@@ -6,6 +6,8 @@ name: disslxt-dev
 services:
   db:
     image: postgres:16-alpine
+    # Nach dem nächtlichen Server-Neustart wieder hochfahren (sonst Jarvis-Alarm und keine Test-DB)
+    restart: unless-stopped
     environment:
       POSTGRES_USER: chat
       POSTGRES_PASSWORD: ${DEV_DB_PASSWORD:-chat}

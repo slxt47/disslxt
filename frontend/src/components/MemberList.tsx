@@ -1,7 +1,8 @@
 import { useChatStore } from '../store/chat';
 import { nameOf } from '../profile';
 import { Avatar } from './Icon';
-import { PRESENCE_TEXT, StatusLine, UserBadges } from './Social';
+import { AdminPanel } from './AdminPanel';
+import { PRESENCE_TEXT, ProfileLink, StatusLine, UserBadges } from './Social';
 
 export function MemberList({ guildId }: { guildId: string }) {
   const members = useChatStore((s) => s.membersByGuild[guildId]);
@@ -27,7 +28,7 @@ export function MemberList({ guildId }: { guildId: string }) {
             </span>
             <span className="member-text">
               <span className="member-name" title={`@${m.username}`}>
-                {nameOf(m)}
+                <ProfileLink userId={m.userId}>{nameOf(m)}</ProfileLink>
                 <UserBadges user={m} />
               </span>
               <StatusLine status={m.status} />
@@ -38,6 +39,7 @@ export function MemberList({ guildId }: { guildId: string }) {
           </li>
         ))}
       </ul>
+      <AdminPanel />
     </aside>
   );
 }

@@ -2,11 +2,13 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   AVATAR_MAX_BYTES,
   deleteAccountSchema,
+  setBadgesSchema,
+  setRoleSchema,
   updateProfileSchema,
   uuidSchema,
 } from '@disslxt/shared';
 import type { Config } from '../config.js';
-import { forbidden, notFound } from '../lib/errors.js';
+import { notFound } from '../lib/errors.js';
 import { acceptImageUploads, sendImage } from '../lib/imageReply.js';
 import { parse, parseParam } from '../lib/validate.js';
 import { currentUser } from '../plugins/auth.js';
@@ -65,10 +67,43 @@ export async function userRoutes(
     user: await users.removeAvatar(currentUser(req).id),
   }));
 
-  /** Storage use against the cap: only for accounts with the 'admin' badge. */
+  app.get('/badges', async () => ({ badges: await opts.services.badges.catalogue() }));
+
+  app.get('/users/me/badges', async (req) => opts.services.badges.mine(currentUser(req).id));
+
+  app.put('/users/me/badges', async (req) => {
+    const { badgeIds } = parse(setBadgesSchema, req.body);
+    return { user: await users.setBadges(currentUser(req).id, badgeIds) };
+  });
+
+  app.get<{ Params: { userId: string } }>('/users/:userId/profile', async (req) => {
+    const id = parseParam(uuidSchema, req.params.userId, () => notFound('Benutzer nicht gefunden'));
+    return { profile: await users.profile(id) };
+  });
+
+  // --- Admin area: admins and the owner (checked per request against the stored role) ---------
+
+  /** Storage use against the cap. */
   app.get('/admin/storage', async (req) => {
-    if (currentUser(req).badge !== 'admin') throw forbidden('Nur für Admins');
+    opts.services.admin.assertModerator(currentUser(req).role ?? 'user');
     return opts.services.storage.status();
+  });
+
+  app.get('/admin/users', async (req) => ({
+    users: await opts.services.admin.listUsers(currentUser(req).role ?? 'user'),
+  }));
+
+  app.post<{ Params: { userId: string } }>('/admin/users/:userId/kick', async (req, reply) => {
+    const id = parseParam(uuidSchema, req.params.userId, () => notFound('Benutzer nicht gefunden'));
+    await opts.services.admin.kick(currentUser(req).id, id);
+    return reply.status(204).send();
+  });
+
+  app.put<{ Params: { userId: string } }>('/admin/users/:userId/role', async (req, reply) => {
+    const id = parseParam(uuidSchema, req.params.userId, () => notFound('Benutzer nicht gefunden'));
+    const { role } = parse(setRoleSchema, req.body);
+    await opts.services.admin.setRole(currentUser(req).id, id, role);
+    return reply.status(204).send();
   });
 
   app.get<{ Params: { userId: string } }>('/users/:userId/avatar', async (req, reply) => {

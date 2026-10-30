@@ -1,23 +1,21 @@
 #!/bin/bash
 # Löscht ALLE Konten von disslxt – und damit alle Server, Kanäle, Nachrichten, Freundschaften und
-# hochgeladenen Dateien – und legt danach ein einziges neues Konto an (bereits bestätigt, mit Badge).
+# hochgeladenen Dateien – und legt danach ein einziges neues Konto an (bereits bestätigt, als Owner).
 #
 # Aufruf (im echten Terminal, im Repo-Ordner):
-#   scripts/admin-reset.sh <e-mail> <benutzername> [badge]      # badge: Standard "admin"
+#   scripts/admin-reset.sh <e-mail> <benutzername>
 # Das Passwort wird verdeckt abgefragt (nie als Argument: sonst stünde es in ps und im Verlauf).
 # Vorher läuft scripts/backup.sh (Datenbank + Uploads nach ~/backups/disslxt).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-EMAIL=${1:?E-Mail fehlt – Aufruf: scripts/admin-reset.sh <e-mail> <benutzername> [badge]}
+EMAIL=${1:?E-Mail fehlt – Aufruf: scripts/admin-reset.sh <e-mail> <benutzername>}
 USERNAME=${2:?Benutzername fehlt}
-BADGE=${3:-admin}
 [ -t 0 ] || { echo "Bitte in einem echten Terminal ausführen (Passwort wird verdeckt abgefragt)."; exit 1; }
 [[ $USERNAME =~ ^[A-Za-z0-9_]{3,32}$ ]] || { echo "Benutzername: 3–32 Zeichen, nur A–Z, 0–9 und _"; exit 1; }
-[[ $BADGE =~ ^[a-z0-9-]{1,16}$ ]] || { echo "Badge: 1–16 Zeichen a–z, 0–9, -"; exit 1; }
 
 echo "ACHTUNG: Alle Konten, Server, Nachrichten und Dateien von disslxt werden gelöscht."
-echo "Danach gibt es nur noch: $USERNAME <$EMAIL> mit Badge \"$BADGE\"."
+echo "Danach gibt es nur noch: $USERNAME <$EMAIL> als Owner."
 read -r -p 'Zum Bestätigen "ALLES LÖSCHEN" eintippen: ' OK
 [ "$OK" = "ALLES LÖSCHEN" ] || { echo "Abgebrochen – nichts geändert."; exit 1; }
 
@@ -43,11 +41,11 @@ echo "Datenbank …"
 # TRUNCATE … CASCADE leert alles, was an Konten hängt (Sitzungen, Server, Kanäle, Nachrichten,
 # Freunde, private Chats, Push-Abos, Reset-Links). Werte gehen als psql-Variablen hinein.
 docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -v email="$1" -v username="$2" -v hash="$3" -v badge="$4"' _ "$EMAIL" "$USERNAME" "$HASH" "$BADGE" <<'SQL'
+  -v email="$1" -v username="$2" -v hash="$3"' _ "$EMAIL" "$USERNAME" "$HASH" <<'SQL'
 BEGIN;
 TRUNCATE users, pending_registrations, mail_log RESTART IDENTITY CASCADE;
-INSERT INTO users (email, username, password_hash, email_verified_at, badge)
-VALUES (lower(:'email'), :'username', :'hash', now(), :'badge');
+INSERT INTO users (email, username, password_hash, email_verified_at, role, shown_badges)
+VALUES (lower(:'email'), :'username', :'hash', now(), 'owner', ARRAY['owner']);
 COMMIT;
 SQL
 

@@ -10,6 +10,7 @@ import { useVoice, voiceSupported } from '../voice/VoiceProvider';
 import { CallControls, CallTiles } from './CallTiles';
 import { ChatView } from './ChatView';
 import { GroupAvatar, GroupInfoDialog } from './GroupDialogs';
+import { ProfileLink } from './Social';
 import { Avatar, Icon } from './Icon';
 
 const EMPTY: never[] = [];
@@ -149,7 +150,9 @@ export function DmView({ dm, onOpenMenu }: { dm: DmChannelDto; onOpenMenu: () =>
                 <Avatar name={name} url={dm.peer.avatarUrl} size="sm" />
                 <span className="presence-dot" aria-hidden="true" />
               </span>
-              <span className="dm-title-name">{name}</span>
+              <span className="dm-title-name">
+                <ProfileLink userId={dm.peer.id}>{name}</ProfileLink>
+              </span>
               <span className="sr-only">{dm.online ? '(online)' : '(offline)'}</span>
             </span>
           )

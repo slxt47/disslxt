@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  BADGES_SHOWN_MAX,
   CHANNEL_NAME_MAX_LEN,
   DISPLAY_NAME_MAX_LEN,
   STATUS_TEXT_MAX_LEN,
@@ -167,6 +168,16 @@ export const updateProfileSchema = z.object({
     .optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/** Own choice of shown badges (the server checks that all of them are available). */
+export const setBadgesSchema = z.object({
+  badgeIds: z.array(z.string().regex(/^[a-z0-9-]{1,32}$/)).max(BADGES_SHOWN_MAX),
+});
+export type SetBadgesInput = z.infer<typeof setBadgesSchema>;
+
+/** Owner only: promote to admin or take the role away again. */
+export const setRoleSchema = z.object({ role: z.enum(['admin', 'user']) });
+export type SetRoleInput = z.infer<typeof setRoleSchema>;
 
 /** Friend request by exact username (case-insensitive). */
 export const friendRequestSchema = z.object({ username: usernameSchema });

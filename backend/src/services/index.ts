@@ -16,6 +16,8 @@ import { TurnUsageService } from './turnUsage.service.js';
 import { UserService } from './user.service.js';
 import { GifService } from './gif.service.js';
 import { StorageService } from './storage.service.js';
+import { BadgeService } from './badge.service.js';
+import { AdminService } from './admin.service.js';
 import { AccountService } from './account.service.js';
 import type { PushSender } from '../lib/push.js';
 
@@ -33,6 +35,8 @@ export interface Services {
   gifs: GifService;
   storage: StorageService;
   accounts: AccountService;
+  badges: BadgeService;
+  admin: AdminService;
 }
 
 export function createServices(
@@ -61,7 +65,9 @@ export function createServices(
     fileDir: config.files.dir,
   });
   const gifs = new GifService(config.giphyApiKey, opts.fetchFn ?? fetch);
-  const users = new UserService(db, hub, guilds, friends, images);
+  const badges = new BadgeService(db);
+  const users = new UserService(db, hub, guilds, friends, images, badges);
+  const admin = new AdminService(db, hub, users, badges);
   const channels = new ChannelService(db, hub, guilds, friends);
   guilds.profilesChanged = (ids) => users.republish(ids);
   const messages = new MessageService(
@@ -93,5 +99,7 @@ export function createServices(
     gifs,
     storage,
     accounts,
+    badges,
+    admin,
   };
 }

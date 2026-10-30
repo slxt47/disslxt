@@ -1,5 +1,11 @@
-import { useRef, useState, type FormEvent } from 'react';
-import { DISPLAY_NAME_MAX_LEN, STATUS_TEXT_MAX_LEN, textLength } from '@disslxt/shared';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  BADGES_SHOWN_MAX,
+  DISPLAY_NAME_MAX_LEN,
+  STATUS_TEXT_MAX_LEN,
+  textLength,
+  type BadgeDto,
+} from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { squareImage } from '../lib/image';
@@ -8,6 +14,9 @@ import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
 import { EmojiPicker, UserBadges } from './Social';
 import { Avatar, Icon } from './Icon';
+
+/** Larger originals are not even decoded; they are shrunk to 256 px before the upload anyway. */
+const AVATAR_SOURCE_MAX_BYTES = 20 * 1024 * 1024;
 
 /** "Profil": picture and display name, seen by everyone in your servers and your friends. */
 export function ProfileSettings() {
@@ -19,6 +28,14 @@ export function ProfileSettings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [statusEmoji, setStatusEmoji] = useState<string | null>(user?.status?.emoji ?? null);
   const [statusText, setStatusText] = useState(user?.status?.text ?? '');
+  const [available, setAvailable] = useState<BadgeDto[]>([]);
+  const role = user?.role;
+  useEffect(() => {
+    api.myBadges().then(
+      (r) => setAvailable(r.available),
+      () => undefined,
+    );
+  }, [role]);
   const guilds = useChatStore((s) => s.guilds);
   const tagged = guilds.filter((g) => g.tag);
   if (!user) return null;
@@ -50,6 +67,16 @@ export function ProfileSettings() {
 
   function pickImage(file: File | undefined) {
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setInfo(null);
+      setError('Bitte ein Bild wählen (JPEG, PNG, WebP oder GIF).');
+      return;
+    }
+    if (file.size > AVATAR_SOURCE_MAX_BYTES) {
+      setInfo(null);
+      setError('Das Bild ist zu groß (höchstens 20 MB).');
+      return;
+    }
     void run(async () => {
       const { user: u } = await api.uploadAvatar(await squareImage(file));
       apply(u);
@@ -133,6 +160,36 @@ export function ProfileSettings() {
           {error}
         </p>
       )}
+      <h4 className="settings-subheading">Abzeichen</h4>
+      <fieldset className="badge-picker" disabled={busy} data-testid="badge-picker">
+        <legend className="settings-hint">
+          Wähle bis zu {BADGES_SHOWN_MAX} Abzeichen, die neben deinem Namen stehen.
+        </legend>
+        {available.map((b) => {
+          const checked = (user.badges ?? []).includes(b.id);
+          const full = !checked && (user.badges ?? []).length >= BADGES_SHOWN_MAX;
+          return (
+            <label key={b.id} className="badge-option" title={b.description}>
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={full}
+                data-testid={`badge-option-${b.id}`}
+                onChange={() => {
+                  const now = user.badges ?? [];
+                  const next = checked ? now.filter((id) => id !== b.id) : [...now, b.id];
+                  void run(async () => {
+                    apply((await api.setBadges(next)).user);
+                    return 'Abzeichen gespeichert.';
+                  });
+                }}
+              />
+              <span aria-hidden="true">{b.emoji}</span> {b.label}
+            </label>
+          );
+        })}
+      </fieldset>
+
       <h4 className="settings-subheading">Status</h4>
       <form
         className="inline-form status-form"
@@ -200,7 +257,7 @@ export function ProfileSettings() {
           </select>
         </label>
       )}
-      {(user.tag || user.badge) && (
+      {(user.tag || (user.badges?.length ?? 0) > 0) && (
         <p className="settings-hint">
           So sehen dich andere: <strong>{nameOf(user)}</strong> <UserBadges user={user} />
         </p>

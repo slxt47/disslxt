@@ -11,16 +11,54 @@ export interface UserStatusDto {
   text: string | null;
 }
 
+/** owner: the operator (exactly one); admin: may kick normal users; user: everybody else. */
+export type UserRole = 'owner' | 'admin' | 'user';
+
+/** A badge from the catalogue. `requirement` tells who may wear it. */
+export interface BadgeDto {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  requirement: 'all' | 'admin' | 'owner' | 'manual';
+}
+
 /** What other people see of a user. */
 export interface PublicUserDto {
   id: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
-  /** Set by the operator only, e.g. 'admin'. */
-  badge?: string | null;
+  role?: UserRole;
+  /** Ids of the badges the person chose to show (see BadgeDto), in display order. */
+  badges?: string[];
   tag?: UserTagDto | null;
   status?: UserStatusDto | null;
+}
+
+/** The full profile page of a user. */
+export interface ProfileDto extends PublicUserDto {
+  role: UserRole;
+  badges: string[];
+  /** Sign-up date. */
+  createdAt: string;
+}
+
+/** Own badge settings: what is available and what is shown. */
+export interface MyBadgesDto {
+  available: BadgeDto[];
+  shown: string[];
+}
+
+/** A row of the user list in the admin area. */
+export interface AdminUserDto {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: UserRole;
+  online: boolean;
+  createdAt: string;
 }
 
 /** The signed-in user: their public profile plus the e-mail address. */
@@ -122,7 +160,8 @@ export interface MemberDto {
   avatarUrl: string | null;
   online: boolean;
   presence?: PresenceStatus;
-  badge?: string | null;
+  role?: UserRole;
+  badges?: string[];
   tag?: UserTagDto | null;
   status?: UserStatusDto | null;
 }
@@ -201,6 +240,7 @@ export type ErrorCode =
   | 'EMAIL_NOT_VERIFIED'
   | 'VERIFICATION_INVALID'
   | 'FORBIDDEN'
+  | 'OWNER_PROTECTED'
   | 'BAD_ORIGIN'
   | 'NOT_AUTHOR'
   | 'NOT_FOUND'

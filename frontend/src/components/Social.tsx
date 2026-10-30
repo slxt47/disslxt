@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useBadgeStore } from '../store/badges';
+import { useProfileView } from '../store/profile';
 import type { PresenceStatus, PublicUserDto, UserStatusDto } from '@disslxt/shared';
 
 /** A small, hand-picked set: statuses and server tags need one emoji, not the whole catalogue. */
@@ -190,9 +192,11 @@ export function EmojiPicker({
   );
 }
 
-/** Server tag and operator badge next to a name. */
-export function UserBadges({ user }: { user: Pick<PublicUserDto, 'badge' | 'tag'> }) {
-  if (!user.badge && !user.tag) return null;
+/** Server tag and the chosen badges next to a name. */
+export function UserBadges({ user }: { user: Pick<PublicUserDto, 'badges' | 'tag'> }) {
+  const catalogue = useBadgeStore((s) => s.byId);
+  const shown = (user.badges ?? []).flatMap((id) => (catalogue[id] ? [catalogue[id]] : []));
+  if (shown.length === 0 && !user.tag) return null;
   return (
     <span className="user-badges">
       {user.tag && (
@@ -201,12 +205,47 @@ export function UserBadges({ user }: { user: Pick<PublicUserDto, 'badge' | 'tag'
           {user.tag.text}
         </span>
       )}
-      {user.badge && (
-        <span className={`user-badge badge-${user.badge}`} data-testid="user-badge">
-          {user.badge}
+      {shown.map((b) => (
+        <span
+          key={b.id}
+          className="user-badge"
+          title={`${b.label} – ${b.description}`}
+          data-testid="user-badge"
+          data-badge={b.id}
+        >
+          <span aria-hidden="true">{b.emoji}</span>
+          <span className="sr-only">{b.label}</span>
         </span>
-      )}
+      ))}
     </span>
+  );
+}
+
+/** A name that opens that person's profile when clicked. */
+export function ProfileLink({
+  userId,
+  className,
+  title,
+  children,
+}: {
+  userId: string;
+  className?: string;
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className={`profile-link${className ? ` ${className}` : ''}`}
+      title={title}
+      data-testid="profile-link"
+      onClick={(e) => {
+        e.stopPropagation();
+        useProfileView.getState().open(userId);
+      }}
+    >
+      {children}
+    </button>
   );
 }
 

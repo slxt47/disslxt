@@ -5,6 +5,7 @@ import type {
   MessageDto,
   PublicUserDto,
   UserDto,
+  UserRole,
 } from '@disslxt/shared';
 import { users, type Channel, type Guild, type Message, type User } from '../db/schema.js';
 
@@ -21,7 +22,8 @@ export const profileColumns = {
   username: users.username,
   displayName: users.displayName,
   avatarKey: users.avatarKey,
-  badge: users.badge,
+  role: users.role,
+  shownBadges: users.shownBadges,
   statusEmoji: users.statusEmoji,
   statusText: users.statusText,
   tagGuildId: users.tagGuildId,
@@ -35,7 +37,8 @@ export type ProfileRow = Pick<
   | 'username'
   | 'displayName'
   | 'avatarKey'
-  | 'badge'
+  | 'role'
+  | 'shownBadges'
   | 'statusEmoji'
   | 'statusText'
   | 'tagGuildId'
@@ -43,12 +46,15 @@ export type ProfileRow = Pick<
   | 'tagEmoji'
 >;
 
+export const toRole = (r: string): UserRole => (r === 'owner' || r === 'admin' ? r : 'user');
+
 export const toPublicUser = (u: ProfileRow): PublicUserDto => ({
   id: u.id,
   username: u.username,
   displayName: u.displayName,
   avatarUrl: avatarUrl(u.id, u.avatarKey),
-  badge: u.badge,
+  role: toRole(u.role),
+  badges: u.shownBadges,
   tag:
     u.tagGuildId && u.tagText
       ? { guildId: u.tagGuildId, text: u.tagText, emoji: u.tagEmoji }
@@ -98,7 +104,8 @@ export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => (
     username: author.username,
     displayName: author.displayName,
     avatarUrl: author.avatarUrl,
-    badge: author.badge ?? null,
+    role: author.role ?? 'user',
+    badges: author.badges ?? [],
     tag: author.tag ?? null,
     status: author.status ?? null,
   },

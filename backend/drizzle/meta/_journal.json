@@ -71,6 +71,20 @@
       "when": 1793219740447,
       "tag": "0009_reset_tags_status",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793284642142,
+      "tag": "0010_roles_badges",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793284652343,
+      "tag": "0011_drop_legacy_badge",
+      "breakpoints": true
     }
   ]
 }
