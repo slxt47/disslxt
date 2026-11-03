@@ -1,6 +1,6 @@
 /* disslxt service worker: offline app shell + Web Push.
  * Hand-written on purpose (no build step): it must stay at /sw.js with scope "/". */
-const SHELL_CACHE = 'disslxt-shell-v1';
+const SHELL_CACHE = 'disslxt-shell-v2';
 const ASSET_CACHE = 'disslxt-assets-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/apple-touch-icon.png'];
 
