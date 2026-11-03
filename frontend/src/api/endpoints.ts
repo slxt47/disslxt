@@ -3,7 +3,12 @@ import type {
   ChannelKind,
   DmChannelDto,
   FriendDto,
+  AdminUserDto,
+  BadgeDto,
   GifDto,
+  MyBadgesDto,
+  ProfileDto,
+  UserRole,
   VoicePeerDto,
   GuildDto,
   InvitePreviewDto,
@@ -113,6 +118,16 @@ export const api = {
   uploadAvatar: (image: Blob) =>
     apiUpload<{ user: UserDto }>('/users/me/avatar', image, 'application/octet-stream', 'PUT'),
   removeAvatar: () => apiRequest<{ user: UserDto }>('DELETE', '/users/me/avatar'),
+  getProfile: (userId: string) =>
+    apiRequest<{ profile: ProfileDto }>('GET', `/users/${enc(userId)}/profile`),
+  badgeCatalogue: () => apiRequest<{ badges: BadgeDto[] }>('GET', '/badges'),
+  myBadges: () => apiRequest<MyBadgesDto>('GET', '/users/me/badges'),
+  setBadges: (badgeIds: string[]) =>
+    apiRequest<{ user: UserDto }>('PUT', '/users/me/badges', { badgeIds }),
+  adminUsers: () => apiRequest<{ users: AdminUserDto[] }>('GET', '/admin/users'),
+  adminKick: (userId: string) => apiRequest<void>('POST', `/admin/users/${enc(userId)}/kick`),
+  adminSetRole: (userId: string, role: Exclude<UserRole, 'owner'>) =>
+    apiRequest<void>('PUT', `/admin/users/${enc(userId)}/role`, { role }),
   deleteAccount: (password: string) => apiRequest<void>('DELETE', '/users/me', { password }),
 
   updateGuild: (

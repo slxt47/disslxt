@@ -364,16 +364,30 @@ Anruf oder Sprachkanal**, grau = offline (für Screenreader auch als Text).
 **Server-Tags**: Besitzer:innen geben ihrem Server in den Server-Einstellungen einen Tag (2–4 Buchstaben
 oder Ziffern) mit Emoji, z. B. „🎮 GAME“. Mitglieder wählen im Profil, welchen Tag sie neben ihrem Namen
 tragen – damit vertreten sie ihren Server. Ändert sich der Tag, sehen es alle sofort; wird er entfernt
-oder verlässt jemand den Server, verschwindet er. Ein **Badge** (z. B. „admin“) kann nur der Betreiber
-in der Datenbank setzen, nie über die API.
+oder verlässt jemand den Server, verschwindet er.
+
+**Rollen und Moderation**: Es gibt genau einen **Owner** (`users.role = 'owner'`, per Unique-Index
+erzwungen), beliebig viele **Admins** und normale **User**. Der Owner kann User zum Admin ernennen und die
+Rolle wieder entziehen sowie alle außer sich selbst rauswerfen; Admins werfen nur normale User raus. Der
+Owner kann nie rausgeworfen oder herabgestuft werden – kein API-Aufruf vergibt oder entzieht `owner`. Alle
+Prüfungen laufen serverseitig (`AdminService`) gegen die in der Datenbank gespeicherte Rolle. „Rauswerfen“
+löscht alle Sitzungen des Users und schließt seine WebSockets: er ist sofort abgemeldet, kann sich aber mit
+seinen Zugangsdaten erneut anmelden (kein Bann). Admins und der Owner sehen die Userliste rechts in der
+Mitgliederleiste und in den Einstellungen; Endpunkte: `GET /api/admin/users`, `POST /api/admin/users/:id/kick`,
+`PUT /api/admin/users/:id/role` (nur Owner).
+
+**Profile und Abzeichen**: Ein Klick auf einen Namen öffnet das Profil (`GET /api/users/:id/profile`) mit
+Bild, Anzeigename, Benutzername, Rolle, Abzeichen und Beitrittsdatum. Abzeichen stehen im Katalog `badges`
+(`requirement`: `all`, `admin`, `owner` oder `manual`); `manual`-Abzeichen vergibt der Betreiber per SQL in
+`user_badges`. Jede Person wählt im Profil bis zu 3 verfügbare Abzeichen (`PUT /api/users/me/badges`).
 
 **Grenzen**: Jede Person kann höchstens **5 Server** erstellen (beitreten unbegrenzt). Alles Gepostete
 zusammen – Dateien, Bilder, Sprachnachrichten, Profil-/Serverbilder und der Text aller Nachrichten – darf
 höchstens **40 GB** belegen (`STORAGE_LIMIT_GB`); darüber hinaus lehnt der Server Neues mit 507 ab, bis
-etwas gelöscht wird. Konten mit Badge „admin“ sehen die Auslastung in den Einstellungen.
+etwas gelöscht wird. Admins und der Owner sehen die Auslastung in den Einstellungen.
 
-**Alles zurücksetzen** (alle Konten, Server, Nachrichten, Dateien löschen und ein Admin-Konto anlegen):
-`scripts/admin-reset.sh <e-mail> <benutzername> [badge]` – mit Bestätigung, verdeckter Passwortabfrage
+**Alles zurücksetzen** (alle Konten, Server, Nachrichten, Dateien löschen und ein Owner-Konto anlegen):
+`scripts/admin-reset.sh <e-mail> <benutzername>` – mit Bestätigung, verdeckter Passwortabfrage
 und Backup vorweg.
 
 ## Gruppenchats

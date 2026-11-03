@@ -3480,3 +3480,95 @@ img.lightbox-media.zoomed {
 .danger-zone p {
   margin: 0;
 }
+
+/* --- Profiles, badge picker, admin area --- */
+.profile-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.profile-link:hover,
+.profile-link:focus-visible {
+  text-decoration: underline;
+}
+.profile-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin: 8px 0 16px;
+  text-align: center;
+}
+.profile-card p {
+  margin: 0;
+}
+.profile-card-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.profile-badges {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--fill);
+}
+.badge-picker {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+.badge-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+.user-badge {
+  text-transform: none;
+}
+.admin-panel {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--separator);
+}
+.admin-users {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-user {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.admin-user-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding-left: 40px;
+}

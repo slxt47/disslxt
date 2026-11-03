@@ -29,8 +29,16 @@ export const users = pgTable(
     displayName: varchar('display_name', { length: 32 }),
     /** Profile picture: file name in UPLOAD_DIR/avatars (a new name per upload busts caches). */
     avatarKey: varchar('avatar_key', { length: 64 }),
-    /** Badge set by the operator (e.g. 'admin'); never changeable through the API. */
-    badge: varchar('badge', { length: 16 }),
+    /**
+     * 'owner' (exactly one, enforced by a unique index), 'admin' or 'user'. Only the owner can
+     * change roles, and only between 'admin' and 'user'; nothing in the API sets 'owner'.
+     */
+    role: varchar('role', { length: 8 }).notNull().default('user'),
+    /** Ids of the badges shown next to the name (a subset of what the user may wear). */
+    shownBadges: varchar('shown_badges', { length: 32 })
+      .array()
+      .notNull()
+      .default(sql`'{}'::varchar[]`),
     /** Custom status: an emoji and/or a short text. */
     statusEmoji: varchar('status_emoji', { length: 16 }),
     statusText: varchar('status_text', { length: 80 }),
@@ -51,7 +59,47 @@ export const users = pgTable(
     uniqueIndex('users_email_lower_uq').on(sql`lower(${t.email})`),
     // Friends are added by username, so it must name exactly one person.
     uniqueIndex('users_username_lower_uq').on(sql`lower(${t.username})`),
+    // There is only ever one owner.
+    uniqueIndex('users_single_owner_uq')
+      .on(t.role)
+      .where(sql`${t.role} = 'owner'`),
+    check('users_role_chk', sql`${t.role} in ('owner', 'admin', 'user')`),
   ],
+);
+
+/**
+ * Badge catalogue. `requirement` says who may wear a badge: everybody ('all'), admins and the
+ * owner ('admin'), only the owner ('owner'), or only people it was granted to ('manual', see
+ * userBadges).
+ */
+export const badges = pgTable(
+  'badges',
+  {
+    id: varchar('id', { length: 32 }).primaryKey(),
+    label: varchar('label', { length: 40 }).notNull(),
+    emoji: varchar('emoji', { length: 16 }).notNull(),
+    description: varchar('description', { length: 120 }).notNull(),
+    requirement: varchar('requirement', { length: 8 }).notNull().default('manual'),
+    sort: integer('sort').notNull().default(0),
+  },
+  (t) => [
+    check('badges_requirement_chk', sql`${t.requirement} in ('all', 'admin', 'owner', 'manual')`),
+  ],
+);
+
+/** Manually granted badges (requirement 'manual'); the operator inserts rows here. */
+export const userBadges = pgTable(
+  'user_badges',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    badgeId: varchar('badge_id', { length: 32 })
+      .notNull()
+      .references(() => badges.id, { onDelete: 'cascade' }),
+    grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.badgeId] })],
 );
 
 /**

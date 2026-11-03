@@ -6,7 +6,7 @@ import { usePrefs } from '../store/prefs';
 import { isSubmitKey } from './Composer';
 import { FileAttachment } from './FileAttachment';
 import { GifView } from './Gif';
-import { UserBadges } from './Social';
+import { ProfileLink, UserBadges } from './Social';
 import { VoicePlayer } from './VoicePlayer';
 import { Avatar, Icon } from './Icon';
 import { nameOf } from '../profile';
@@ -137,7 +137,7 @@ function MessageItemImpl({
           data-testid="message-author"
           title={message.author.displayName ? `@${message.author.username}` : undefined}
         >
-          {nameOf(message.author)}
+          <ProfileLink userId={message.author.id}>{nameOf(message.author)}</ProfileLink>
         </span>
         <UserBadges user={message.author} />
         <time

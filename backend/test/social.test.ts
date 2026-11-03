@@ -624,7 +624,7 @@ describe('limits', () => {
     expect((await req(app, 'GET', '/api/admin/storage', { cookie: alice.cookie })).statusCode).toBe(
       403,
     );
-    await getDb().db.update(users).set({ badge: 'admin' }).where(eq(users.id, alice.user.id));
+    await getDb().db.update(users).set({ role: 'admin' }).where(eq(users.id, alice.user.id));
     const status = await req(app, 'GET', '/api/admin/storage', { cookie: alice.cookie });
     expect(status.json()).toEqual({ usedBytes: 15, limitBytes: 20 });
   });

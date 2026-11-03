@@ -1,11 +1,12 @@
 import { eq } from 'drizzle-orm';
-import type { UpdateProfileInput, UserDto } from '@disslxt/shared';
+import type { ProfileDto, UpdateProfileInput, UserDto } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { users } from '../db/schema.js';
 import { AppError, notFound } from '../lib/errors.js';
 import type { ImageStore } from '../lib/images.js';
 import type { Hub } from '../realtime/hub.js';
-import { toPublicUser, toUserDto } from './dto.js';
+import type { BadgeService } from './badge.service.js';
+import { toPublicUser, toRole, toUserDto } from './dto.js';
 import type { FriendService } from './friend.service.js';
 import type { GuildService } from './guild.service.js';
 
@@ -17,6 +18,7 @@ export class UserService {
     private readonly guilds: GuildService,
     private readonly friends: FriendService,
     private readonly images: ImageStore,
+    private readonly badges: BadgeService,
   ) {}
 
   /** Only the fields that are given change (see updateProfileSchema). */
@@ -34,6 +36,24 @@ export class UserService {
     }
     if (Object.keys(patch).length === 0) return toUserDto(await this.current(userId));
     return this.update(userId, patch);
+  }
+
+  /** The profile page of anybody (like names and pictures, profiles are visible to all members). */
+  async profile(userId: string): Promise<ProfileDto> {
+    const row = await this.current(userId);
+    return {
+      ...toPublicUser(row),
+      role: toRole(row.role),
+      badges: row.shownBadges,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  /** Own choice of shown badges; only available ones are accepted. */
+  async setBadges(userId: string, ids: string[]): Promise<UserDto> {
+    await this.badges.setShown(userId, ids);
+    await this.republish([userId]);
+    return toUserDto(await this.current(userId));
   }
 
   /** Announces the current profiles of these users again (after a server tag changed). */

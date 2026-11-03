@@ -9,6 +9,8 @@ import { FriendsView } from '../components/FriendsView';
 import { HomeSidebar } from '../components/HomeSidebar';
 import { IncomingCall } from '../components/IncomingCall';
 import { ProfileSettings } from '../components/ProfileSettings';
+import { ProfileDialog } from '../components/ProfileDialog';
+import { useBadgeStore } from '../store/badges';
 import { AdminSettings } from '../components/AdminSettings';
 import { ConnectionBanner } from '../components/ConnectionBanner';
 import { CreateGuildDialog } from '../components/CreateGuildDialog';
@@ -57,6 +59,10 @@ export function AppLayout() {
         useChatStore.getState().setGuilds([]);
       },
     );
+  }, []);
+
+  useEffect(() => {
+    void useBadgeStore.getState().load();
   }, []);
 
   // Friends and private conversations (once per session; refreshed on reconnect).
@@ -229,6 +235,7 @@ export function AppLayout() {
 
       {guild && showMembers && !home && <MemberList guildId={guild.id} />}
       <IncomingCall />
+      <ProfileDialog onEditOwn={() => setSettingsOpen(true)} />
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}
       {settingsOpen && (
         <SettingsDialog

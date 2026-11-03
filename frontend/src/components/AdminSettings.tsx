@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/endpoints';
 import { useAuthStore } from '../store/auth';
+import { AdminPanel } from './AdminPanel';
 
 const gb = (b: number) => (b / 1e9).toLocaleString('de-DE', { maximumFractionDigits: 2 });
 
-/** Only for the 'admin' badge: how much of the storage cap is used. */
+/** Only for admins and the owner: storage use against the cap, and the user list. */
 export function AdminSettings() {
-  const admin = useAuthStore((s) => s.user?.badge === 'admin');
+  const admin = useAuthStore((s) => s.user?.role === 'admin' || s.user?.role === 'owner');
   const [use, setUse] = useState<{ usedBytes: number; limitBytes: number } | null>(null);
   useEffect(() => {
     if (admin) api.adminStorage().then(setUse, () => undefined);
@@ -33,6 +34,7 @@ export function AdminSettings() {
         Nachrichten, Dateien, Sprachnachrichten und Bilder zusammen. Ist die Grenze erreicht, nimmt
         disslxt nichts Neues mehr an, bis etwas gelöscht wird.
       </p>
+      <AdminPanel />
     </section>
   );
 }

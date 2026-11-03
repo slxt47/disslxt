@@ -9,7 +9,7 @@ import { voiceSupported } from '../voice/VoiceProvider';
 import { ConnectionBanner } from './ConnectionBanner';
 import { useStartCall } from './DmView';
 import { Avatar, Icon } from './Icon';
-import { PRESENCE_TEXT, StatusLine, UserBadges } from './Social';
+import { PRESENCE_TEXT, ProfileLink, StatusLine, UserBadges } from './Social';
 
 type Tab = 'all' | 'online' | 'requests';
 
@@ -201,7 +201,7 @@ function FriendRow({ friend }: { friend: FriendDto }) {
       </span>
       <span className="friend-names">
         <strong>
-          {name}
+          <ProfileLink userId={user.id}>{name}</ProfileLink>
           <UserBadges user={user} />
         </strong>
         <span className="muted">

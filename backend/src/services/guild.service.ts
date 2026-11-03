@@ -292,7 +292,7 @@ export class GuildService {
   async join(
     user: Pick<
       UserDto,
-      'id' | 'username' | 'displayName' | 'avatarUrl' | 'badge' | 'tag' | 'status'
+      'id' | 'username' | 'displayName' | 'avatarUrl' | 'role' | 'badges' | 'tag' | 'status'
     >,
     code: string,
   ): Promise<GuildDto> {
@@ -314,7 +314,8 @@ export class GuildService {
             username: user.username,
             displayName: user.displayName,
             avatarUrl: user.avatarUrl,
-            badge: user.badge ?? null,
+            role: user.role ?? 'user',
+            badges: user.badges ?? [],
             tag: user.tag ?? null,
             status: user.status ?? null,
             online,
