@@ -53,6 +53,7 @@ import { profileColumns, toChannelKind, toMessageDto, toMessageRef, toPublicUser
 import type { LinkPreviewService } from './linkPreview.service.js';
 import { channelVisibleSql, type PermissionService } from './permission.service.js';
 import { mentionedNames, type PushService } from './push.service.js';
+import type { TranscriptionService } from './transcription.service.js';
 
 export class MessageService {
   constructor(
@@ -67,6 +68,7 @@ export class MessageService {
     private readonly fileDir: string,
     private readonly perms: PermissionService,
     private readonly previews: LinkPreviewService,
+    private readonly transcripts: TranscriptionService,
   ) {}
 
   /** Stores a file message whose file is already in the file directory. */
@@ -244,7 +246,8 @@ export class MessageService {
     const me = sql`${user.id}::uuid`;
     const conditions: (SQL | undefined)[] = [
       sql`to_tsvector('simple', ${messages.content}) @@ to_tsquery('simple', ${tsquery})`,
-      eq(messages.kind, 'text'),
+      // Voice messages hold their transcript as text.
+      inArray(messages.kind, ['text', 'voice']),
       or(
         and(
           isNotNull(channels.guildId),
@@ -402,7 +405,16 @@ export class MessageService {
       })
       .returning();
     if (!row) throw new Error('insert returned no row');
-    return this.published(channel, toMessageDto(row, user));
+    const message = await this.published(channel, toMessageDto(row, user));
+    this.transcripts.enqueue(join(this.voiceDir, audio.key), async (text) => {
+      const [updated] = await this.db
+        .update(messages)
+        .set({ content: text })
+        .where(eq(messages.id, row.id))
+        .returning();
+      if (updated) await this.republish(updated, channel);
+    });
+    return message;
   }
 
   /** Voice file of a message, for readers of its channel only (404 / 403 otherwise). */

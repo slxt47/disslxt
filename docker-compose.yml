@@ -79,6 +79,7 @@ services:
       # GIF picker (official GIPHY API, https://developers.giphy.com); empty = no GIF button.
       TWO_FACTOR_KEY: ${TWO_FACTOR_KEY:-}
       LINK_PREVIEWS: ${LINK_PREVIEWS:-true}
+      WHISPER_URL: ${WHISPER_URL:-}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       # Cap for everything posted (uploads + message text); beyond it new posts get 507.
       STORAGE_LIMIT_GB: ${STORAGE_LIMIT_GB:-40}
@@ -86,6 +87,7 @@ services:
       - uploads:/data/uploads
     # Hardening: runs as `node` on port 3000 and writes only to the uploads volume and /tmp
     # (ffmpeg), so it needs no capabilities and a read-only root filesystem is enough.
+    networks: [default, speech]
     read_only: true
     tmpfs:
       - /tmp
@@ -107,6 +109,28 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+
+  # Writes voice messages down. Off unless started with the profile (see .env.example). Sits only
+  # on the internal network: recordings cannot leave the server from here.
+  whisper:
+    profiles: [whisper]
+    build:
+      context: deploy
+      dockerfile: whisper.Dockerfile
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1500m
+    cpus: 4
+    networks: [speech]
+    healthcheck:
+      test: ['CMD', 'bash', '-c', '</dev/tcp/127.0.0.1/8080']
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   caddy:
     build:
@@ -138,6 +162,10 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+networks:
+  speech:
+    internal: true
 
 volumes:
   db_data:

@@ -558,3 +558,28 @@ describe('link preview', () => {
     expect(screen.getByTestId('link-preview-hide')).toBeTruthy();
   });
 });
+
+describe('voice transcript', () => {
+  it('stands under the recording, only when there is one', () => {
+    const audio = { url: '/x', durationMs: 1000, mime: 'audio/mp4' };
+    const { unmount } = render(
+      <MessageItem
+        message={msg(1, { kind: 'voice', content: 'Hallo', audio })}
+        isOwn={false}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('voice-transcript').textContent).toContain('Hallo');
+    unmount();
+    render(
+      <MessageItem
+        message={msg(1, { kind: 'voice', content: '', audio })}
+        isOwn={false}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('voice-transcript')).toBeNull();
+  });
+});

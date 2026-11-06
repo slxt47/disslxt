@@ -3,6 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { channels } from '../src/db/schema.js';
+import { cleanTranscript } from '../src/lib/whisper.js';
 import { firstUrl, parseMeta } from '../src/lib/linkMeta.js';
 import { allowedUrl, isPublicAddress, safeGet } from '../src/lib/safeFetch.js';
 import type { FetchedPage } from '../src/lib/safeFetch.js';
@@ -10,6 +13,7 @@ import {
   buildTestApp,
   closeDb,
   createGuild,
+  getDb,
   joinGuild,
   listen,
   registerUser,
@@ -333,5 +337,86 @@ describe('link previews', () => {
     await sendMessage(off, u, g.id, URL_A);
     expect(fetcher).not.toHaveBeenCalled();
     await off.close();
+  });
+});
+
+describe('voice messages written down', () => {
+  const audio = { key: 'k.m4a', mime: 'audio/mp4', durationMs: 1000 };
+  const channelOf = async () => {
+    const [channel] = await getDb().db.select().from(channels).where(eq(channels.id, general));
+    return channel!;
+  };
+
+  it('cleans what Whisper invents for silence', () => {
+    expect(cleanTranscript(' Hallo [Musik] zusammen (lacht) ')).toBe('Hallo zusammen');
+    expect(cleanTranscript('[MUSIK]')).toBe('');
+    expect(cleanTranscript('Untertitel der Amara.org-Community')).toBe('org-Community');
+  });
+
+  it('the text arrives live, can be found, and goes with the message', async () => {
+    const seen: string[] = [];
+    const voiceApp = await buildTestApp(
+      {},
+      {
+        transcriber: async (path) => {
+          seen.push(path);
+          return ' Treffen wir uns um acht ';
+        },
+      },
+    );
+    const a = await registerUser(voiceApp, { username: 'dora' });
+    const made = await createGuild(voiceApp, a);
+    const host = await listen(voiceApp);
+    const ws = await wsReady(host, a.cookie);
+    sockets.push(ws);
+    await ws.subscribe(made.general.id);
+    const [channel] = await getDb()
+      .db.select()
+      .from(channels)
+      .where(eq(channels.id, made.general.id));
+    const created = await voiceApp.services.messages.createVoice(a.user, channel!, audio);
+    expect(created.content).toBe('');
+    const ev = await ws.waitFor('message.updated');
+    expect(ev.data.message).toMatchObject({ id: created.id, content: 'Treffen wir uns um acht' });
+    expect(seen[0]).toContain('k.m4a');
+    const res = await req(voiceApp, 'GET', '/api/search?q=treffen', { cookie: a.cookie });
+    expect(res.json().results[0].message.kind).toBe('voice');
+    await voiceApp.close();
+  });
+
+  it('a failure leaves the message as it is, and the next one still works', async () => {
+    let calls = 0;
+    const voiceApp = await buildTestApp(
+      {},
+      {
+        transcriber: async () => {
+          calls += 1;
+          if (calls === 1) throw new Error('kaputt');
+          return 'geht wieder';
+        },
+      },
+    );
+    const a = await registerUser(voiceApp, { username: 'erik' });
+    const made = await createGuild(voiceApp, a);
+    const [channel] = await getDb()
+      .db.select()
+      .from(channels)
+      .where(eq(channels.id, made.general.id));
+    const one = await voiceApp.services.messages.createVoice(a.user, channel!, audio);
+    const two = await voiceApp.services.messages.createVoice(a.user, channel!, audio);
+    await voiceApp.services.transcripts.settled();
+    const list = (
+      await req(voiceApp, 'GET', `/api/channels/${made.general.id}/messages`, { cookie: a.cookie })
+    ).json().messages as { id: string; content: string }[];
+    expect(list.find((m) => m.id === one.id)?.content).toBe('');
+    expect(list.find((m) => m.id === two.id)?.content).toBe('geht wieder');
+    await voiceApp.close();
+  });
+
+  it('without a transcriber nothing happens', async () => {
+    await app.services.messages.createVoice(alice.user, await channelOf(), audio);
+    await app.services.transcripts.settled();
+    const list = (await api(alice, 'GET', `/channels/${general}/messages`)).json().messages;
+    expect(list.at(-1).content).toBe('');
   });
 });

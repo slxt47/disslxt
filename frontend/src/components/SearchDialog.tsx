@@ -193,6 +193,7 @@ export function SearchDialog({ channel, onClose }: { channel: ChannelDto; onClos
                 <time>{dateFormat.format(new Date(r.message.createdAt))}</time>
               </span>
               <span className="search-text">
+                {r.message.kind === 'voice' && '🎤 '}
                 <Marked text={r.message.content} words={words} />
               </span>
             </button>

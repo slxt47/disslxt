@@ -24,6 +24,7 @@ Bei Änderungen an einer Funktion die Seite mitpflegen.
 - [Dateien und Bilder](dateien-und-bilder.md): Dateien im Chat teilen, Bilder groß ansehen.
 - [GIFs](gifs.md): GIF-Suche über GIPHY direkt im Eingabefeld.
 - [Sprachnachrichten](sprachnachrichten.md): Kurze Aufnahmen statt Text.
+- [Sprachnachrichten abschreiben](sprachnachrichten-abschreiben.md): Text unter Sprachnachrichten, erzeugt auf dem eigenen Server.
 - [Diktieren und Vorlesen](diktieren-und-vorlesen.md): Sprache zu Text und Text zu Sprache, im Browser.
 
 ## Server

@@ -11,6 +11,8 @@ import { FriendService } from './friend.service.js';
 import { GuildService } from './guild.service.js';
 import { MessageService } from './message.service.js';
 import { LinkPreviewService, type Fetcher } from './linkPreview.service.js';
+import { TranscriptionService } from './transcription.service.js';
+import { whisperTranscriber, type Transcriber } from '../lib/whisper.js';
 import { PermissionService } from './permission.service.js';
 import { RoleService } from './role.service.js';
 import { SecurityService } from './security.service.js';
@@ -44,6 +46,7 @@ export interface Services {
   roles: RoleService;
   security: SecurityService;
   linkPreviews: LinkPreviewService;
+  transcripts: TranscriptionService;
 }
 
 export function createServices(
@@ -53,7 +56,7 @@ export function createServices(
   mailer: Mailer,
   log: FastifyBaseLogger,
   pushSender: PushSender | null,
-  opts: { fetchFn?: typeof fetch; linkFetcher?: Fetcher } = {},
+  opts: { fetchFn?: typeof fetch; linkFetcher?: Fetcher; transcriber?: Transcriber } = {},
 ): Services {
   const auth = new AuthService(db, config, mailer, log);
   const security = new SecurityService(db, hub, auth, config);
@@ -96,6 +99,11 @@ export function createServices(
     config.linkPreviews.enabled,
     opts.linkFetcher,
   );
+  const transcripts = new TranscriptionService(
+    opts.transcriber ??
+      (config.whisperUrl ? whisperTranscriber(config.whisperUrl, config.voice.ffmpegPath) : null),
+    log,
+  );
   const messages = new MessageService(
     db,
     hub,
@@ -106,6 +114,7 @@ export function createServices(
     config.files.dir,
     perms,
     linkPreviews,
+    transcripts,
   );
   guilds.memberJoined = (user, guild) => messages.joined(user, guild);
   const accounts = new AccountService(db, hub, guilds, channels, dms, images, storage, {
@@ -133,5 +142,6 @@ export function createServices(
     roles,
     security,
     linkPreviews,
+    transcripts,
   };
 }

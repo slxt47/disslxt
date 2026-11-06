@@ -498,6 +498,19 @@ ticket }`, keine Sitzung. `POST /api/auth/login/two-factor` löst das Ticket ein
 - **Export:** `GET /api/account/export`, JSON, 3 pro Stunde. Ohne Hashes und Geheimnisse. Dateien
   erscheinen mit Namen, nicht als Inhalt.
 
+## Sprachnachrichten abschreiben
+
+Optional und lokal: `whisper.cpp` läuft als eigener Container nur am internen Netz `speech`, ohne
+Internet und gehärtet. Einschalten:
+
+```sh
+docker compose --profile whisper up -d --build whisper
+echo 'WHISPER_URL=http://whisper:8080' >> .env
+docker compose up -d backend
+```
+
+Ohne `WHISPER_URL` bleibt alles aus. Der Text landet in `messages.content` und ist damit suchbar.
+
 ## Suche und Link-Vorschau
 
 Migration `0016_search_and_link_previews`.

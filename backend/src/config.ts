@@ -76,6 +76,8 @@ const envSchema = z.object({
   TURN_MONTHLY_LIMIT_GB: z.coerce.number().positive().default(900),
   // GIF search: official GIPHY API key (https://developers.giphy.com). Empty = no GIF button.
   GIPHY_API_KEY: z.string().default(''),
+  /** Local whisper container, e.g. http://whisper:8080. Empty: voice messages stay without text. */
+  WHISPER_URL: z.string().default(''),
   /** false: the server never fetches linked pages. */
   LINK_PREVIEWS: z.enum(['true', 'false']).default('true'),
   /** 32 bytes as base64: encrypts authenticator secrets. Without it 2FA cannot be set up. */
@@ -122,6 +124,8 @@ export interface Config {
   mail: MailConfig;
   /** null = push disabled (no VAPID keys). */
   push: PushConfig | null;
+  /** Local speech recognition for voice messages; null = off. */
+  whisperUrl: string | null;
   /** The server fetches linked pages for previews. */
   linkPreviews: { enabled: boolean; dir: string };
   /** Encrypts authenticator secrets; null = two-factor sign-in cannot be set up. */
@@ -234,6 +238,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     giphyApiKey: e.GIPHY_API_KEY.trim() || null,
     twoFactorKey: parseTwoFactorKey(e.TWO_FACTOR_KEY),
+    whisperUrl: e.WHISPER_URL.trim().replace(/\/$/, '') || null,
     linkPreviews: { enabled: e.LINK_PREVIEWS === 'true', dir: resolve(e.UPLOAD_DIR, 'previews') },
     storage: { root: resolve(e.UPLOAD_DIR), limitBytes: Math.round(e.STORAGE_LIMIT_GB * 1e9) },
     files: { dir: resolve(e.UPLOAD_DIR, 'files') },

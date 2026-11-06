@@ -4549,3 +4549,12 @@ img.lightbox-media.zoomed {
   background: var(--accent-soft-strong);
   color: var(--accent-text);
 }
+
+.voice-transcript {
+  grid-column: 2;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-style: italic;
+  overflow-wrap: anywhere;
+}

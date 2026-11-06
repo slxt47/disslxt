@@ -19,6 +19,7 @@ import { guildRoutes } from './routes/guild.routes.js';
 import { healthRoutes } from './routes/health.js';
 import { inviteRoutes } from './routes/invite.routes.js';
 import type { Fetcher } from './services/linkPreview.service.js';
+import type { Transcriber } from './lib/whisper.js';
 import { messageRoutes } from './routes/message.routes.js';
 import { pushRoutes } from './routes/push.routes.js';
 import { fileRoutes } from './routes/file.routes.js';
@@ -52,6 +53,8 @@ export interface BuildAppOptions {
   giphyFetch?: typeof fetch;
   /** Fetches linked pages (tests pass a fake). */
   linkFetcher?: Fetcher;
+  /** Speech recognition (tests pass a fake). */
+  transcriber?: Transcriber;
   /** Hook to register extra routes before the app is ready (used by tests). */
   extraRoutes?: (app: FastifyInstance) => void | Promise<void>;
 }
@@ -102,6 +105,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const services = createServices(db, hub, config, mailer, app.log, pushSender, {
     fetchFn: opts.giphyFetch,
     linkFetcher: opts.linkFetcher,
+    transcriber: opts.transcriber,
   });
   app.decorate('hub', hub);
   app.decorate('services', services);

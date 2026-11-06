@@ -320,7 +320,15 @@ function MessageItemImpl({
           </div>
         </div>
       ) : message.kind === 'voice' && message.audio ? (
-        <VoicePlayer audio={message.audio} />
+        <>
+          <VoicePlayer audio={message.audio} />
+          {message.content && (
+            <p className="voice-transcript" data-testid="voice-transcript">
+              <span className="sr-only">Abschrift: </span>
+              {message.content}
+            </p>
+          )}
+        </>
       ) : message.kind === 'file' && message.file ? (
         <FileAttachment file={message.file} />
       ) : message.kind === 'gif' && message.gif ? (
