@@ -12,10 +12,13 @@ import type {
   VoicePeerDto,
   GuildDto,
   InvitePreviewDto,
+  InviteSettingsInput,
   MemberDto,
   MessageDto,
   PushConfigDto,
+  ReactionDto,
   TurnUsageDto,
+  UnreadDto,
   UserDto,
 } from '@disslxt/shared';
 import { apiRequest, apiUpload, apiUploadWithProgress } from './client';
@@ -80,10 +83,24 @@ export const api = {
       `/channels/${enc(channelId)}/messages${qs ? `?${qs}` : ''}`,
     );
   },
-  sendMessage: (channelId: string, content: string) =>
+  sendMessage: (channelId: string, content: string, replyToId?: string) =>
     apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/messages`, {
       content,
+      ...(replyToId ? { replyToId } : {}),
     }),
+  toggleReaction: (messageId: string, emoji: string) =>
+    apiRequest<{ reactions: ReactionDto[] }>('POST', `/messages/${enc(messageId)}/reactions`, {
+      emoji,
+    }),
+  setPinned: (messageId: string, pinned: boolean) =>
+    apiRequest<{ message: MessageDto }>('POST', `/messages/${enc(messageId)}/pin`, { pinned }),
+  listPins: (channelId: string) =>
+    apiRequest<{ messages: MessageDto[] }>('GET', `/channels/${enc(channelId)}/pins`),
+  unread: () => apiRequest<{ unread: UnreadDto[] }>('GET', '/unread'),
+  markRead: (channelId: string, messageId: string) =>
+    apiRequest<void>('POST', `/channels/${enc(channelId)}/read`, { messageId }),
+  updateInvite: (guildId: string, settings: InviteSettingsInput) =>
+    apiRequest<{ guild: GuildDto }>('POST', `/guilds/${enc(guildId)}/invite`, settings),
   editMessage: (messageId: string, content: string) =>
     apiRequest<{ message: MessageDto }>('PATCH', `/messages/${enc(messageId)}`, { content }),
   deleteMessage: (messageId: string) => apiRequest<void>('DELETE', `/messages/${enc(messageId)}`),

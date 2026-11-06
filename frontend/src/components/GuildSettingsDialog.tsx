@@ -6,6 +6,7 @@ import { squareImage } from '../lib/image';
 import { useChatStore } from '../store/chat';
 import { Icon, nameHue } from './Icon';
 import { Modal } from './Modal';
+import { InviteSettings } from './InviteSettings';
 import { EmojiPicker } from './Social';
 import { guildInitials } from './ServerList';
 
@@ -151,6 +152,7 @@ export function GuildSettingsDialog({ guild, onClose }: { guild: GuildDto; onClo
           {tag ? 'Tag speichern' : 'Tag entfernen'}
         </button>
       </form>
+      <InviteSettings guild={current} />
       {saved && <p className="form-info">Gespeichert – alle Mitglieder sehen es sofort.</p>}
       {error && (
         <p className="form-error" role="alert">

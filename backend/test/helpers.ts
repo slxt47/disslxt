@@ -192,9 +192,11 @@ export async function createGuild(app: FastifyInstance, owner: TestUser, name = 
   };
 }
 
+/** Joins a guild; its greeting message is removed so that tests see only what they sent. */
 export async function joinGuild(app: FastifyInstance, user: TestUser, inviteCode: string) {
   const res = await req(app, 'POST', `/api/invites/${inviteCode}/join`, { cookie: user.cookie });
   if (res.statusCode !== 200) throw new Error(`join failed: ${res.body}`);
+  await getDb().db.execute(sql`DELETE FROM messages WHERE kind = 'join'`);
 }
 
 export async function sendMessage(

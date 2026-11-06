@@ -3,6 +3,7 @@ import {
   AVATAR_MAX_BYTES,
   createGuildSchema,
   deleteGuildSchema,
+  inviteSettingsSchema,
   updateGuildSchema,
   uuidSchema,
 } from '@disslxt/shared';
@@ -51,6 +52,11 @@ export async function guildRoutes(
   app.patch<GuildParams>('/guilds/:guildId', async (req) => {
     const patch = parse(updateGuildSchema, req.body);
     return { guild: await guilds.update(currentUser(req).id, guildId(req.params), patch) };
+  });
+
+  app.post<GuildParams>('/guilds/:guildId/invite', async (req) => {
+    const settings = parse(inviteSettingsSchema, req.body);
+    return { guild: await guilds.updateInvite(currentUser(req).id, guildId(req.params), settings) };
   });
 
   app.put<GuildParams>(

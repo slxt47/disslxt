@@ -12,6 +12,8 @@ import { GuildSettingsDialog } from './GuildSettingsDialog';
 import { Avatar, Icon } from './Icon';
 import { UserFooter } from './UserFooter';
 import { VoiceBar } from './VoiceBar';
+import { inviteStatus } from './InviteSettings';
+import { LineSkeleton } from './Skeleton';
 import { useVoiceStore } from '../store/voice';
 import { nameOf } from '../profile';
 
@@ -20,11 +22,23 @@ const NO_PEERS: never[] = [];
 /** Who is in a voice channel, under its name in the list. */
 function VoiceParticipants({ channelId }: { channelId: string }) {
   const peers = useVoiceStore((s) => s.participants[channelId] ?? NO_PEERS);
+  // Who is speaking is measured locally, so it is known for the channel you are in.
+  const talking = useVoiceStore((s) => s.peers);
+  const selfPeerId = useVoiceStore((s) => s.selfPeerId);
+  const selfSpeaking = useVoiceStore((s) => s.selfSpeaking);
   if (peers.length === 0) return null;
   return (
     <ul className="voice-participants" data-testid={`voice-participants-${channelId}`}>
       {peers.map((p) => (
-        <li key={p.peerId} data-testid={`voice-participant-${p.username}`}>
+        <li
+          key={p.peerId}
+          data-testid={`voice-participant-${p.username}`}
+          className={
+            talking[p.peerId]?.speaking || (p.peerId === selfPeerId && selfSpeaking)
+              ? 'speaking'
+              : undefined
+          }
+        >
           <Avatar name={nameOf(p)} url={p.avatarUrl} size="sm" />
           <span>{nameOf(p)}</span>
           {p.muted && <Icon name="mic-off" size={14} />}
@@ -53,6 +67,7 @@ export function ChannelSidebar({
 }: ChannelSidebarProps) {
   const user = useAuthStore((s) => s.user);
   const channels = useChatStore((s) => (guild ? s.channelsByGuild[guild.id] : undefined));
+  const unread = useChatStore((s) => s.unread);
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -170,6 +185,9 @@ export function ChannelSidebar({
                   <code className="invite-link" data-testid="invite-link">
                     {inviteUrl(guild.inviteCode)}
                   </code>
+                  <p className="settings-hint sidebar-note" data-testid="invite-note">
+                    {inviteStatus(guild)}
+                  </p>
                   <button
                     className="btn small primary"
                     data-testid="copy-invite-button"
@@ -254,24 +272,37 @@ export function ChannelSidebar({
                 </button>
               )}
             </div>
+            {!channels && <LineSkeleton rows={3} />}
             <ul className="channels" data-testid="channel-list">
               {channels
                 ?.filter((c) => c.kind !== 'voice')
-                .map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      to={`/guilds/${guild.id}/channels/${c.id}`}
-                      className={`channel-link${c.id === activeChannelId ? ' active' : ''}`}
-                      data-testid={`channel-item-${c.name}`}
-                      aria-current={c.id === activeChannelId ? 'page' : undefined}
-                      onClick={onNavigate}
-                    >
-                      <Icon name="hash" size={16} />
-                      <span className="sr-only">#</span>
-                      {c.name}
-                    </Link>
-                  </li>
-                ))}
+                .map((c) => {
+                  const news = c.id === activeChannelId ? undefined : unread[c.id];
+                  return (
+                    <li key={c.id}>
+                      <Link
+                        to={`/guilds/${guild.id}/channels/${c.id}`}
+                        className={`channel-link${c.id === activeChannelId ? ' active' : ''}${news ? ' unread' : ''}`}
+                        data-testid={`channel-item-${c.name}`}
+                        aria-current={c.id === activeChannelId ? 'page' : undefined}
+                        onClick={onNavigate}
+                      >
+                        <Icon name="hash" size={16} />
+                        <span className="sr-only">#</span>
+                        <span className="channel-name">{c.name}</span>
+                        {news && (
+                          <span
+                            className={`badge inline${news.mentions ? '' : ' quiet'}`}
+                            data-testid={`channel-unread-${c.name}`}
+                            aria-label={`${news.count} ungelesen`}
+                          >
+                            {news.count > 99 ? '99+' : news.count}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
             </ul>
           </div>
           {channels?.some((c) => c.kind === 'voice') && (

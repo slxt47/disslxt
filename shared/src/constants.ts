@@ -28,6 +28,20 @@ export const VOICE_CHANNEL_MAX_PARTICIPANTS = 6;
 export const FILE_MAX_BYTES = 25 * 1024 * 1024;
 export const FILE_NAME_MAX_LEN = 200;
 
+/** Different emoji under one message (a brake against filling it with reactions). */
+export const REACTIONS_PER_MESSAGE_MAX = 20;
+
+/** Pinned messages per channel. */
+export const PINS_PER_CHANNEL_MAX = 50;
+
+/** Largest "max. uses" of an invite link, and its longest validity. */
+export const INVITE_MAX_USES_LIMIT = 1000;
+export const INVITE_MAX_HOURS = 24 * 30;
+
+/** While typing, the client repeats this every few seconds; others show it a little longer. */
+export const TYPING_REPEAT_MS = 3000;
+export const TYPING_SHOW_MS = 5000;
+
 /** How many badges one person can show next to their name. */
 export const BADGES_SHOWN_MAX = 3;
 

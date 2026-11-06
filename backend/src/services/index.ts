@@ -79,6 +79,7 @@ export function createServices(
     config.voice.dir,
     config.files.dir,
   );
+  guilds.memberJoined = (user, guild) => messages.joined(user, guild);
   const accounts = new AccountService(db, hub, guilds, channels, dms, images, storage, {
     voiceDir: config.voice.dir,
     fileDir: config.files.dir,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useLocation, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { ChannelSidebar } from '../components/ChannelSidebar';
@@ -24,6 +24,7 @@ import { VoiceChannelView } from '../components/VoiceChannelView';
 import { loadVoiceState } from '../voice/voiceState';
 import { Icon } from '../components/Icon';
 import { MemberList } from '../components/MemberList';
+import { MessageSkeleton } from '../components/Skeleton';
 import { ServerList } from '../components/ServerList';
 import { activeView } from '../realtime/RealtimeProvider';
 import { useChatStore } from '../store/chat';
@@ -45,6 +46,7 @@ export function AppLayout() {
   const [creatingGuild, setCreatingGuild] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const showMembers = usePrefs((s) => s.showMembers);
+  const navigate = useNavigate();
 
   const guild = guildId ? (guilds.find((g) => g.id === guildId) ?? null) : null;
   const channel = channelId ? (channels?.find((c) => c.id === channelId) ?? null) : null;
@@ -116,6 +118,24 @@ export function AppLayout() {
     };
   }, [guild, guildId, channel, dm, channelId]);
 
+  // Alt+↑/↓: previous or next channel or conversation.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      const paths = home
+        ? dms.map((d) => `/me/${d.channel.id}`)
+        : (channels ?? []).map((c) => `/guilds/${guildId}/channels/${c.id}`);
+      if (paths.length === 0) return;
+      e.preventDefault();
+      const at = paths.indexOf(location.pathname);
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      const next = paths[at === -1 ? 0 : (at + step + paths.length) % paths.length];
+      if (next) navigate(next);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [home, dms, channels, guildId, location.pathname, navigate]);
+
   // Picking a channel (or any navigation) closes the drawer.
   useEffect(() => {
     setDrawerOpen(false);
@@ -185,7 +205,7 @@ export function AppLayout() {
           dm ? (
             <DmView key={dm.channel.id} dm={dm} onOpenMenu={() => setDrawerOpen(true)} />
           ) : channelId ? (
-            <div className="empty-state muted">Lädt…</div>
+            <MessageSkeleton />
           ) : (
             <FriendsView onOpenMenu={() => setDrawerOpen(true)} />
           )
@@ -227,7 +247,7 @@ export function AppLayout() {
                 </button>
               </div>
             ) : (
-              <div className="empty-state muted">Lädt…</div>
+              <MessageSkeleton />
             )}
           </section>
         )}

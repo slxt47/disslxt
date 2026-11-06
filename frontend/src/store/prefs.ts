@@ -26,7 +26,19 @@ export interface Prefs {
   showMembers: boolean;
   /** Colour themes made in the settings (this device). */
   customThemes: ThemeDef[];
+  /** Tighter message list. */
+  compact: boolean;
+  /** Size of chat text in px. */
+  fontSize: number;
+  /** Voice: the microphone is only open while the key (or the button) is held. */
+  pushToTalk: boolean;
+  /** KeyboardEvent.code of the push-to-talk key. */
+  pushToTalkKey: string;
+  /** The browser filters background noise from the microphone. */
+  noiseSuppression: boolean;
 }
+
+export const FONT_SIZES = [14, 15, 16, 17, 18, 20] as const;
 
 const defaults: Prefs = {
   theme: 'system',
@@ -37,6 +49,11 @@ const defaults: Prefs = {
   audioOutputId: '',
   showMembers: true,
   customThemes: [],
+  compact: false,
+  fontSize: 15,
+  pushToTalk: false,
+  pushToTalkKey: 'KeyV',
+  noiseSuppression: true,
 };
 
 function load(): Prefs {
@@ -89,6 +106,14 @@ export function applyThemeDef(theme: 'system' | 'light' | 'dark' | ThemeDef): vo
   }
 }
 
+/** Density and text size of the chat, read by the CSS. */
+export function applyDisplay(compact: boolean, fontSize: number): void {
+  const root = document.documentElement;
+  if (compact) root.dataset.density = 'compact';
+  else delete root.dataset.density;
+  root.style.setProperty('--chat-font-size', `${fontSize}px`);
+}
+
 interface PrefsState extends Prefs {
   set: (patch: Partial<Prefs>) => void;
 }
@@ -105,11 +130,17 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
       audioInputId,
       audioOutputId,
       customThemes,
+      compact,
+      fontSize,
+      pushToTalk,
+      pushToTalkKey,
+      noiseSuppression,
     } = {
       ...get(),
       ...patch,
     };
     if (patch.theme || patch.customThemes) applyTheme(theme, customThemes);
+    if (patch.compact !== undefined || patch.fontSize) applyDisplay(compact, fontSize);
     try {
       localStorage.setItem(
         KEY,
@@ -121,6 +152,11 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
           audioInputId,
           audioOutputId,
           customThemes,
+          compact,
+          fontSize,
+          pushToTalk,
+          pushToTalkKey,
+          noiseSuppression,
         }),
       );
     } catch {
@@ -128,3 +164,6 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
     }
   },
 }));
+
+const { compact, fontSize } = usePrefs.getState();
+applyDisplay(compact, fontSize);

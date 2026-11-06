@@ -1,9 +1,22 @@
-import { memo, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { MESSAGE_MAX_LEN, textLength, type MessageDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
+import { QUICK_REACTIONS } from '../lib/emoji';
+import { messagePreview } from '../lib/preview';
+import { mentionsUser, renderMarkdown } from '../lib/markdown';
 import { speak, spokenText, ttsSupported } from '../speech/tts';
 import { usePrefs } from '../store/prefs';
 import { isSubmitKey } from './Composer';
+import { EmojiPanel } from './EmojiPanel';
 import { FileAttachment } from './FileAttachment';
 import { GifView } from './Gif';
 import { ProfileLink, UserBadges } from './Social';
@@ -20,6 +33,40 @@ export interface MessageItemProps {
   grouped?: boolean;
   /** First message of a day: a divider with this label ("Heute", "Gestern", date) above it. */
   dayLabel?: string | null;
+  /** The own user, for reactions and highlighting mentions. */
+  selfId?: string | null;
+  selfName?: string | null;
+  /** First message you have not read yet: a "Neue Nachrichten" line above it. */
+  firstUnread?: boolean;
+  onReact?: (id: string, emoji: string) => Promise<void>;
+  onReply?: (message: MessageDto) => void;
+  /** Without it there is no pin button. */
+  onPin?: (id: string, pinned: boolean) => Promise<void>;
+  onJump?: (id: string) => void;
+  /** Open this message for editing (↑ in the empty composer). */
+  editRequested?: boolean;
+  onEditHandled?: () => void;
+}
+
+/** Welcome lines; the message id picks one, so everybody sees the same. */
+const GREETINGS = [
+  (n: string) => `${n} ist da!`,
+  (n: string) => `Willkommen, ${n}!`,
+  (n: string) => `${n} ist dem Server beigetreten.`,
+  (n: string) => `Schön, dass du da bist, ${n}!`,
+];
+const greeting = (id: string, name: string): string =>
+  (GREETINGS[Number(id.slice(-4)) % GREETINGS.length] ?? GREETINGS[0]!)(name);
+
+/** Next to the button, on the screen: the message list would cut off anything inside it. */
+function pickerPosition(button: HTMLElement): CSSProperties {
+  const WIDTH = 340;
+  const HEIGHT = 380;
+  const rect = button.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.right - WIDTH, window.innerWidth - WIDTH - 8));
+  return rect.top > HEIGHT + 8
+    ? { left, bottom: window.innerHeight - rect.top + 6 }
+    : { left, top: Math.min(rect.bottom + 6, window.innerHeight - HEIGHT - 8) };
 }
 
 const timeFormat = new Intl.DateTimeFormat('de-DE', {
@@ -35,6 +82,15 @@ function MessageItemImpl({
   onDelete,
   grouped = false,
   dayLabel = null,
+  selfId = null,
+  selfName = null,
+  firstUnread = false,
+  onReact,
+  onReply,
+  onPin,
+  onJump,
+  editRequested = false,
+  onEditHandled,
 }: MessageItemProps) {
   const [mode, setMode] = useState<'view' | 'edit' | 'confirm-delete'>('view');
   const [draft, setDraft] = useState(message.content);
@@ -43,6 +99,9 @@ function MessageItemImpl({
   const editRef = useRef<HTMLTextAreaElement>(null);
   /** Touch screens have no hover: a tap on the message shows its actions. */
   const [selected, setSelected] = useState(false);
+  /** Where the reaction picker opens; null: closed. */
+  const [picking, setPicking] = useState<CSSProperties | null>(null);
+  const closePicker = useCallback(() => setPicking(null), []);
 
   useEffect(() => {
     if (mode === 'edit') {
@@ -52,7 +111,19 @@ function MessageItemImpl({
     }
   }, [mode]);
 
+  useEffect(() => {
+    if (!editRequested) return;
+    setDraft(message.content);
+    setError(null);
+    setMode('edit');
+    onEditHandled?.();
+  }, [editRequested, message.content, onEditHandled]);
+
   const created = new Date(message.createdAt);
+  const mentioned =
+    !isOwn &&
+    ((!!selfName && mentionsUser(message.content, selfName)) ||
+      (!!selfId && message.replyTo?.author.id === selfId));
 
   function startEdit() {
     setDraft(message.content);
@@ -93,6 +164,11 @@ function MessageItemImpl({
     }
   }
 
+  function react(emoji: string) {
+    setPicking(null);
+    onReact?.(message.id, emoji).catch((err: unknown) => setError(errorMessage(err)));
+  }
+
   function onEditKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -104,19 +180,70 @@ function MessageItemImpl({
     }
   }
 
-  return (
-    <li
-      className={`message${isOwn ? ' own' : ''}${grouped ? ' grouped' : ''}${selected ? ' selected' : ''}`}
-      data-testid={`message-${message.id}`}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button, a, textarea, input, audio')) return;
-        setSelected((s) => !s);
-      }}
-    >
+  const dividers = (
+    <>
       {dayLabel && (
         <div className="day-divider" role="separator" data-testid="day-divider">
           <span>{dayLabel}</span>
         </div>
+      )}
+      {firstUnread && (
+        <div className="unread-divider" role="separator" data-testid="unread-divider">
+          <span>Neue Nachrichten</span>
+        </div>
+      )}
+    </>
+  );
+
+  if (message.kind === 'join') {
+    return (
+      <li className="message join" data-testid={`message-${message.id}`}>
+        {dividers}
+        <div className="join-line" data-testid="join-line">
+          <span className="join-wave" aria-hidden="true">
+            👋
+          </span>
+          <span>{greeting(message.id, nameOf(message.author))}</span>
+          <time dateTime={message.createdAt} title={fullFormat.format(created)}>
+            {timeFormat.format(created)}
+          </time>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li
+      className={`message${isOwn ? ' own' : ''}${grouped ? ' grouped' : ''}${selected ? ' selected' : ''}${mentioned ? ' mentions-me' : ''}`}
+      data-testid={`message-${message.id}`}
+      id={`m-${message.id}`}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('button, a, textarea, input, audio, pre, code'))
+          return;
+        setSelected((s) => !s);
+      }}
+    >
+      {dividers}
+      {message.replyTo && (
+        <button
+          type="button"
+          className="message-reply"
+          data-testid="message-reply"
+          title="Zur Nachricht springen"
+          onClick={() => message.replyTo && onJump?.(message.replyTo.id)}
+        >
+          <Icon name="reply" size={14} />
+          <strong>{nameOf(message.replyTo.author)}</strong>
+          <span>
+            {messagePreview({ kind: message.replyTo.kind, content: message.replyTo.excerpt })}
+          </span>
+        </button>
+      )}
+      {message.pinnedAt && (
+        <span className="message-pinned" data-testid="message-pinned">
+          <Icon name="pin" size={13} />
+          Angepinnt
+        </span>
       )}
       {grouped ? (
         <time
@@ -193,7 +320,7 @@ function MessageItemImpl({
         <GifView gif={message.gif} />
       ) : (
         <div className="message-content" data-testid="message-content">
-          {message.content}
+          {renderMarkdown(message.content, selfName)}
         </div>
       )}
       {message.editedAt && grouped && mode !== 'edit' && (
@@ -201,6 +328,54 @@ function MessageItemImpl({
           (bearbeitet)
         </span>
       )}
+
+      {message.reactions.length > 0 && (
+        <div className="reactions" data-testid="reactions">
+          {message.reactions.map((r) => {
+            const mine = !!selfId && r.userIds.includes(selfId);
+            return (
+              <button
+                key={r.emoji}
+                type="button"
+                className={`reaction${mine ? ' mine' : ''}`}
+                aria-pressed={mine}
+                aria-label={`${r.emoji} ${r.count}`}
+                data-testid={`reaction-${r.emoji}`}
+                onClick={() => react(r.emoji)}
+              >
+                <span aria-hidden="true">{r.emoji}</span>
+                <span>{r.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {picking &&
+        createPortal(
+          <div className="reaction-picker" style={picking}>
+            <EmojiPanel
+              label="Reagieren"
+              onPick={react}
+              onClose={closePicker}
+              top={
+                <div className="quick-reactions">
+                  {QUICK_REACTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="emoji-cell"
+                      onClick={() => react(emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
+          </div>,
+          document.body,
+        )}
 
       {mode === 'confirm-delete' && (
         <div className="message-confirm" role="group" aria-label="Löschen bestätigen">
@@ -230,8 +405,46 @@ function MessageItemImpl({
         </p>
       )}
 
-      {mode === 'view' && (ttsSupported() || isOwn) && (
+      {mode === 'view' && (
         <div className="message-actions">
+          {onReact && (
+            <button
+              className="icon-btn"
+              data-testid="message-react"
+              aria-label="Reagieren"
+              title="Reagieren"
+              onClick={(e) => setPicking((p) => (p ? null : pickerPosition(e.currentTarget)))}
+            >
+              <Icon name="smile" size={18} />
+            </button>
+          )}
+          {onReply && (
+            <button
+              className="icon-btn"
+              data-testid="message-reply-button"
+              aria-label="Antworten"
+              title="Antworten"
+              onClick={() => onReply(message)}
+            >
+              <Icon name="reply" size={18} />
+            </button>
+          )}
+          {onPin && (
+            <button
+              className={`icon-btn${message.pinnedAt ? ' active' : ''}`}
+              data-testid="message-pin"
+              aria-pressed={!!message.pinnedAt}
+              aria-label={message.pinnedAt ? 'Lösen' : 'Anpinnen'}
+              title={message.pinnedAt ? 'Lösen' : 'Anpinnen'}
+              onClick={() =>
+                void onPin(message.id, !message.pinnedAt).catch((err: unknown) =>
+                  setError(errorMessage(err)),
+                )
+              }
+            >
+              <Icon name="pin" size={18} />
+            </button>
+          )}
           {ttsSupported() && (
             <button
               className="icon-btn"

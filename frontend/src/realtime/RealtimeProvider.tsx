@@ -5,6 +5,7 @@ import { speak, spokenText } from '../speech/tts';
 import { usePrefs } from '../store/prefs';
 import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
+import { useTypingStore } from '../store/typing';
 import { RealtimeClient } from './socket';
 import { loadVoiceState } from '../voice/voiceState';
 
@@ -49,18 +50,38 @@ export async function refetchAfterReconnect(): Promise<void> {
   await Promise.allSettled(tasks);
 }
 
+/** Unread counters from the server (at login and after a reconnect). */
+export async function loadUnread(): Promise<void> {
+  const { unread } = await api.unread();
+  useChatStore.getState().setUnread(unread);
+}
+
+const looking = (channelId: string): boolean =>
+  channelId === activeView.channelId && document.visibilityState === 'visible';
+
 /**
- * Bookkeeping that needs more than the store: unread private messages (not counted while the
- * conversation is open and visible) and the own profile changed from another tab.
+ * Bookkeeping that needs more than the store: unread counters (not counted while the channel is
+ * open and visible), who is writing, and the own profile changed from another tab.
  */
 export function trackSocial(ev: WsServerMessage, selfId: string): void {
   if (ev.type === 'message.created') {
     const { message } = ev.data;
     const chat = useChatStore.getState();
+    useTypingStore.getState().stopped(message.channelId, message.author.id);
     if (!chat.dms.some((d) => d.channel.id === message.channelId)) return;
-    const looking =
-      message.channelId === activeView.channelId && document.visibilityState === 'visible';
-    chat.bumpDm(message.channelId, message.createdAt, message.author.id !== selfId && !looking);
+    chat.bumpDm(message.channelId, message.createdAt);
+    if (message.author.id !== selfId && !looking(message.channelId)) {
+      chat.countUnread(message.channelId, null, message.id, false);
+    }
+  } else if (ev.type === 'channel.activity') {
+    const { channelId, guildId, messageId, authorId, mentions } = ev.data;
+    if (authorId === selfId || looking(channelId)) return;
+    const username = useAuthStore.getState().user?.username.toLowerCase() ?? '';
+    useChatStore.getState().countUnread(channelId, guildId, messageId, mentions.includes(username));
+  } else if (ev.type === 'typing') {
+    if (ev.data.userId !== selfId) {
+      useTypingStore.getState().started(ev.data.channelId, ev.data.userId, ev.data.name);
+    }
   } else if (ev.type === 'user.updated' && ev.data.user.id === selfId) {
     const auth = useAuthStore.getState();
     if (auth.user) {
@@ -101,6 +122,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     });
     const offReady = c.onReady(({ reconnect }) => {
       if (reconnect) void refetchAfterReconnect();
+      void loadUnread().catch(() => undefined);
     });
     c.start();
     setClient(c);

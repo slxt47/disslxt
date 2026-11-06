@@ -35,6 +35,8 @@ export interface Client {
     video: boolean;
   } | null;
   isAlive: boolean;
+  /** Last "is typing" passed on (a brake, the client repeats it every few seconds). */
+  lastTypingAt?: number;
 }
 
 export type VoiceJoinResult = { ok: true; first: boolean } | { ok: false; code: 'VOICE_FULL' };
@@ -122,6 +124,13 @@ export class Hub {
 
   publishToChannel(channelId: string, msg: WsServerMessage): void {
     sendAll(this.channelRooms.get(channelId), msg);
+  }
+
+  /** Everyone reading the channel except this socket. */
+  publishToChannelExcept(channelId: string, except: Client, msg: WsServerMessage): void {
+    const room = this.channelRooms.get(channelId);
+    if (!room) return;
+    sendAll(new Set([...room].filter((c) => c !== except)), msg);
   }
 
   publishToGuild(guildId: string, msg: WsServerMessage): void {

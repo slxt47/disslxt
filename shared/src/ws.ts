@@ -7,6 +7,7 @@ import type {
   MemberDto,
   MessageDto,
   PublicUserDto,
+  ReactionDto,
   VoicePeerDto,
 } from './types.js';
 
@@ -32,6 +33,8 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ping'), data: z.unknown().optional() }),
   // Whether the tab is in the foreground; a visible tab on a channel gets no push for it.
   z.object({ type: z.literal('visibility'), data: z.object({ visible: z.boolean() }) }),
+  // Writing in the open channel; the server passes it on to the others reading along.
+  z.object({ type: z.literal('typing'), data: z.object({ channelId: z.guid() }) }),
   // `video`: start with the camera on (in a private conversation this also rings as a video call).
   z.object({
     type: z.literal('voice.join'),
@@ -68,6 +71,26 @@ export type WsServerMessage =
   | { type: 'message.created'; data: { message: MessageDto } }
   | { type: 'message.updated'; data: { message: MessageDto } }
   | { type: 'message.deleted'; data: { id: string; channelId: string } }
+  | {
+      type: 'message.reactions';
+      data: { id: string; channelId: string; reactions: ReactionDto[] };
+    }
+  /** Someone is writing in the channel you read. */
+  | { type: 'typing'; data: { channelId: string; userId: string; name: string } }
+  /** To the whole server: a new message in one of its channels, for the unread counters. */
+  | {
+      type: 'channel.activity';
+      data: {
+        channelId: string;
+        guildId: string;
+        messageId: string;
+        authorId: string;
+        /** Lower-case usernames this message mentions or answers. */
+        mentions: string[];
+      };
+    }
+  /** You read a channel on another device. */
+  | { type: 'channel.read'; data: { channelId: string; lastReadId: string } }
   | {
       type: 'presence.update';
       data: { guildId: string; userId: string; status: PresenceStatus };

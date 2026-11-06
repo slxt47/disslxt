@@ -23,6 +23,7 @@ export function spokenText(
     file?: { name: string; isImage: boolean } | null;
   },
 ) {
+  if (message.kind === 'join') return `${message.author.username} ist dem Server beigetreten.`;
   if (message.kind === 'voice')
     return `${message.author.username} hat eine Sprachnachricht geschickt.`;
   if (message.kind === 'file') {

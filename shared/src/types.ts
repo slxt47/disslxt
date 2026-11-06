@@ -79,6 +79,10 @@ export interface GuildDto {
   /** Server tag members can wear (2–4 letters/digits) and its emoji. */
   tag: string | null;
   tagEmoji: string | null;
+  /** Limits of the invite link (null: none) and how often it was used since they were set. */
+  inviteExpiresAt: string | null;
+  inviteMaxUses: number | null;
+  inviteUses: number;
   createdAt: string;
 }
 
@@ -109,7 +113,36 @@ export interface VoicePeerDto {
 
 export type MessageAuthorDto = PublicUserDto;
 
-export type MessageKind = 'text' | 'voice' | 'file' | 'gif';
+/** 'join': someone joined the server (shown as a greeting, has no text of its own). */
+export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join';
+
+/** One emoji under a message: how often, and from whom. */
+export interface ReactionDto {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+
+/** The message an answer refers to, enough to show one line of it. */
+export interface MessageRefDto {
+  id: string;
+  author: Pick<PublicUserDto, 'id' | 'username' | 'displayName'>;
+  kind: MessageKind;
+  /** Start of the text; empty for voice messages, files and GIFs. */
+  excerpt: string;
+}
+
+/** Unread messages of a channel or private conversation (only channels with any are listed). */
+export interface UnreadDto {
+  channelId: string;
+  /** Null for private conversations. */
+  guildId: string | null;
+  count: number;
+  /** Of these, how many mention you or answer you. */
+  mentions: number;
+  /** Everything up to here counts as read ("0": nothing yet). */
+  lastReadId: string;
+}
 
 export interface FileAttachmentDto {
   /** Same-origin URL, only readable by members of the guild. */
@@ -149,6 +182,10 @@ export interface MessageDto {
   audio: VoiceAudioDto | null;
   file: FileAttachmentDto | null;
   gif: GifDto | null;
+  reactions: ReactionDto[];
+  replyTo: MessageRefDto | null;
+  /** When it was pinned to the channel (null: not pinned). */
+  pinnedAt: string | null;
   createdAt: string;
   editedAt: string | null;
 }

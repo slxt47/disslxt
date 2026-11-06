@@ -12,6 +12,9 @@ const guild: GuildDto = {
   tag: null,
   tagEmoji: null,
   inviteCode: 'abc123',
+  inviteExpiresAt: null,
+  inviteMaxUses: null,
+  inviteUses: 0,
   createdAt: '2026-10-20T12:00:00.000Z',
 };
 const general: ChannelDto = {

@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react';
-import { applyTheme, applyThemeDef, usePrefs, type Theme } from '../store/prefs';
+import { applyTheme, applyThemeDef, FONT_SIZES, usePrefs, type Theme } from '../store/prefs';
 import {
   contrast,
   CUSTOM_PREFIX,
@@ -197,6 +197,8 @@ function ThemeEditor({
 export function AppearanceSettings() {
   const theme = usePrefs((s) => s.theme);
   const custom = usePrefs((s) => s.customThemes);
+  const compact = usePrefs((s) => s.compact);
+  const fontSize = usePrefs((s) => s.fontSize);
   const set = usePrefs((s) => s.set);
   const [editing, setEditing] = useState<{ theme: ThemeDef; isNew: boolean } | null>(null);
 
@@ -222,6 +224,30 @@ export function AppearanceSettings() {
         „Automatisch“ folgt der Einstellung deines Geräts. Gilt für dieses Gerät.
       </p>
 
+      <h4 className="settings-subheading">Chat</h4>
+      <label className="switch-row">
+        <span>Kompakte Ansicht</span>
+        <input
+          type="checkbox"
+          role="switch"
+          className="switch"
+          data-testid="compact-toggle"
+          checked={compact}
+          onChange={(e) => set({ compact: e.target.checked })}
+        />
+      </label>
+      <label className="field font-size-field">
+        <span>Schriftgröße: {fontSize} px</span>
+        <input
+          type="range"
+          min={FONT_SIZES[0]}
+          max={FONT_SIZES[FONT_SIZES.length - 1]}
+          step={1}
+          data-testid="font-size"
+          value={fontSize}
+          onChange={(e) => set({ fontSize: Number(e.target.value) })}
+        />
+      </label>
       <h4 className="settings-subheading">
         <Icon name="palette" size={16} />
         Themes

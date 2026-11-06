@@ -166,6 +166,8 @@ export class PushService {
       if (!ctx) return;
       const members = await this.recipients(ctx.guildId, message.author.id);
       const mentioned = mentionedNames(message.content);
+      // An answer counts like a mention of the person it answers.
+      if (message.replyTo) mentioned.add(message.replyTo.author.username.toLowerCase());
       const url = `/guilds/${ctx.guildId}/channels/${message.channelId}`;
       const text = truncate(`${nameOf(message.author)}: ${preview(message)}`);
 

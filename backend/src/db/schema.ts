@@ -5,6 +5,7 @@ import {
   char,
   check,
   index,
+  type AnyPgColumn,
   integer,
   pgTable,
   primaryKey,
@@ -173,6 +174,11 @@ export const guilds = pgTable('guilds', {
     .notNull()
     .references(() => users.id),
   inviteCode: varchar('invite_code', { length: 16 }).notNull().unique('guilds_invite_code_uq'),
+  /** The link stops working after this time / this many joins (null: no limit). */
+  inviteExpiresAt: timestamp('invite_expires_at', { withTimezone: true }),
+  inviteMaxUses: integer('invite_max_uses'),
+  /** Joins through the current link; starts over whenever the owner changes its limits. */
+  inviteUses: integer('invite_uses').notNull().default(0),
   /** Server picture: file name in UPLOAD_DIR/avatars (set by the owner). */
   iconKey: varchar('icon_key', { length: 64 }),
   /** Server tag (2–4 letters/digits) and its emoji; members can wear it next to their name. */
@@ -294,15 +300,66 @@ export const messages = pgTable(
     gifId: varchar('gif_id', { length: 64 }),
     gifWidth: integer('gif_width'),
     gifHeight: integer('gif_height'),
+    /** The message this one answers; emptied when that message is deleted. */
+    replyToId: bigint('reply_to_id', { mode: 'bigint' }).references(
+      (): AnyPgColumn => messages.id,
+      { onDelete: 'set null' },
+    ),
+    /** Pinned to its channel since then (null: not pinned). */
+    pinnedAt: timestamp('pinned_at', { withTimezone: true }),
     createdAt: createdAt(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
   },
   (t) => [
     check(
       'messages_content_len_chk',
-      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000)`,
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '')`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
+    index('messages_reply_to_idx')
+      .on(t.replyToId)
+      .where(sql`${t.replyToId} is not null`),
+    index('messages_pinned_idx')
+      .on(t.channelId)
+      .where(sql`${t.pinnedAt} is not null`),
+  ],
+);
+
+/** One row per person, emoji and message. */
+export const messageReactions = pgTable(
+  'message_reactions',
+  {
+    messageId: bigint('message_id', { mode: 'bigint' })
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    emoji: varchar('emoji', { length: 16 }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.messageId, t.userId, t.emoji] }),
+    index('message_reactions_user_idx').on(t.userId),
+  ],
+);
+
+/** How far someone has read a channel; the base of the unread counters. */
+export const channelReads = pgTable(
+  'channel_reads',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    lastReadId: bigint('last_read_id', { mode: 'bigint' }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.channelId] }),
+    index('channel_reads_channel_idx').on(t.channelId),
   ],
 );
 

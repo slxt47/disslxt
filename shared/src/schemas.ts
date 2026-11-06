@@ -8,6 +8,8 @@ import {
   GROUP_NAME_MAX_LEN,
   EMAIL_MAX_LEN,
   GUILD_NAME_MAX_LEN,
+  INVITE_MAX_HOURS,
+  INVITE_MAX_USES_LIMIT,
   MESSAGE_MAX_LEN,
   NEXT_PATH_MAX_LEN,
   PAGE_DEFAULT,
@@ -252,12 +254,6 @@ export const messageContentSchema = z
   )
   .refine((s) => !MESSAGE_DISALLOWED_CHARS.test(s), 'Nachricht enthält unzulässige Steuerzeichen');
 
-export const sendMessageSchema = z.object({ content: messageContentSchema });
-export type SendMessageInput = z.infer<typeof sendMessageSchema>;
-
-export const editMessageSchema = z.object({ content: messageContentSchema });
-export type EditMessageInput = z.infer<typeof editMessageSchema>;
-
 /** Message ids are bigint, transported as decimal strings. */
 const BIGINT_MAX = 9223372036854775807n;
 export const messageIdSchema = z
@@ -265,11 +261,44 @@ export const messageIdSchema = z
   .regex(/^[1-9][0-9]{0,18}$/, 'Ungültige Nachrichten-ID')
   .refine((s) => !/^\d+$/.test(s) || BigInt(s) <= BIGINT_MAX, 'Ungültige Nachrichten-ID');
 
+export const sendMessageSchema = z.object({
+  content: messageContentSchema,
+  /** The message this one answers (it must be in the same channel). */
+  replyToId: messageIdSchema.optional(),
+});
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+
+export const editMessageSchema = z.object({ content: messageContentSchema });
+export type EditMessageInput = z.infer<typeof editMessageSchema>;
+
 export const listMessagesQuery = z.object({
   before: messageIdSchema.optional(),
   limit: z.coerce.number().int().min(1).max(PAGE_MAX).default(PAGE_DEFAULT),
 });
 export type ListMessagesQuery = z.infer<typeof listMessagesQuery>;
+
+/** Emoji (with skin tones, flags, keycaps and sequences), nothing else. */
+const EMOJI_RE =
+  // Sequences are what this class is for, the rule does not fit here.
+  // eslint-disable-next-line no-misleading-character-class
+  /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3)[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\uFE0F\u200D\u20E3]*$/u;
+export const reactionSchema = z.object({
+  emoji: z
+    .string()
+    .refine((s) => textLength(s) <= 16 && EMOJI_RE.test(s), 'Nur Emoji sind als Reaktion möglich'),
+});
+
+export const pinSchema = z.object({ pinned: z.boolean() });
+
+export const markReadSchema = z.object({ messageId: messageIdSchema });
+
+/** Owner: limits of the invite link; `regenerate` makes the old link stop working. */
+export const inviteSettingsSchema = z.object({
+  expiresInHours: z.number().int().min(1).max(INVITE_MAX_HOURS).nullable(),
+  maxUses: z.number().int().min(1).max(INVITE_MAX_USES_LIMIT).nullable(),
+  regenerate: z.boolean().default(false),
+});
+export type InviteSettingsInput = z.infer<typeof inviteSettingsSchema>;
 
 export const inviteCodeSchema = z
   .string()

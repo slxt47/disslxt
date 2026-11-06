@@ -1,7 +1,9 @@
-import { useLayoutEffect, useRef, useState, type UIEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type UIEvent } from 'react';
 import type { MessageDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
+import { compareIds } from '../store/chat';
 import { MessageItem } from './MessageItem';
+import { MessageSkeleton } from './Skeleton';
 
 /** Distance from the bottom (px) within which new messages auto-scroll the list. */
 export const NEAR_BOTTOM_PX = 120;
@@ -43,6 +45,9 @@ export function layoutMessages(
       !!prev &&
       !newDay &&
       prev.author.id === m.author.id &&
+      prev.kind !== 'join' &&
+      m.kind !== 'join' &&
+      !m.replyTo &&
       at.getTime() - (prevAt?.getTime() ?? 0) < GROUP_GAP_MS;
     return { grouped, dayLabel: newDay ? dayLabel(at, now) : null };
   });
@@ -58,6 +63,27 @@ export interface MessageListProps {
   onLoadOlder: () => Promise<void>;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  selfName?: string | null;
+  /** Everything up to this message was read before opening the channel. */
+  readUpTo?: string | null;
+  onReact?: (id: string, emoji: string) => Promise<void>;
+  onReply?: (message: MessageDto) => void;
+  /** Without it messages cannot be pinned. */
+  onPin?: (id: string, pinned: boolean) => Promise<void>;
+  /** Message to open for editing, cleared with onEditHandled. */
+  editId?: string | null;
+  onEditHandled?: () => void;
+}
+
+/** Scrolls a message into view and lets it light up for a moment. */
+export function jumpToMessage(id: string): boolean {
+  const el = document.getElementById(`m-${id}`);
+  if (!el) return false;
+  el.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+  return true;
 }
 
 function distanceFromBottom(el: HTMLElement): number {
@@ -74,6 +100,13 @@ export function MessageList({
   onLoadOlder,
   onEdit,
   onDelete,
+  selfName = null,
+  readUpTo = null,
+  onReact,
+  onReply,
+  onPin,
+  editId = null,
+  onEditHandled,
 }: MessageListProps) {
   const ref = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
@@ -89,6 +122,11 @@ export function MessageList({
   const last = messages[messages.length - 1];
   const lastId = last?.id ?? null;
   const firstId = messages[0]?.id ?? null;
+  const firstUnreadId = readUpTo
+    ? (messages.find(
+        (m) => compareIds(m.id, readUpTo) > 0 && m.author.id !== currentUserId && m.kind !== 'join',
+      )?.id ?? null)
+    : null;
 
   function scrollToBottom() {
     const el = ref.current;
@@ -136,6 +174,12 @@ export function MessageList({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId, firstId, lastId, messages.length]);
+
+  // With unread messages the channel opens at the line, not at the very end.
+  useEffect(() => {
+    if (!firstUnreadId) return;
+    ref.current?.querySelector('.unread-divider')?.scrollIntoView?.({ block: 'center' });
+  }, [firstUnreadId, channelId]);
 
   function onScroll(e: UIEvent<HTMLDivElement>) {
     const near = distanceFromBottom(e.currentTarget) < NEAR_BOTTOM_PX;
@@ -192,6 +236,7 @@ export function MessageList({
             {olderError}
           </p>
         )}
+        {loading && messages.length === 0 && <MessageSkeleton />}
         {!loading && messages.length === 0 && (
           <p className="empty-channel muted" data-testid="empty-channel">
             Noch keine Nachrichten. Schreib die erste!
@@ -207,6 +252,15 @@ export function MessageList({
               dayLabel={layout[i]?.dayLabel}
               onEdit={onEdit}
               onDelete={onDelete}
+              selfId={currentUserId}
+              selfName={selfName}
+              firstUnread={m.id === firstUnreadId}
+              onReact={onReact}
+              onReply={onReply}
+              onPin={onPin}
+              onJump={jumpToMessage}
+              editRequested={m.id === editId}
+              onEditHandled={onEditHandled}
             />
           ))}
         </ul>

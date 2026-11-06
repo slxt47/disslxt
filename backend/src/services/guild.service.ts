@@ -1,13 +1,15 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, asc, count, eq, isNotNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   DEFAULT_CHANNEL_NAME,
   GUILDS_PER_USER_MAX,
   type ChannelDto,
   type GuildDto,
   type InvitePreviewDto,
+  type InviteSettingsInput,
   type MemberDto,
+  type PublicUserDto,
   type UserDto,
 } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
@@ -19,6 +21,13 @@ import { inviteCode } from '../lib/tokens.js';
 import type { Hub } from '../realtime/hub.js';
 import { profileColumns, toChannelDto, toGuildDto, toPublicUser } from './dto.js';
 import type { PushService } from './push.service.js';
+
+const inviteGone = () => notFound('Einladung ungültig oder abgelaufen', 'INVITE_NOT_FOUND');
+
+/** Still valid: not expired and not used up. */
+const inviteUsable = (g: Guild): boolean =>
+  (!g.inviteExpiresAt || g.inviteExpiresAt > new Date()) &&
+  (g.inviteMaxUses === null || g.inviteUses < g.inviteMaxUses);
 
 export class GuildService {
   constructor(
@@ -36,6 +45,9 @@ export class GuildService {
    * Owner only: name and/or tag. A changed tag is updated on everyone wearing it; a removed tag
    * disappears from them.
    */
+  /** Set by the composition root: greets someone new in the server's first channel. */
+  memberJoined: (user: PublicUserDto, guild: GuildDto) => Promise<void> = async () => undefined;
+
   async update(
     userId: string,
     guildId: string,
@@ -276,12 +288,45 @@ export class GuildService {
     return guild;
   }
 
+  /** Owner: sets the limits of the invite link, optionally replacing it with a new one. */
+  async updateInvite(
+    userId: string,
+    guildId: string,
+    settings: InviteSettingsInput,
+  ): Promise<GuildDto> {
+    const guild = await this.assertMember(userId, guildId);
+    if (guild.ownerId !== userId) throw forbidden('Nur der Besitzer kann die Einladung ändern');
+    const { expiresInHours, maxUses, regenerate } = settings;
+    const patch = {
+      inviteExpiresAt: expiresInHours ? new Date(Date.now() + expiresInHours * 3_600_000) : null,
+      inviteMaxUses: maxUses,
+      inviteUses: 0,
+    };
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        const [row] = await this.db
+          .update(guilds)
+          .set(regenerate ? { ...patch, inviteCode: inviteCode() } : patch)
+          .where(eq(guilds.id, guildId))
+          .returning();
+        if (!row) throw notFound('Server nicht gefunden');
+        const dto = toGuildDto(row);
+        this.hub.publishToGuild(guildId, { type: 'guild.updated', data: { guild: dto } });
+        return dto;
+      } catch (err) {
+        if (attempt < 3 && isUniqueViolation(err, 'guilds_invite_code_uq')) continue;
+        throw err;
+      }
+    }
+  }
+
   async invitePreview(userId: string, code: string): Promise<InvitePreviewDto> {
     const guild = await this.findByInvite(code);
     const [[countRow], alreadyMember] = await Promise.all([
       this.db.select({ n: count() }).from(guildMembers).where(eq(guildMembers.guildId, guild.id)),
       this.isMember(userId, guild.id),
     ]);
+    if (!alreadyMember && !inviteUsable(guild)) throw inviteGone();
     return {
       guild: { id: guild.id, name: guild.name, memberCount: countRow?.n ?? 0 },
       alreadyMember,
@@ -297,11 +342,27 @@ export class GuildService {
     code: string,
   ): Promise<GuildDto> {
     const guild = await this.findByInvite(code);
-    const inserted = await this.db
-      .insert(guildMembers)
-      .values({ guildId: guild.id, userId: user.id })
-      .onConflictDoNothing()
-      .returning({ userId: guildMembers.userId });
+    if (await this.isMember(user.id, guild.id)) return toGuildDto(guild);
+    // Counting and joining together, so a limited link cannot be used more often than allowed.
+    const inserted = await this.db.transaction(async (tx) => {
+      const counted = await tx
+        .update(guilds)
+        .set({ inviteUses: sql`${guilds.inviteUses} + 1` })
+        .where(
+          and(
+            eq(guilds.id, guild.id),
+            or(isNull(guilds.inviteExpiresAt), gt(guilds.inviteExpiresAt, new Date())),
+            or(isNull(guilds.inviteMaxUses), lt(guilds.inviteUses, guilds.inviteMaxUses)),
+          ),
+        )
+        .returning({ id: guilds.id });
+      if (counted.length === 0) throw inviteGone();
+      return tx
+        .insert(guildMembers)
+        .values({ guildId: guild.id, userId: user.id })
+        .onConflictDoNothing()
+        .returning({ userId: guildMembers.userId });
+    });
     if (inserted.length > 0) {
       const online = this.hub.isOnline(user.id);
       this.hub.addUserToGuild(user.id, guild.id);
@@ -330,6 +391,7 @@ export class GuildService {
         });
       }
       this.push.memberJoined(guild.id, user);
+      await this.memberJoined(user, toGuildDto(guild));
     }
     return toGuildDto(guild);
   }

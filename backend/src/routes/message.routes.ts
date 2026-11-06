@@ -2,7 +2,10 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   editMessageSchema,
   listMessagesQuery,
+  markReadSchema,
   messageIdSchema,
+  pinSchema,
+  reactionSchema,
   sendMessageSchema,
   uuidSchema,
 } from '@disslxt/shared';
@@ -46,8 +49,8 @@ export async function messageRoutes(
     },
     async (req, reply) => {
       const id = channelId(req.params);
-      const { content } = parse(sendMessageSchema, req.body);
-      const message = await messages.create(currentUser(req), id, content);
+      const { content, replyToId } = parse(sendMessageSchema, req.body);
+      const message = await messages.create(currentUser(req), id, content, replyToId);
       return reply.status(201).send({ message });
     },
   );
@@ -56,6 +59,47 @@ export async function messageRoutes(
     const id = messageId(req.params);
     const { content } = parse(editMessageSchema, req.body);
     return { message: await messages.edit(currentUser(req), id, content) };
+  });
+
+  app.get('/unread', async (req) => {
+    const user = currentUser(req);
+    return { unread: await messages.unread(user.id, user.username) };
+  });
+
+  app.post<ChannelParams>('/channels/:channelId/read', async (req, reply) => {
+    const id = channelId(req.params);
+    const { messageId } = parse(markReadSchema, req.body);
+    await messages.markRead(currentUser(req).id, id, messageId);
+    return reply.status(204).send();
+  });
+
+  app.get<ChannelParams>('/channels/:channelId/pins', async (req) => ({
+    messages: await messages.pins(currentUser(req).id, channelId(req.params)),
+  }));
+
+  app.post<MessageParams>(
+    '/messages/:messageId/reactions',
+    {
+      config: {
+        rateLimit: {
+          max: opts.config.rateLimit.messageMax * 3,
+          timeWindow: opts.config.rateLimit.messageWindowMs,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req) => {
+      const id = messageId(req.params);
+      const { emoji } = parse(reactionSchema, req.body);
+      return { reactions: await messages.toggleReaction(currentUser(req).id, id, emoji) };
+    },
+  );
+
+  app.post<MessageParams>('/messages/:messageId/pin', async (req) => {
+    const id = messageId(req.params);
+    const { pinned } = parse(pinSchema, req.body);
+    return { message: await messages.setPinned(currentUser(req).id, id, pinned) };
   });
 
   app.delete<MessageParams>('/messages/:messageId', async (req, reply) => {

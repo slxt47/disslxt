@@ -1,3 +1,4 @@
+import { clearDrafts } from '../lib/drafts';
 import { create } from 'zustand';
 import type { UserDto } from '@disslxt/shared';
 import { ApiRequestError, onUnauthorized } from '../api/client';
@@ -64,6 +65,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   logout: async () => {
     // While the session still exists: a logged-out device must not receive this user's pushes.
     await detachPushSubscription().catch(() => undefined);
+    clearDrafts();
     try {
       await api.logout();
     } catch {
@@ -74,6 +76,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   deleteAccount: async (password) => {
     await api.deleteAccount(password);
+    clearDrafts();
     set({ user: null, status: 'guest', loggedOut: true, accountDeleted: true });
   },
 
