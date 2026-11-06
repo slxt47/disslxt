@@ -1,0 +1,488 @@
+/* disslxt-Seiten im slxt-Design (wie slxt.dev und slxt.org): Himmel, Glaskarten, Standard dunkel.
+   Hell/Dunkel über modus.js und data-modus, nicht über prefers-color-scheme. Kontraste wie auf slxt.dev. */
+:root {
+  --bg: #f4f1fb;
+  --card: #ffffff;
+  --line: rgba(30, 20, 60, 0.1);
+  --text: #1d1d1f;
+  --text-2: #54546a;
+  --text-3: #5f5f70;
+  --accent: #5b3df5;
+  --accent-text: #5b3df5;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(91, 61, 245, 0.09);
+  --online: #177a32;
+  --danger: #c9302c;
+  --grad: linear-gradient(100deg, #6d4aff 0%, #3b82f6 100%);
+  --bar: rgba(245, 245, 247, 0.72);
+  --glass: rgba(255, 255, 255, 0.8);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 28px rgba(0, 0, 0, 0.06);
+  --sky1: #dfe5ff;
+  --sky2: #efe3f8;
+  --sky3: #fde7da;
+  --meteor: 124, 92, 255;
+  --stars: 0;
+  --aurora-a: rgba(124, 92, 255, 0.22);
+  --aurora-b: rgba(59, 130, 246, 0.18);
+  --aurora-c: rgba(255, 140, 190, 0.12);
+  --radius-lg: 22px;
+  --font:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --display:
+    ui-rounded, -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'SF Pro Display', 'Segoe UI',
+    Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+:root[data-modus='dunkel'] {
+  color-scheme: dark;
+  --bg: #0b0e2a;
+  --card: #17171e;
+  --line: rgba(255, 255, 255, 0.1);
+  --text: #f2f2f7;
+  --text-2: #aeb0c8;
+  --text-3: #a5a5b2;
+  --accent: #a993ff;
+  --accent-text: #a993ff;
+  --on-accent: #0b0b10;
+  --accent-soft: rgba(169, 147, 255, 0.14);
+  --online: #3ddc6f;
+  --danger: #ff6b6b;
+  --grad: linear-gradient(100deg, #a993ff 0%, #7cb4ff 100%);
+  --bar: rgba(8, 9, 24, 0.66);
+  --glass: rgba(22, 22, 40, 0.74);
+  --shadow: 0 0 0 1px var(--line);
+  --sky1: #04050d;
+  --sky2: #0b0e2a;
+  --sky3: #1a1240;
+  --meteor: 190, 215, 255;
+  --stars: 1;
+  --aurora-a: rgba(124, 92, 255, 0.2);
+  --aurora-b: rgba(59, 130, 246, 0.14);
+  --aurora-c: rgba(190, 80, 255, 0.1);
+}
+@media (prefers-contrast: more) {
+  :root {
+    --text-2: var(--text);
+    --text-3: var(--text);
+    --line: currentColor;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 1.0625rem/1.55 var(--font);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5em;
+  font-family: var(--display);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+code,
+kbd {
+  font: 0.9em var(--mono);
+}
+kbd {
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+}
+[hidden] {
+  display: none !important;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.skip {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 20;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--card);
+}
+.skip:focus {
+  top: 12px;
+}
+.wrap {
+  width: min(1080px, 100% - 32px);
+  margin: 0 auto;
+}
+.gradient-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lead {
+  color: var(--text-2);
+  font-size: 1.1875rem;
+}
+
+/* Kopfzeile: die einzige durchscheinende Ebene */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--line);
+  background: var(--bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .top {
+    background: var(--bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+.top .wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  color: var(--text);
+  font: 600 1.0625rem var(--display);
+}
+.brand:hover {
+  text-decoration: none;
+}
+.brand img {
+  width: 28px;
+  height: 28px;
+}
+.brand small {
+  color: var(--text-2);
+  font-weight: 500;
+}
+.top nav {
+  display: flex;
+  gap: 4px;
+}
+.top nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.top nav a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+.modus-knopf {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.modus-knopf:active {
+  transform: scale(0.94);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.btn:hover {
+  text-decoration: none;
+}
+.btn.small {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 0.9375rem;
+}
+.btn.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Rechtstexte in einer Glaskarte */
+.legal {
+  width: min(760px, 100% - 32px);
+  margin: clamp(24px, 6vw, 56px) auto 0;
+  padding: clamp(24px, 5vw, 44px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--glass);
+  box-shadow: var(--shadow);
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+.legal h1 {
+  font-size: clamp(1.625rem, 7.2vw, 2.75rem);
+}
+.legal h2 {
+  margin-top: 2em;
+  font-size: 1.4rem;
+}
+.legal h3 {
+  margin-top: 1.6em;
+  font-size: 1.125rem;
+}
+.legal p,
+.legal li {
+  color: var(--text-2);
+}
+.legal strong,
+.legal em {
+  color: var(--text);
+}
+.legal ul {
+  padding-left: 1.2em;
+}
+.legal li {
+  margin-bottom: 0.4em;
+}
+.legal .stand {
+  color: var(--text-3);
+  font-size: 0.9375rem;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.legal table {
+  width: 100%;
+  margin: 1em 0 1.5em;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  -webkit-hyphens: manual;
+  hyphens: manual;
+}
+.legal th,
+.legal td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  text-align: left;
+  vertical-align: top;
+}
+.legal th {
+  color: var(--text);
+  font-weight: 650;
+}
+
+/* Fußzeile */
+.foot {
+  margin-top: 56px;
+  padding: 24px 0 calc(24px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 0.9375rem;
+}
+.foot .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+.foot nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.foot a {
+  color: var(--text-2);
+}
+.foot a:hover {
+  color: var(--text);
+}
+@media (max-width: 560px) {
+  .hide-sm {
+    display: none;
+  }
+}
+
+/* Himmel wie auf slxt.dev: Sterne nur im Dunkeln, himmel.js baut die Ebenen */
+.himmel {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--sky1), var(--sky2) 55%, var(--sky3));
+}
+.sternlage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: var(--stars);
+  transition: opacity 0.8s ease;
+  will-change: transform;
+}
+.sternlage canvas {
+  display: block;
+  width: 100%;
+}
+.sternlage.fern {
+  opacity: calc(var(--stars) * 0.7);
+}
+.funkeln,
+.sternschnuppen {
+  position: absolute;
+  inset: 0;
+}
+.sternschnuppen {
+  overflow: hidden;
+}
+.funkeln i {
+  position: absolute;
+  width: var(--g);
+  height: var(--g);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(205, 216, 255, 0.8);
+  opacity: 0.15;
+  animation: funkeln var(--d) ease-in-out var(--v) infinite;
+}
+@keyframes funkeln {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+.meteor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(var(--meteor), 0), rgba(var(--meteor), 0.4) 60%, #fff);
+  opacity: 0;
+  transform-origin: 100% 50%;
+  will-change: transform, opacity;
+}
+.aurora {
+  position: absolute;
+  inset: -20vh -20vw auto;
+  height: 110vh;
+  opacity: var(--aurora, 1);
+}
+.aurora i {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+}
+.aurora i:nth-child(1) {
+  top: -10%;
+  left: 5%;
+  background: radial-gradient(closest-side, var(--aurora-a), transparent);
+  animation: schweben1 26s ease-in-out infinite alternate;
+}
+.aurora i:nth-child(2) {
+  top: 5%;
+  right: 0;
+  background: radial-gradient(closest-side, var(--aurora-b), transparent);
+  animation: schweben2 32s ease-in-out infinite alternate;
+}
+.aurora i:nth-child(3) {
+  top: 25%;
+  left: 30%;
+  width: 45vmax;
+  height: 45vmax;
+  background: radial-gradient(closest-side, var(--aurora-c), transparent);
+  animation: schweben3 38s ease-in-out infinite alternate;
+}
+@keyframes schweben1 {
+  to {
+    transform: translate3d(12vw, 8vh, 0) scale(1.15);
+  }
+}
+@keyframes schweben2 {
+  to {
+    transform: translate3d(-14vw, 10vh, 0) scale(0.9);
+  }
+}
+@keyframes schweben3 {
+  to {
+    transform: translate3d(8vw, -10vh, 0) scale(1.2);
+  }
+}
+body > :is(header, main, footer, div:not(.himmel)) {
+  position: relative;
+  z-index: 1;
+}
+.top {
+  position: sticky !important;
+  z-index: 10 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

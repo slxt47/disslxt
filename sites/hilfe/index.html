@@ -8,12 +8,15 @@
       name="description"
       content="Die Hilfe zu disslxt: Konto anlegen, Server und Kanäle, Freunde und Gruppen, Anrufe, Bilder und GIFs, Status und Mitteilungen – Schritt für Schritt erklärt."
     />
-    <meta name="theme-color" content="#6d4aff" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b0e2a" />
+    <script src="/_/modus.js?v=4"></script>
     <link rel="icon" href="/_/hilfe-icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/_/hilfe-favicon-32.png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/_/hilfe-apple-touch-icon.png" />
-    <link rel="stylesheet" href="/_/site.css" />
-    <link rel="stylesheet" href="/hilfe.css" />
+    <link rel="stylesheet" href="/_/slxt.css?v=2" />
+    <link rel="stylesheet" href="/hilfe.css?v=3" />
+    <script src="/_/himmel.js?v=1" defer></script>
     <script src="/_/site.js" defer></script>
   </head>
   <body>
@@ -27,6 +30,7 @@
           <a class="hide-sm" href="https://disslxt-info.slxt.org/">Über disslxt</a>
         </nav>
         <a class="btn primary small" href="https://disslxt.slxt.org/login">disslxt öffnen</a>
+        <button type="button" class="modus-knopf" data-modus-schalter></button>
       </div>
     </header>
 
@@ -93,6 +97,12 @@
           <li><a href="#link-vorschau">Link-Vorschau</a></li>
           <li><a href="#reaktionen">Reaktionen &amp; Antworten</a></li>
           <li><a href="#threads">Threads</a></li>
+          <li><a href="#umfragen">Umfragen</a></li>
+          <li><a href="#termine">Termine</a></li>
+          <li><a href="#planen">Später senden &amp; Erinnern</a></li>
+          <li><a href="#springen">Schnell springen</a></li>
+          <li><a href="#webhooks">Bots &amp; Webhooks</a></li>
+          <li><a href="#dienste">Dienste prüfen</a></li>
           <li><a href="#erwaehnen">Erwähnen &amp; Emoji</a></li>
           <li><a href="#befehle">Befehle</a></li>
           <li><a href="#ungelesen">Ungelesen &amp; Entwürfe</a></li>
@@ -417,12 +427,68 @@
               sind.
             </p>
           </article>
+          <article class="topic" id="umfragen">
+            <h3><span class="ico" aria-hidden="true">📊</span>Umfragen</h3>
+            <p>
+              Schreib <code>/umfrage Pizza? | Ja | Nein</code>. Tippe auf eine Antwort, um
+              abzustimmen; noch ein Tipp nimmt die Stimme zurück.
+            </p>
+            <ul>
+              <li>2 bis 10 Antworten.</li>
+              <li>Alle sehen, wer wofür gestimmt hat.</li>
+              <li>Eine Umfrage lässt sich nicht bearbeiten, nur löschen.</li>
+            </ul>
+          </article>
+          <article class="topic" id="termine">
+            <h3><span class="ico" aria-hidden="true">📅</span>Termine</h3>
+            <p>
+              Schreib <code>/termin 8.11. 20:00 | Spieleabend</code>. Alle im Kanal antworten mit
+              <span class="ui">Bin dabei</span>, <span class="ui">Vielleicht</span> oder
+              <span class="ui">Kann nicht</span>. Dieselbe Antwort noch einmal nimmt sie zurück.
+            </p>
+            <p>15 Minuten vorher bekommen alle mit Zusage oder Vielleicht eine Mitteilung.</p>
+          </article>
+          <article class="topic" id="planen">
+            <h3><span class="ico" aria-hidden="true">⏰</span>Später senden &amp; Erinnern</h3>
+            <ul>
+              <li><code>/später 30m Text</code> sendet die Nachricht später.</li>
+              <li><code>/erinnern 1h Text</code> erinnert nur dich.</li>
+              <li>
+                Zeiten: <code>30m</code>, <code>2h</code>, <code>3d</code>, <code>20:00</code>,
+                <code>8.11.</code> oder <code>8.11. 20:00</code>.
+              </li>
+              <li>
+                Unter <span class="ui">Einstellungen → Geplant</span> siehst du alles und kannst es
+                abbrechen.
+              </li>
+            </ul>
+            <p class="tip">
+              Höchstens 50 geplante Dinge, bis zu ein Jahr im Voraus. Darfst du den Kanal bis dahin
+              nicht mehr sehen, wird nichts gesendet und du bekommst eine Mitteilung.
+            </p>
+          </article>
+          <article class="topic" id="springen">
+            <h3><span class="ico" aria-hidden="true">🧭</span>Schnell springen</h3>
+            <p>
+              Drücke <kbd>Strg</kbd> + <kbd>K</kbd>, tippe einen Namen und bestätige mit
+              <kbd>Enter</kbd>. So landest du direkt im Kanal oder in der Unterhaltung. Ohne Eingabe
+              steht Ungelesenes oben.
+            </p>
+          </article>
           <article class="topic" id="webhooks">
             <h3><span class="ico" aria-hidden="true">🤖</span>Bots und Webhooks</h3>
             <p>
               Programme können in einen Textkanal schreiben. Bearbeite den Kanal und lege unter
               <span class="ui">Webhooks</span> einen an. Adresse und Schlüssel siehst du nur einmal.
-              Dafür brauchst du das Recht, Kanäle zu verwalten. Bot-Nachrichten tragen die Marke BOT.
+              Dafür brauchst du das Recht, Kanäle zu verwalten. Bot-Nachrichten tragen die Marke
+              BOT.
+            </p>
+          </article>
+          <article class="topic" id="dienste">
+            <h3><span class="ico" aria-hidden="true">🟢</span>Dienste prüfen (Admins)</h3>
+            <p>
+              Admins schreiben <code>/dienste</code> und sehen, welche eingetragenen Dienste gerade
+              antworten. Die Liste aktualisiert sich alle 30 Sekunden.
             </p>
           </article>
           <article class="topic" id="erwaehnen">
@@ -455,6 +521,7 @@
               <li><code>/me winkt</code> schreibt den Text kursiv, wie eine Handlung.</li>
               <li><code>/würfeln</code> würfelt, <code>/würfeln 20</code> mit 20 Seiten.</li>
               <li><code>/münze</code> wirft eine Münze.</li>
+              <li><code>/dienste</code> zeigt Admins, welche Dienste laufen.</li>
               <li><code>/umfrage Pizza? | Ja | Nein</code> startet eine Umfrage.</li>
               <li>
                 <code>/termin 8.11. 20:00 | Spieleabend</code> legt einen Termin mit Zusagen an.
@@ -814,8 +881,9 @@
             <h3><span class="ico" aria-hidden="true">🔑</span>Passkeys</h3>
             <p>
               Melde dich mit Fingerabdruck, Gesicht oder Geräte-PIN an, ohne Passwort und Code. Lege
-              unter <span class="ui">Einstellungen → Sicherheit</span> einen Passkey an und tippe beim
-              Anmelden auf <span class="ui">Mit Passkey anmelden</span>. Dein Passwort bleibt gültig.
+              unter <span class="ui">Einstellungen → Sicherheit</span> einen Passkey an und tippe
+              beim Anmelden auf <span class="ui">Mit Passkey anmelden</span>. Dein Passwort bleibt
+              gültig.
             </p>
           </article>
           <article class="topic" id="zwei-faktor">
