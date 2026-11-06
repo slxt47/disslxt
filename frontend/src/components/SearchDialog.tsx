@@ -96,7 +96,11 @@ export function SearchDialog({ channel, onClose }: { channel: ChannelDto; onClos
 
   function open(r: SearchResultDto) {
     const { message } = r;
-    useChatStore.getState().setJumpTarget({ channelId: message.channelId, messageId: message.id });
+    // A reply in a thread: the channel shows its first message.
+    useChatStore.getState().setJumpTarget({
+      channelId: message.channelId,
+      messageId: message.threadRootId ?? message.id,
+    });
     navigate(
       r.guildId ? `/guilds/${r.guildId}/channels/${message.channelId}` : `/me/${message.channelId}`,
     );

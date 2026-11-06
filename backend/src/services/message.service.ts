@@ -108,7 +108,8 @@ export class MessageService {
    */
   private async published(channel: Channel, message: MessageDto): Promise<MessageDto> {
     await this.channels.publish(channel, { type: 'message.created', data: { message } });
-    if (channel.guildId) {
+    // Thread replies stay out of the channel's unread count; those involved get a push.
+    if (channel.guildId && !message.threadRootId) {
       const mentions = mentionedNames(message.content);
       if (message.replyTo) mentions.add(message.replyTo.author.username.toLowerCase());
       const activity: WsServerMessage = {
@@ -202,6 +203,34 @@ export class MessageService {
       });
     }
     return out;
+  }
+
+  private async threadCountsOf(ids: bigint[]): Promise<Map<string, number>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.db
+      .select({ root: messages.threadRootId, n: count() })
+      .from(messages)
+      .where(inArray(messages.threadRootId, ids))
+      .groupBy(messages.threadRootId);
+    return new Map(rows.map((r) => [String(r.root), r.n]));
+  }
+
+  /** Replies of a thread, oldest first. */
+  async thread(userId: string, rootId: string): Promise<MessageDto[]> {
+    const root = await this.assertReadable(userId, rootId);
+    const rows = await this.db
+      .select({ message: messages, author: profileColumns })
+      .from(messages)
+      .innerJoin(users, eq(users.id, messages.authorId))
+      .where(eq(messages.threadRootId, root.id))
+      .orderBy(asc(messages.id));
+    return this.toDtos(rows.map((r) => ({ message: r.message, author: toPublicUser(r.author) })));
+  }
+
+  /** The count under the first message changed. */
+  private async refreshRoot(rootId: bigint, channel: Pick<Channel, 'id' | 'kind'>): Promise<void> {
+    const [root] = await this.db.select().from(messages).where(eq(messages.id, rootId)).limit(1);
+    if (root) await this.republish(root, channel);
   }
 
   private async eventsOf(ids: bigint[]): Promise<Map<string, EventDto>> {
@@ -445,12 +474,13 @@ export class MessageService {
     );
     const pollIds = rows.flatMap((r) => (r.message.kind === 'poll' ? [r.message.id] : []));
     const eventIds = rows.flatMap((r) => (r.message.kind === 'event' ? [r.message.id] : []));
-    const [reactions, refs, previews, pollsById, eventsById] = await Promise.all([
+    const [reactions, refs, previews, pollsById, eventsById, threadCounts] = await Promise.all([
       this.reactionsOf(rows.map((r) => r.message.id)),
       this.refsOf([...new Set(replyIds)]),
       this.previewsOf([...new Set(previewIds)]),
       this.pollsOf(pollIds),
       this.eventsOf(eventIds),
+      this.threadCountsOf(rows.map((r) => r.message.id)),
     ]);
     return rows.map(({ message, author }) =>
       toMessageDto(message, author, {
@@ -459,6 +489,7 @@ export class MessageService {
         linkPreview: message.linkPreviewId ? (previews.get(message.linkPreviewId) ?? null) : null,
         poll: pollsById.get(message.id.toString()) ?? null,
         event: eventsById.get(message.id.toString()) ?? null,
+        threadCount: threadCounts.get(message.id.toString()) ?? 0,
       }),
     );
   }
@@ -587,8 +618,19 @@ export class MessageService {
     channelId: string,
     content: string,
     replyToId?: string,
+    threadRootId?: string,
   ): Promise<MessageDto> {
     const channel = await this.channels.assertTextChannel(user.id, channelId);
+    if (threadRootId) {
+      const [root] = await this.db
+        .select({ channelId: messages.channelId, nested: messages.threadRootId })
+        .from(messages)
+        .where(eq(messages.id, BigInt(threadRootId)))
+        .limit(1);
+      if (root?.channelId !== channelId || root.nested) {
+        throw new AppError('BAD_REQUEST', 400, 'Diesen Thread gibt es nicht');
+      }
+    }
     if (replyToId) {
       const [target] = await this.db
         .select({ channelId: messages.channelId })
@@ -608,12 +650,15 @@ export class MessageService {
         channelId,
         authorId: user.id,
         content,
-        replyToId: replyToId ? BigInt(replyToId) : null,
+        // A reply in a thread also tells the person who started it.
+        replyToId: replyToId || threadRootId ? BigInt(replyToId ?? threadRootId ?? '0') : null,
+        threadRootId: threadRootId ? BigInt(threadRootId) : null,
       })
       .returning();
     if (!row) throw new Error('insert returned no row');
     const message = await this.published(channel, await this.toDto(row, user));
     this.previewLater(row, channel);
+    if (row.threadRootId) await this.refreshRoot(row.threadRootId, channel);
     return message;
   }
 
@@ -624,9 +669,8 @@ export class MessageService {
     query: ListMessagesQuery,
   ): Promise<{ messages: MessageDto[]; hasMore: boolean }> {
     await this.channels.assertAccess(userId, channelId);
-    const where = query.before
-      ? and(eq(messages.channelId, channelId), lt(messages.id, BigInt(query.before)))
-      : eq(messages.channelId, channelId);
+    const inChannel = and(eq(messages.channelId, channelId), isNull(messages.threadRootId));
+    const where = query.before ? and(inChannel, lt(messages.id, BigInt(query.before))) : inChannel;
     const rows = await this.db
       .select({
         message: messages,
@@ -792,6 +836,7 @@ export class MessageService {
         and m.id > coalesce(mine.last_read_id, 0)
         and m.author_id <> ${userId}
         and m.kind <> 'join'
+        and m.thread_root_id is null
         and (mine.last_read_id is not null or mine.since is null or m.created_at >= mine.since)
       left join messages quoted on quoted.id = m.reply_to_id
       group by mine.channel_id, mine.guild_id, mine.last_read_id
@@ -875,6 +920,9 @@ export class MessageService {
       .where(eq(messages.id, msg.id))
       .returning({ id: messages.id });
     if (deleted.length === 0) throw notFound('Nachricht nicht gefunden');
+    if (msg.threadRootId) {
+      await this.refreshRoot(msg.threadRootId, { id: msg.channelId, kind: msg.channelKind });
+    }
     if (msg.audioKey) await rm(join(this.voiceDir, msg.audioKey), { force: true });
     if (msg.fileKey) await rm(join(this.fileDir, msg.fileKey), { force: true });
     this.storage.changed();
@@ -932,6 +980,7 @@ export class MessageService {
         fileKey: messages.fileKey,
         channelKind: channels.kind,
         content: messages.content,
+        threadRootId: messages.threadRootId,
       })
       .from(messages)
       .innerJoin(channels, eq(channels.id, messages.channelId))

@@ -106,7 +106,7 @@ export function trackSocial(ev: WsServerMessage, selfId: string): void {
     useTypingStore.getState().stopped(message.channelId, message.author.id);
     if (!chat.dms.some((d) => d.channel.id === message.channelId)) return;
     chat.bumpDm(message.channelId, message.createdAt);
-    if (message.author.id !== selfId && !looking(message.channelId)) {
+    if (message.author.id !== selfId && !message.threadRootId && !looking(message.channelId)) {
       chat.countUnread(message.channelId, null, message.id, false);
     }
   } else if (ev.type === 'channel.activity') {

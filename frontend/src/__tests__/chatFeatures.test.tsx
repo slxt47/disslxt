@@ -653,3 +653,25 @@ describe('times in commands', () => {
     });
   });
 });
+
+describe('thread store', () => {
+  beforeEach(() => useChatStore.getState().reset());
+
+  it('a reply goes to its thread, not the channel; deleting removes it', () => {
+    const s = useChatStore.getState();
+    s.applyLatestPage(CHANNEL, [msg(1)], false);
+    s.setThread('1', []);
+    s.upsertMessage(msg(2, { threadRootId: '1' }));
+    expect(useChatStore.getState().messagesByChannel[CHANNEL]).toHaveLength(1);
+    expect(useChatStore.getState().threadsByRoot['1']).toHaveLength(1);
+    s.removeMessage(CHANNEL, '2');
+    expect(useChatStore.getState().threadsByRoot['1']).toHaveLength(0);
+  });
+
+  it('a reply to a thread nobody opened is ignored here', () => {
+    const s = useChatStore.getState();
+    s.applyLatestPage(CHANNEL, [msg(1)], false);
+    s.upsertMessage(msg(2, { threadRootId: '1' }));
+    expect(useChatStore.getState().messagesByChannel[CHANNEL]).toHaveLength(1);
+  });
+});

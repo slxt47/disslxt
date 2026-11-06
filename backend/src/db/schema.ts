@@ -462,6 +462,11 @@ export const messages = pgTable(
       (): AnyPgColumn => messages.id,
       { onDelete: 'set null' },
     ),
+    /** Reply inside a thread; if its first message goes, the reply moves to the channel. */
+    threadRootId: bigint('thread_root_id', { mode: 'bigint' }).references(
+      (): AnyPgColumn => messages.id,
+      { onDelete: 'set null' },
+    ),
     linkPreviewId: uuid('link_preview_id').references(() => linkPreviews.id, {
       onDelete: 'set null',
     }),
@@ -480,6 +485,9 @@ export const messages = pgTable(
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
     // Words, lower-cased, without stemming: German and English are mixed here.
     index('messages_search_idx').using('gin', sql`to_tsvector('simple', ${t.content})`),
+    index('messages_thread_root_idx')
+      .on(t.threadRootId)
+      .where(sql`${t.threadRootId} is not null`),
     index('messages_reply_to_idx')
       .on(t.replyToId)
       .where(sql`${t.replyToId} is not null`),

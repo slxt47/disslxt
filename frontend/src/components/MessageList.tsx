@@ -68,6 +68,7 @@ export interface MessageListProps {
   readUpTo?: string | null;
   onReact?: (id: string, emoji: string) => Promise<void>;
   onReply?: (message: MessageDto) => void;
+  onThread?: (message: MessageDto) => void;
   /** Without it messages cannot be pinned. */
   onPin?: (id: string, pinned: boolean) => Promise<void>;
   /** May delete other people's messages (the server checks the rank). */
@@ -108,6 +109,7 @@ export function MessageList({
   readUpTo = null,
   onReact,
   onReply,
+  onThread,
   onPin,
   canModerate = false,
   authorColors,
@@ -263,6 +265,7 @@ export function MessageList({
               firstUnread={m.id === firstUnreadId}
               onReact={onReact}
               onReply={onReply}
+              onThread={onThread}
               onPin={onPin}
               canModerate={canModerate}
               authorColor={authorColors?.[m.author.id]}

@@ -142,6 +142,7 @@ export const toMessageDto = (
     linkPreview?: LinkPreviewDto | null;
     poll?: PollDto | null;
     event?: EventDto | null;
+    threadCount?: number;
   } = {},
 ): MessageDto => ({
   id: m.id.toString(),
@@ -185,6 +186,8 @@ export const toMessageDto = (
   linkPreview: extras.linkPreview ?? null,
   poll: extras.poll ?? null,
   event: extras.event ?? null,
+  threadRootId: m.threadRootId ? m.threadRootId.toString() : null,
+  threadCount: extras.threadCount ?? 0,
   createdAt: m.createdAt.toISOString(),
   editedAt: m.editedAt ? m.editedAt.toISOString() : null,
 });

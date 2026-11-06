@@ -13,6 +13,7 @@ import { Icon } from './Icon';
 import { jumpToMessage, MessageList } from './MessageList';
 import { PinsPanel } from './PinsPanel';
 import { SearchDialog } from './SearchDialog';
+import { ThreadPanel } from './ThreadPanel';
 import { UploadQueue, useUploads } from './UploadQueue';
 
 const EMPTY: never[] = [];
@@ -95,6 +96,7 @@ export function ChatView({
   const [editId, setEditId] = useState<string | null>(null);
   const [pinsOpen, setPinsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [threadRootId, setThreadRootId] = useState<string | null>(null);
   const jumpTarget = useChatStore((s) => s.jumpTarget);
   /** Read state when the channel was opened: the "Neue Nachrichten" line stays until you leave. */
   const [readUpTo, setReadUpTo] = useState<string | null>(null);
@@ -112,6 +114,7 @@ export function ChatView({
     setReadUpTo(null);
     setReplyTo(null);
     setEditId(null);
+    setThreadRootId(null);
     lastSentRead.current = null;
   }, [channelId]);
 
@@ -261,6 +264,8 @@ export function ChatView({
     );
   }, []);
 
+  const onThread = useCallback((message: MessageDto) => setThreadRootId(message.id), []);
+
   const onEditHandled = useCallback(() => setEditId(null), []);
 
   const onEditLast = useCallback(() => {
@@ -324,6 +329,8 @@ export function ChatView({
     },
     [channelId],
   );
+
+  const threadRoot = threadRootId ? (messages.find((m) => m.id === threadRootId) ?? null) : null;
 
   return (
     <section
@@ -428,6 +435,7 @@ export function ChatView({
         readUpTo={readUpTo}
         onReact={onReact}
         onReply={onReply}
+        onThread={onThread}
         onPin={canPin ? onPin : undefined}
         canModerate={canModerate}
         authorColors={authorColors}
@@ -454,6 +462,14 @@ export function ChatView({
         onEditLast={onEditLast}
         onTyping={onTyping}
       />
+      {threadRoot && (
+        <ThreadPanel
+          key={threadRoot.id}
+          root={threadRoot}
+          people={channel.guildId ? members : people}
+          onClose={() => setThreadRootId(null)}
+        />
+      )}
       {searchOpen && <SearchDialog channel={channel} onClose={() => setSearchOpen(false)} />}
       {pinsOpen && (
         <PinsPanel

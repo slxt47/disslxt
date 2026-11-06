@@ -511,3 +511,57 @@ describe('events', () => {
     expect(notify.mock.calls[0]?.[0]).toEqual([bob.user.id]);
   });
 });
+
+describe('threads', () => {
+  const reply = (u: TestUser, rootId: string, content: string) =>
+    post(u, `/channels/${channelId}/messages`, { content, threadRootId: rootId });
+  const replies = async (u: TestUser, id: string) =>
+    (await req(app, 'GET', `/api/messages/${id}/thread`, { cookie: u.cookie })).json().replies as {
+      content: string;
+    }[];
+
+  it('replies stay out of the channel, the count shows on the first message', async () => {
+    const root = await say(alice, channelId, 'Frage');
+    expect((await reply(bob, root.id, 'Antwort')).statusCode).toBe(201);
+    await reply(alice, root.id, 'Danke');
+    const list = await history(alice);
+    expect(list.some((m) => m.content === 'Antwort')).toBe(false);
+    const first = list.find((m) => m.id === root.id) as unknown as { threadCount: number };
+    expect(first.threadCount).toBe(2);
+    expect((await replies(bob, root.id)).map((m) => m.content)).toEqual(['Antwort', 'Danke']);
+  });
+
+  it('no threads in threads, none across channels, only for readers', async () => {
+    const root = await say(alice, channelId, 'Frage');
+    const r = (await reply(bob, root.id, 'A')).json().message.id as string;
+    expect((await reply(alice, r, 'B')).statusCode).toBe(400);
+    const other = await createGuild(app, carol, 'Anderer');
+    const foreign = await say(carol, other.general.id, 'x');
+    expect((await reply(alice, foreign.id, 'y')).statusCode).toBe(400);
+    const read = await req(app, 'GET', `/api/messages/${root.id}/thread`, { cookie: carol.cookie });
+    expect(read.statusCode).toBe(403);
+  });
+
+  it('the count goes live; replies do not count as unread', async () => {
+    const host = await listen(app);
+    const ws = await wsReady(host, alice.cookie);
+    sockets.push(ws);
+    await ws.subscribe(channelId);
+    const root = await say(alice, channelId, 'Frage');
+    await post(alice, `/channels/${channelId}/read`, { messageId: root.id });
+    await reply(bob, root.id, 'A');
+    const ev = await ws.waitFor('message.updated', (e) => e.data.message.id === root.id);
+    expect(ev.data.message.threadCount).toBe(1);
+    expect((await unread(alice)).filter((u) => u.count > 0)).toEqual([]);
+  });
+
+  it('deleting a reply lowers the count; deleting the first keeps the replies', async () => {
+    const root = await say(alice, channelId, 'Frage');
+    const a = (await reply(bob, root.id, 'A')).json().message.id as string;
+    await reply(bob, root.id, 'B');
+    await req(app, 'DELETE', `/api/messages/${a}`, { cookie: bob.cookie });
+    expect(await replies(alice, root.id)).toHaveLength(1);
+    await req(app, 'DELETE', `/api/messages/${root.id}`, { cookie: alice.cookie });
+    expect((await history(alice)).some((m) => m.content === 'B')).toBe(true);
+  });
+});

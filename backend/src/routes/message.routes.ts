@@ -56,8 +56,8 @@ export async function messageRoutes(
     },
     async (req, reply) => {
       const id = channelId(req.params);
-      const { content, replyToId } = parse(sendMessageSchema, req.body);
-      const message = await messages.create(currentUser(req), id, content, replyToId);
+      const { content, replyToId, threadRootId } = parse(sendMessageSchema, req.body);
+      const message = await messages.create(currentUser(req), id, content, replyToId, threadRootId);
       return reply.status(201).send({ message });
     },
   );
@@ -136,6 +136,10 @@ export async function messageRoutes(
     const { answer } = parse(rsvpSchema, req.body);
     return { event: await schedule.rsvp(currentUser(req).id, id, answer) };
   });
+
+  app.get<MessageParams>('/messages/:messageId/thread', async (req) => ({
+    replies: await messages.thread(currentUser(req).id, messageId(req.params)),
+  }));
 
   app.get('/unread', async (req) => {
     const user = currentUser(req);

@@ -131,10 +131,13 @@ export const api = {
       `/channels/${enc(channelId)}/messages${qs ? `?${qs}` : ''}`,
     );
   },
-  sendMessage: (channelId: string, content: string, replyToId?: string) =>
+  listThread: (messageId: string) =>
+    apiRequest<{ replies: MessageDto[] }>('GET', `/messages/${enc(messageId)}/thread`),
+  sendMessage: (channelId: string, content: string, replyToId?: string, threadRootId?: string) =>
     apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/messages`, {
       content,
       ...(replyToId ? { replyToId } : {}),
+      ...(threadRootId ? { threadRootId } : {}),
     }),
   search: (params: SearchParams) => {
     const q = new URLSearchParams();

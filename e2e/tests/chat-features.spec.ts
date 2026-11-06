@@ -148,3 +148,26 @@ test('display settings and the keyboard', async ({ browser }) => {
   );
   expect(size).toBe('18px');
 });
+
+test('a thread: replies beside the channel, live on the other side', async ({ browser }) => {
+  const { a, b } = await twoUsersInGuild(browser, 'Threads');
+  await sendMessage(a.page, 'Wer kommt mit?');
+  const atB = messageItem(b.page, 'Wer kommt mit?');
+  await atB.hover();
+  await atB.getByTestId('message-thread').click();
+  const panel = b.page.getByTestId('thread-panel');
+  await panel.getByTestId('composer-input').fill('Ich!');
+  await panel.getByTestId('composer-input').press('Enter');
+  await expect(panel.getByTestId('thread-replies')).toContainText('Ich!');
+
+  const atA = messageItem(a.page, 'Wer kommt mit?');
+  await expect(atA.getByTestId('thread-link')).toHaveText('1 Antwort');
+  await expect(a.page.getByTestId('message-list')).not.toContainText('Ich!');
+  await atA.getByTestId('thread-link').click();
+  const other = a.page.getByTestId('thread-panel');
+  await expect(other.getByTestId('thread-replies')).toContainText('Ich!');
+  await panel.getByTestId('composer-input').fill('Ich auch');
+  await panel.getByTestId('composer-input').press('Enter');
+  await expect(other.getByTestId('thread-replies')).toContainText('Ich auch');
+  await expect(other.getByTestId('thread-count')).toHaveText('2 Antworten');
+});

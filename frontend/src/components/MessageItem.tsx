@@ -43,6 +43,8 @@ export interface MessageItemProps {
   firstUnread?: boolean;
   onReact?: (id: string, emoji: string) => Promise<void>;
   onReply?: (message: MessageDto) => void;
+  /** Opens the thread of this message; without it there is no thread button. */
+  onThread?: (message: MessageDto) => void;
   /** Without it there is no pin button. */
   onPin?: (id: string, pinned: boolean) => Promise<void>;
   /** May delete this message although it is someone else's. */
@@ -93,6 +95,7 @@ function MessageItemImpl({
   firstUnread = false,
   onReact,
   onReply,
+  onThread,
   onPin,
   canModerate = false,
   authorColor,
@@ -390,6 +393,17 @@ function MessageItemImpl({
         </div>
       )}
 
+      {message.threadCount > 0 && onThread && (
+        <button
+          type="button"
+          className="thread-link"
+          data-testid="thread-link"
+          onClick={() => onThread(message)}
+        >
+          {message.threadCount === 1 ? '1 Antwort' : `${message.threadCount} Antworten`}
+        </button>
+      )}
+
       {message.reactions.length > 0 && (
         <div className="reactions" data-testid="reactions">
           {message.reactions.map((r) => {
@@ -488,6 +502,17 @@ function MessageItemImpl({
               onClick={() => onReply(message)}
             >
               <Icon name="reply" size={18} />
+            </button>
+          )}
+          {onThread && (
+            <button
+              className="icon-btn"
+              data-testid="message-thread"
+              aria-label="Thread"
+              title="Thread starten"
+              onClick={() => onThread(message)}
+            >
+              <Icon name="message" size={18} />
             </button>
           )}
           {onPin && (

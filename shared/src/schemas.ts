@@ -341,6 +341,8 @@ export const sendMessageSchema = z.object({
   content: messageContentSchema,
   /** The message this one answers (it must be in the same channel). */
   replyToId: messageIdSchema.optional(),
+  /** Writes into the thread of this message. */
+  threadRootId: messageIdSchema.optional(),
 });
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 

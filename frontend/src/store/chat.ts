@@ -89,6 +89,8 @@ export interface ChatState {
   dms: DmChannelDto[];
   dmsLoaded: boolean;
   categoriesByGuild: Record<string, CategoryDto[]>;
+  /** Replies of the threads opened in this session, per first message. */
+  threadsByRoot: Record<string, MessageDto[]>;
   /** Message to scroll to once its channel is open (from the search). */
   jumpTarget: { channelId: string; messageId: string } | null;
   /** Roles of the opened servers and what they allow me. */
@@ -104,6 +106,7 @@ export interface ChatState {
   setGuilds: (guilds: GuildDto[]) => void;
   setRoles: (guildId: string, roles: GuildRolesDto) => void;
   setCategories: (guildId: string, categories: CategoryDto[]) => void;
+  setThread: (rootId: string, replies: MessageDto[]) => void;
   setJumpTarget: (target: { channelId: string; messageId: string } | null) => void;
   upsertGuild: (guild: GuildDto) => void;
   removeGuild: (guildId: string) => void;
@@ -164,6 +167,7 @@ const initial = {
   dmsLoaded: false,
   rolesByGuild: {} as Record<string, GuildRolesDto>,
   categoriesByGuild: {} as Record<string, CategoryDto[]>,
+  threadsByRoot: {} as Record<string, MessageDto[]>,
   jumpTarget: null as { channelId: string; messageId: string } | null,
   unread: {} as Record<string, UnreadEntry>,
   connection: 'stopped' as ConnectionStatus,
@@ -180,6 +184,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     set((s) => ({ rolesByGuild: { ...s.rolesByGuild, [guildId]: roles } })),
 
   setJumpTarget: (jumpTarget) => set({ jumpTarget }),
+
+  setThread: (rootId, replies) =>
+    set((s) => ({ threadsByRoot: { ...s.threadsByRoot, [rootId]: replies } })),
 
   setCategories: (guildId, categories) =>
     set((s) => ({ categoriesByGuild: { ...s.categoriesByGuild, [guildId]: categories } })),
@@ -258,6 +265,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   upsertMessage: (message) =>
     set((s) => {
+      // Thread replies live in their thread, not in the channel.
+      if (message.threadRootId) {
+        const replies = s.threadsByRoot[message.threadRootId];
+        if (!replies) return {};
+        return {
+          threadsByRoot: {
+            ...s.threadsByRoot,
+            [message.threadRootId]: mergeMessages(replies, [message]),
+          },
+        };
+      }
       const list = s.messagesByChannel[message.channelId];
       // Only track channels that were opened; others are loaded fresh on open.
       if (!list) return {};
@@ -271,9 +289,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   removeMessage: (channelId, messageId) =>
     set((s) => {
+      const threadsByRoot = Object.fromEntries(
+        Object.entries(s.threadsByRoot).map(([root, replies]) => [
+          root,
+          replies.filter((m) => m.id !== messageId),
+        ]),
+      );
       const list = s.messagesByChannel[channelId];
-      if (!list) return {};
+      if (!list) return { threadsByRoot };
       return {
+        threadsByRoot,
         messagesByChannel: {
           ...s.messagesByChannel,
           // An answer stays, without the quote of what is gone.
@@ -310,9 +335,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   setReactions: (channelId, messageId, reactions) =>
     set((s) => {
+      const threadsByRoot = Object.fromEntries(
+        Object.entries(s.threadsByRoot).map(([root, replies]) => [
+          root,
+          replies.map((m) => (m.id === messageId ? { ...m, reactions } : m)),
+        ]),
+      );
       const list = s.messagesByChannel[channelId];
-      if (!list) return {};
+      if (!list) return { threadsByRoot };
       return {
+        threadsByRoot,
         messagesByChannel: {
           ...s.messagesByChannel,
           [channelId]: list.map((m) => (m.id === messageId ? { ...m, reactions } : m)),

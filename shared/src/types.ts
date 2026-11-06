@@ -295,6 +295,10 @@ export interface MessageDto {
   linkPreview: LinkPreviewDto | null;
   poll: PollDto | null;
   event: EventDto | null;
+  /** Reply inside a thread: its first message. */
+  threadRootId: string | null;
+  /** Replies, if a thread hangs off this message. */
+  threadCount: number;
   createdAt: string;
   editedAt: string | null;
 }

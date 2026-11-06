@@ -30,6 +30,8 @@ export function msg(id: number | string, overrides: Partial<MessageDto> = {}): M
     linkPreview: null,
     poll: null,
     event: null,
+    threadRootId: null,
+    threadCount: 0,
     createdAt: '2026-10-20T12:00:00.000Z',
     editedAt: null,
     ...overrides,
