@@ -116,9 +116,14 @@ export function ResetPasswordPage() {
     if (password !== repeat) return setError('Die beiden Passwörter sind verschieden.');
     setBusy(true);
     try {
-      const { user } = await api.resetPassword(token ?? '', password);
-      useAuthStore.setState({ user, status: 'authenticated', loggedOut: false });
-      navigate('/', { replace: true });
+      const result = await api.resetPassword(token ?? '', password);
+      if ('user' in result) {
+        useAuthStore.setState({ user: result.user, status: 'authenticated', loggedOut: false });
+        navigate('/', { replace: true });
+      } else {
+        // With a second factor the new password only gets you to the normal sign-in.
+        navigate('/login', { replace: true });
+      }
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);

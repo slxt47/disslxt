@@ -8,6 +8,10 @@ import { LegalLinks } from '../components/LegalLinks';
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
+  const loginTwoFactor = useAuthStore((s) => s.loginTwoFactor);
+  /** Set once the password was right and the second factor is missing. */
+  const [ticket, setTicket] = useState<string | null>(null);
+  const [code, setCode] = useState('');
   const accountDeleted = useAuthStore((s) => s.accountDeleted);
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -27,8 +31,13 @@ export function LoginPage() {
     }
     setBusy(true);
     try {
-      await login(parsed.data.email, parsed.data.password);
+      const next = await login(parsed.data.email, parsed.data.password);
       // GuestOnly redirects to ?next= once the store says "authenticated".
+      if (next) {
+        setTicket(next);
+        setPassword('');
+        setBusy(false);
+      }
     } catch (err) {
       if (err instanceof ApiRequestError && err.code === 'EMAIL_NOT_VERIFIED') {
         setUnverified(parsed.data.email);
@@ -37,6 +46,67 @@ export function LoginPage() {
       }
       setBusy(false);
     }
+  }
+
+  async function onCode(e: FormEvent) {
+    e.preventDefault();
+    if (!ticket || !code.trim()) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await loginTwoFactor(ticket, code);
+    } catch (err) {
+      setError(errorMessage(err));
+      setCode('');
+      setBusy(false);
+      // The ticket ran out: back to the password.
+      if (err instanceof ApiRequestError && err.message.includes('von vorne')) setTicket(null);
+    }
+  }
+
+  if (ticket) {
+    return (
+      <main className="auth-page">
+        <form className="auth-card" onSubmit={onCode} noValidate aria-labelledby="code-title">
+          <h1 id="code-title">Code eingeben</h1>
+          <p className="muted">Den Code aus deiner Authenticator-App, oder einen Ersatzcode.</p>
+          <label>
+            Code
+            <input
+              data-testid="login-code"
+              autoComplete="one-time-code"
+              autoFocus
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+          </label>
+          {error && (
+            <p className="form-error" role="alert" data-testid="form-error">
+              {error}
+            </p>
+          )}
+          <button
+            className="btn primary"
+            type="submit"
+            data-testid="login-code-submit"
+            disabled={busy}
+          >
+            {busy ? 'Prüfe…' : 'Anmelden'}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setTicket(null);
+              setError(null);
+            }}
+          >
+            Zurück
+          </button>
+        </form>
+        <LegalLinks />
+      </main>
+    );
   }
 
   return (

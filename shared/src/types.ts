@@ -120,6 +120,33 @@ export interface GuildRolesDto {
   myPermissions: GuildPermission[];
 }
 
+/** Answer of a login: signed in, or the second factor is still missing. */
+export type LoginResultDto = { user: UserDto } | { twoFactor: true; ticket: string };
+
+export interface TwoFactorStatusDto {
+  enabled: boolean;
+  /** Unused recovery codes. */
+  recoveryCodesLeft: number;
+  /** The server has a key for it (otherwise setup is not possible). */
+  available: boolean;
+}
+
+export interface TwoFactorSetupDto {
+  /** For typing in by hand. */
+  secret: string;
+  /** otpauth:// link, shown as a QR code. */
+  uri: string;
+}
+
+/** A signed-in device. */
+export interface SessionDto {
+  id: string;
+  device: string | null;
+  createdAt: string;
+  lastSeenAt: string | null;
+  current: boolean;
+}
+
 export interface GuildBanDto {
   user: PublicUserDto;
   createdAt: string;
@@ -308,6 +335,8 @@ export type ErrorCode =
   | 'FORBIDDEN'
   | 'OWNER_PROTECTED'
   | 'BANNED'
+  | 'TWO_FACTOR_INVALID'
+  | 'TWO_FACTOR_LOCKED'
   | 'BAD_ORIGIN'
   | 'NOT_AUTHOR'
   | 'NOT_FOUND'

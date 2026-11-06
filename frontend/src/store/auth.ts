@@ -15,7 +15,9 @@ interface AuthState {
   /** True after the account was deleted (the sign-in page says so). */
   accountDeleted: boolean;
   loadMe: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  /** Null: signed in. Otherwise the ticket for the second step. */
+  login: (email: string, password: string) => Promise<string | null>;
+  loginTwoFactor: (ticket: string, code: string) => Promise<void>;
   /** Starts a sign-up; the account exists only after the e-mail link is confirmed. */
   register: (email: string, username: string, password: string, next?: string) => Promise<void>;
   /** Redeems a confirmation link and logs in. Returns the in-app path to continue at. */
@@ -48,7 +50,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   login: async (email, password) => {
-    const { user } = await api.login({ email, password });
+    const result = await api.login({ email, password });
+    if ('twoFactor' in result) return result.ticket;
+    set({ user: result.user, status: 'authenticated', loggedOut: false });
+    return null;
+  },
+
+  loginTwoFactor: async (ticket, code) => {
+    const { user } = await api.loginTwoFactor(ticket, code);
     set({ user, status: 'authenticated', loggedOut: false });
   },
 

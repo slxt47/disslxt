@@ -1,16 +1,29 @@
 import { and, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import {
+  LOGIN_CHALLENGE_TTL_MINUTES,
   PASSWORD_RESET_TTL_MINUTES,
   passwordProblems,
+  TWO_FACTOR_LOCK_MINUTES,
+  TWO_FACTOR_MAX_FAILURES,
   type LoginInput,
   type RegisterInput,
   type UserDto,
 } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import type { Database } from '../db/client.js';
-import { mailLog, passwordResets, pendingRegistrations, sessions, users } from '../db/schema.js';
 import {
+  loginChallenges,
+  mailLog,
+  passwordResets,
+  pendingRegistrations,
+  recoveryCodes,
+  sessions,
+  users,
+  type User,
+} from '../db/schema.js';
+import {
+  AppError,
   emailNotVerified,
   invalidCredentials,
   resetInvalid,
@@ -21,12 +34,19 @@ import {
 import type { Mailer, MailMessage } from '../lib/mailer.js';
 import { accountExistsMail, passwordResetMail, verificationMail } from '../lib/mailTemplates.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
+import { open } from '../lib/secretBox.js';
 import { randomToken, sha256 } from '../lib/tokens.js';
+import { matchTotp } from '../lib/totp.js';
 import { profileColumns, toUserDto } from './dto.js';
 
 export interface AuthResult {
   user: UserDto;
   token: string;
+}
+
+/** Password right, second factor missing. */
+export interface LoginChallenge {
+  ticket: string;
 }
 
 export interface VerifyResult extends AuthResult {
@@ -35,6 +55,11 @@ export interface VerifyResult extends AuthResult {
 }
 
 type MailKind = 'verification' | 'account_exists' | 'password_reset';
+
+const LAST_SEEN_STEP_MS = 5 * 60 * 1000;
+
+const twoFactorInvalid = (message = 'Der Code stimmt nicht') =>
+  new AppError('TWO_FACTOR_INVALID', 401, message);
 
 const MAIL_ATTEMPTS = 3;
 const MAIL_RETRY_BASE_MS = 2000;
@@ -45,7 +70,7 @@ export class AuthService {
 
   constructor(
     private readonly db: Database,
-    private readonly config: Pick<Config, 'sessionTtlDays' | 'publicUrl' | 'mail'>,
+    private readonly config: Pick<Config, 'sessionTtlDays' | 'publicUrl' | 'mail' | 'twoFactorKey'>,
     private readonly mailer: Mailer,
     private readonly log: FastifyBaseLogger,
   ) {}
@@ -94,7 +119,7 @@ export class AuthService {
    * Redeems a confirmation link: creates the account from the pending registration the link
    * belongs to, drops every other pending registration for that address and logs the user in.
    */
-  async verifyEmail(token: string): Promise<VerifyResult> {
+  async verifyEmail(token: string, device: string | null = null): Promise<VerifyResult> {
     return this.db.transaction(async (tx) => {
       const [pending] = await tx
         .select()
@@ -135,6 +160,8 @@ export class AuthService {
       await tx.insert(sessions).values({
         userId: row.id,
         tokenHash: sha256(sessionToken),
+        device,
+        lastSeenAt: new Date(),
         expiresAt: this.sessionExpiry(),
       });
       return { user: toUserDto(row), token: sessionToken, next: pending.nextPath };
@@ -207,10 +234,16 @@ export class AuthService {
   }
 
   /**
-   * Sets the new password from a reset link: the link is used up, every existing session ends
-   * (all devices are signed out) and this browser is signed in with a fresh session.
+   * Sets the new password from a reset link: the link is used up and every existing session ends
+   * (all devices are signed out). This browser is signed in with a fresh session, unless the
+   * account has a second factor: a mailbox alone must not get around it, so `token` stays null
+   * and the normal sign-in follows.
    */
-  async resetPassword(token: string, password: string): Promise<AuthResult> {
+  async resetPassword(
+    token: string,
+    password: string,
+    device: string | null,
+  ): Promise<{ user: UserDto; token: string | null }> {
     const user = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .delete(passwordResets)
@@ -233,13 +266,16 @@ export class AuthService {
         .set({ passwordHash: await hashPassword(password) })
         .where(eq(users.id, u.id));
       await tx.delete(sessions).where(eq(sessions.userId, u.id));
+      // A half-finished sign-in with the old password ends here too.
+      await tx.delete(loginChallenges).where(eq(loginChallenges.userId, u.id));
       return u;
     });
-    const sessionToken = await this.createSession(user.id);
+    if (user.totpEnabledAt) return { user: toUserDto(user), token: null };
+    const sessionToken = await this.createSession(user.id, device);
     return { user: toUserDto(user), token: sessionToken };
   }
 
-  async login(input: LoginInput): Promise<AuthResult> {
+  async login(input: LoginInput, device: string | null): Promise<AuthResult | LoginChallenge> {
     const email = input.email.toLowerCase();
     const [row] = await this.db
       .select()
@@ -268,8 +304,105 @@ export class AuthService {
     }
     if (!(await verifyPassword(row.passwordHash, input.password))) throw invalidCredentials();
     if (!row.emailVerifiedAt) throw emailNotVerified();
-    const token = await this.createSession(row.id);
+    if (row.totpEnabledAt) return { ticket: await this.createChallenge(row.id, device) };
+    const token = await this.createSession(row.id, device);
     return { user: toUserDto(row), token };
+  }
+
+  private async createChallenge(userId: string, device: string | null): Promise<string> {
+    await this.db.delete(loginChallenges).where(lt(loginChallenges.expiresAt, sql`now()`));
+    const ticket = randomToken();
+    await this.db.insert(loginChallenges).values({
+      tokenHash: sha256(ticket),
+      userId,
+      device,
+      expiresAt: new Date(Date.now() + LOGIN_CHALLENGE_TTL_MINUTES * 60_000),
+    });
+    return ticket;
+  }
+
+  /** Second step of a login. A ticket can be retried until it runs out or the account locks. */
+  async loginTwoFactor(ticket: string, code: string): Promise<AuthResult> {
+    const [challenge] = await this.db
+      .select()
+      .from(loginChallenges)
+      .where(
+        and(
+          eq(loginChallenges.tokenHash, sha256(ticket)),
+          gt(loginChallenges.expiresAt, sql`now()`),
+        ),
+      )
+      .limit(1);
+    if (!challenge) throw twoFactorInvalid('Anmeldung abgelaufen, bitte noch einmal von vorne');
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, challenge.userId))
+      .limit(1);
+    if (!user?.totpEnabledAt)
+      throw twoFactorInvalid('Anmeldung abgelaufen, bitte noch einmal von vorne');
+    await this.checkSecondFactor(user, code);
+    await this.db.delete(loginChallenges).where(eq(loginChallenges.userId, user.id));
+    const token = await this.createSession(user.id, challenge.device);
+    return { user: toUserDto(user), token };
+  }
+
+  /**
+   * Checks an app code or a recovery code (which is then used up). Wrong tries count per account,
+   * not per request: whoever has the password must not be able to try codes without end.
+   */
+  async checkSecondFactor(user: User, code: string): Promise<void> {
+    if (user.totpLockedUntil && user.totpLockedUntil > new Date()) {
+      throw new AppError(
+        'TWO_FACTOR_LOCKED',
+        429,
+        `Zu viele falsche Codes, bitte ${TWO_FACTOR_LOCK_MINUTES} Minuten warten`,
+      );
+    }
+    if (await this.consumeSecondFactor(user, code)) {
+      await this.db
+        .update(users)
+        .set({ totpFailures: 0, totpLockedUntil: null })
+        .where(eq(users.id, user.id));
+      return;
+    }
+    const [row] = await this.db
+      .update(users)
+      .set({ totpFailures: sql`${users.totpFailures} + 1` })
+      .where(eq(users.id, user.id))
+      .returning({ failures: users.totpFailures });
+    if ((row?.failures ?? 0) >= TWO_FACTOR_MAX_FAILURES) {
+      await this.db
+        .update(users)
+        .set({
+          totpFailures: 0,
+          totpLockedUntil: new Date(Date.now() + TWO_FACTOR_LOCK_MINUTES * 60_000),
+        })
+        .where(eq(users.id, user.id));
+    }
+    throw twoFactorInvalid();
+  }
+
+  private async consumeSecondFactor(user: User, raw: string): Promise<boolean> {
+    const code = raw.replace(/[\s-]/g, '').toUpperCase();
+    if (/^\d{6}$/.test(code)) {
+      if (!user.totpSecret || !this.config.twoFactorKey) return false;
+      const secret = open(user.totpSecret, this.config.twoFactorKey);
+      const step = matchTotp(secret, code, user.totpLastStep);
+      if (step === null) return false;
+      // Only moves forward, also when two requests carry the same code.
+      const used = await this.db
+        .update(users)
+        .set({ totpLastStep: step })
+        .where(and(eq(users.id, user.id), lt(users.totpLastStep, step)))
+        .returning({ id: users.id });
+      return used.length > 0;
+    }
+    const used = await this.db
+      .delete(recoveryCodes)
+      .where(and(eq(recoveryCodes.userId, user.id), eq(recoveryCodes.codeHash, sha256(code))))
+      .returning({ userId: recoveryCodes.userId });
+    return used.length > 0;
   }
 
   async logout(token: string): Promise<void> {
@@ -277,16 +410,26 @@ export class AuthService {
   }
 
   async getUserBySession(token: string): Promise<UserDto | null> {
+    const hash = sha256(token);
     const [row] = await this.db
       .select({
         ...profileColumns,
         email: users.email,
+        lastSeenAt: sessions.lastSeenAt,
       })
       .from(sessions)
       .innerJoin(users, eq(users.id, sessions.userId))
-      .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, sql`now()`)))
+      .where(and(eq(sessions.tokenHash, hash), gt(sessions.expiresAt, sql`now()`)))
       .limit(1);
-    return row ? toUserDto(row) : null;
+    if (!row) return null;
+    // Coarse on purpose: the list of devices needs no more, and it spares a write per request.
+    if (!row.lastSeenAt || Date.now() - row.lastSeenAt.getTime() > LAST_SEEN_STEP_MS) {
+      await this.db
+        .update(sessions)
+        .set({ lastSeenAt: new Date() })
+        .where(eq(sessions.tokenHash, hash));
+    }
+    return toUserDto(row);
   }
 
   private async usernameTaken(db: Pick<Database, 'select'>, username: string): Promise<boolean> {
@@ -298,11 +441,15 @@ export class AuthService {
     return !!row;
   }
 
-  private async createSession(userId: string): Promise<string> {
+  private async createSession(userId: string, device: string | null): Promise<string> {
     const token = randomToken();
-    await this.db
-      .insert(sessions)
-      .values({ userId, tokenHash: sha256(token), expiresAt: this.sessionExpiry() });
+    await this.db.insert(sessions).values({
+      userId,
+      tokenHash: sha256(token),
+      device,
+      lastSeenAt: new Date(),
+      expiresAt: this.sessionExpiry(),
+    });
     return token;
   }
 

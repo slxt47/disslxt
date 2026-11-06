@@ -52,6 +52,16 @@ export const users = pgTable(
     tagGuildId: uuid('tag_guild_id'),
     tagText: varchar('tag_text', { length: 4 }),
     tagEmoji: varchar('tag_emoji', { length: 16 }),
+    /** Authenticator secret, encrypted (see secretBox); set during setup, active with the date. */
+    totpSecret: text('totp_secret'),
+    totpEnabledAt: timestamp('totp_enabled_at', { withTimezone: true }),
+    /** Last used time step: a code works once. */
+    totpLastStep: bigint('totp_last_step', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    /** Wrong second factors in a row, and until when further tries are refused. */
+    totpFailures: integer('totp_failures').notNull().default(0),
+    totpLockedUntil: timestamp('totp_locked_until', { withTimezone: true }),
     // Accounts are only created once the address is confirmed, so this is always set for new
     // users; the migration backfills accounts that existed before verification was introduced.
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
@@ -162,10 +172,39 @@ export const sessions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     tokenHash: char('token_hash', { length: 64 }).notNull().unique('sessions_token_hash_uq'),
+    /** Browser and system at sign-in, shown in the list of devices. No IP address is kept. */
+    device: varchar('device', { length: 80 }),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     createdAt: createdAt(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },
   (t) => [index('sessions_user_id_idx').on(t.userId)],
+);
+
+/** The step between password and second factor; proves that the password was right. */
+export const loginChallenges = pgTable(
+  'login_challenges',
+  {
+    tokenHash: char('token_hash', { length: 64 }).primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    device: varchar('device', { length: 80 }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('login_challenges_user_idx').on(t.userId)],
+);
+
+/** One-time codes for when the authenticator is gone; only their hashes are stored. */
+export const recoveryCodes = pgTable(
+  'recovery_codes',
+  {
+    codeHash: char('code_hash', { length: 64 }).primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (t) => [index('recovery_codes_user_idx').on(t.userId)],
 );
 
 export const guilds = pgTable('guilds', {

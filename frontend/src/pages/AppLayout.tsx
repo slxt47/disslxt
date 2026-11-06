@@ -16,6 +16,7 @@ import { ConnectionBanner } from '../components/ConnectionBanner';
 import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
 import { InstallBanner } from '../components/InstallBanner';
+import { SecuritySettings } from '../components/SecuritySettings';
 import { SettingsDialog } from '../components/SettingsDialog';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { SpeechSettings } from '../components/SpeechSettings';
@@ -265,6 +266,7 @@ export function AppLayout() {
             <>
               <ProfileSettings />
               <AdminSettings />
+              <SecuritySettings />
               <AppearanceSettings />
               <SpeechSettings />
               <VoiceSettings />

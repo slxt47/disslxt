@@ -53,6 +53,12 @@ export const GUILD_PERMISSIONS = [
 export const ROLES_PER_GUILD_MAX = 20;
 export const ROLE_NAME_MAX_LEN = 32;
 
+/** Second factor: time to enter the code, and the brake on wrong ones (per account). */
+export const LOGIN_CHALLENGE_TTL_MINUTES = 5;
+export const TWO_FACTOR_MAX_FAILURES = 10;
+export const TWO_FACTOR_LOCK_MINUTES = 15;
+export const RECOVERY_CODE_COUNT = 10;
+
 /** How many badges one person can show next to their name. */
 export const BADGES_SHOWN_MAX = 3;
 

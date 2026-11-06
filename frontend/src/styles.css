@@ -4241,3 +4241,55 @@ img.lightbox-media.zoomed {
   display: flex;
   flex-direction: column;
 }
+
+/* Account security */
+.qr-code {
+  display: block;
+  width: 200px;
+  height: 200px;
+  margin: 8px auto;
+  border-radius: var(--radius-sm);
+}
+.two-factor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.recovery-codes ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin: 10px 0;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+.session-list {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.session-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.session-list span {
+  min-width: 0;
+}
+.session-list small {
+  display: block;
+  color: var(--text-tertiary);
+}
+.pill-note {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
+  font-size: 0.75rem;
+}

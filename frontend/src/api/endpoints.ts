@@ -15,13 +15,17 @@ import type {
   GuildRolesDto,
   InvitePreviewDto,
   InviteSettingsInput,
+  LoginResultDto,
   MemberDto,
   MessageDto,
   PushConfigDto,
   ReactionDto,
   RoleDto,
   RoleInput,
+  SessionDto,
   TurnUsageDto,
+  TwoFactorSetupDto,
+  TwoFactorStatusDto,
   UnreadDto,
   UserDto,
 } from '@disslxt/shared';
@@ -37,12 +41,32 @@ export const api = {
   resendVerification: (email: string) =>
     apiRequest<{ status: 'verification_sent' }>('POST', '/auth/resend-verification', { email }),
   login: (input: { email: string; password: string }) =>
-    apiRequest<{ user: UserDto }>('POST', '/auth/login', input),
+    apiRequest<LoginResultDto>('POST', '/auth/login', input),
+  loginTwoFactor: (ticket: string, code: string) =>
+    apiRequest<{ user: UserDto }>('POST', '/auth/login/two-factor', { ticket, code }),
+  twoFactorStatus: () => apiRequest<TwoFactorStatusDto>('GET', '/account/two-factor'),
+  twoFactorSetup: (password: string) =>
+    apiRequest<TwoFactorSetupDto>('POST', '/account/two-factor/setup', { password }),
+  twoFactorEnable: (code: string) =>
+    apiRequest<{ recoveryCodes: string[] }>('POST', '/account/two-factor/enable', { code }),
+  twoFactorDisable: (password: string, code: string) =>
+    apiRequest<void>('POST', '/account/two-factor/disable', { password, code }),
+  twoFactorRecoveryCodes: (password: string, code: string) =>
+    apiRequest<{ recoveryCodes: string[] }>('POST', '/account/two-factor/recovery-codes', {
+      password,
+      code,
+    }),
+  listSessions: () => apiRequest<{ sessions: SessionDto[] }>('GET', '/account/sessions'),
+  endSession: (id: string) => apiRequest<void>('DELETE', `/account/sessions/${enc(id)}`),
+  endOtherSessions: () => apiRequest<{ ended: number }>('POST', '/account/sessions/end-others'),
   logout: () => apiRequest<void>('POST', '/auth/logout'),
   forgotPassword: (email: string) =>
     apiRequest<{ status: 'reset_sent' }>('POST', '/auth/forgot-password', { email }),
   resetPassword: (token: string, password: string) =>
-    apiRequest<{ user: UserDto }>('POST', '/auth/reset-password', { token, password }),
+    apiRequest<{ user: UserDto } | { signIn: true }>('POST', '/auth/reset-password', {
+      token,
+      password,
+    }),
   adminStorage: () =>
     apiRequest<{ usedBytes: number; limitBytes: number }>('GET', '/admin/storage'),
   me: () => apiRequest<{ user: UserDto }>('GET', '/auth/me'),

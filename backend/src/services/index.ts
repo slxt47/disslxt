@@ -12,6 +12,7 @@ import { GuildService } from './guild.service.js';
 import { MessageService } from './message.service.js';
 import { PermissionService } from './permission.service.js';
 import { RoleService } from './role.service.js';
+import { SecurityService } from './security.service.js';
 import { IceService } from './ice.service.js';
 import { PushService } from './push.service.js';
 import { TurnUsageService } from './turnUsage.service.js';
@@ -40,6 +41,7 @@ export interface Services {
   badges: BadgeService;
   admin: AdminService;
   roles: RoleService;
+  security: SecurityService;
 }
 
 export function createServices(
@@ -52,6 +54,7 @@ export function createServices(
   opts: { fetchFn?: typeof fetch } = {},
 ): Services {
   const auth = new AuthService(db, config, mailer, log);
+  const security = new SecurityService(db, hub, auth, config);
   const push = new PushService(db, hub, config, pushSender, log);
   const storage = new StorageService(db, config.storage.root, config.storage.limitBytes);
   const images = new ImageStore(config.avatars.dir, storage);
@@ -110,5 +113,6 @@ export function createServices(
     badges,
     admin,
     roles,
+    security,
   };
 }

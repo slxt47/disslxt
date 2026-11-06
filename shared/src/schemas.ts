@@ -91,6 +91,31 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/** Six digits from the app, or a recovery code. */
+export const twoFactorCodeSchema = z
+  .string()
+  .trim()
+  .min(6, 'Code fehlt')
+  .max(32)
+  .regex(/^[A-Za-z0-9 -]+$/, 'Ungültiger Code');
+
+export const loginTwoFactorSchema = z.object({
+  ticket: z.string().min(1).max(128),
+  code: twoFactorCodeSchema,
+});
+
+export const passwordConfirmSchema = z.object({
+  password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
+});
+
+export const enableTwoFactorSchema = z.object({ code: twoFactorCodeSchema });
+
+/** Switching off or new recovery codes: password and second factor. */
+export const confirmTwoFactorSchema = z.object({
+  password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
+  code: twoFactorCodeSchema,
+});
+
 /** Deleting your own account: the current password confirms it is really you. */
 export const deleteAccountSchema = z.object({
   password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),

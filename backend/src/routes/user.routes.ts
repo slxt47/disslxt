@@ -1,7 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   AVATAR_MAX_BYTES,
+  confirmTwoFactorSchema,
   deleteAccountSchema,
+  enableTwoFactorSchema,
+  passwordConfirmSchema,
   setBadgesSchema,
   setRoleSchema,
   updateProfileSchema,
@@ -11,7 +14,7 @@ import type { Config } from '../config.js';
 import { notFound } from '../lib/errors.js';
 import { acceptImageUploads, sendImage } from '../lib/imageReply.js';
 import { parse, parseParam } from '../lib/validate.js';
-import { currentUser } from '../plugins/auth.js';
+import { currentUser, SESSION_COOKIE } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 
 /** Profile settings and profile pictures (all routes require auth). */
@@ -53,6 +56,84 @@ export async function userRoutes(
       await opts.services.accounts.delete(currentUser(req).id, password);
       app.clearSessionCookie(reply);
       return reply.status(204).send();
+    },
+  );
+
+  // --- Second factor, devices, data export ------------------------------------------------------
+  const { security } = opts.services;
+  // Password and code checks are guesses as well, so they are limited like the login.
+  const guessLimit = {
+    config: {
+      rateLimit: {
+        max: opts.config.rateLimit.loginMax,
+        timeWindow: opts.config.rateLimit.loginWindowMs,
+      },
+    },
+  };
+
+  app.get('/account/two-factor', async (req) => security.status(currentUser(req).id));
+
+  app.post('/account/two-factor/setup', guessLimit, async (req) => {
+    const { password } = parse(passwordConfirmSchema, req.body);
+    return security.startSetup(currentUser(req).id, password);
+  });
+
+  app.post('/account/two-factor/enable', guessLimit, async (req) => {
+    const { code } = parse(enableTwoFactorSchema, req.body);
+    return { recoveryCodes: await security.enable(currentUser(req).id, code) };
+  });
+
+  app.post('/account/two-factor/disable', guessLimit, async (req, reply) => {
+    const { password, code } = parse(confirmTwoFactorSchema, req.body);
+    await security.disable(currentUser(req).id, password, code);
+    return reply.status(204).send();
+  });
+
+  app.post('/account/two-factor/recovery-codes', guessLimit, async (req) => {
+    const { password, code } = parse(confirmTwoFactorSchema, req.body);
+    return { recoveryCodes: await security.newRecoveryCodes(currentUser(req).id, password, code) };
+  });
+
+  const sessionToken = (req: FastifyRequest): string => req.cookies[SESSION_COOKIE] ?? '';
+
+  app.get('/account/sessions', async (req) => ({
+    sessions: await security.sessions(currentUser(req).id, sessionToken(req)),
+  }));
+
+  app.delete<{ Params: { sessionId: string } }>(
+    '/account/sessions/:sessionId',
+    async (req, reply) => {
+      const id = parseParam(uuidSchema, req.params.sessionId, () =>
+        notFound('Sitzung nicht gefunden'),
+      );
+      await security.endSession(currentUser(req).id, id);
+      return reply.status(204).send();
+    },
+  );
+
+  app.post('/account/sessions/end-others', async (req) => ({
+    ended: await security.endOtherSessions(currentUser(req).id, sessionToken(req)),
+  }));
+
+  // One file with everything; limited per person, because it reads all of their messages.
+  app.get(
+    '/account/export',
+    {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: 60 * 60 * 1000,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req, reply) => {
+      const data = await security.exportData(currentUser(req).id);
+      return reply
+        .header('Content-Disposition', 'attachment; filename="disslxt-export.json"')
+        .header('Cache-Control', 'no-store')
+        .send(data);
     },
   );
 

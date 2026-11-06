@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   forgotPasswordSchema,
   loginSchema,
+  loginTwoFactorSchema,
   resetPasswordSchema,
   registerSchema,
   resendVerificationSchema,
@@ -13,6 +14,7 @@ import { WS_CLOSE } from '@disslxt/shared';
 import type { Hub } from '../realtime/hub.js';
 import type { Services } from '../services/index.js';
 import { parse } from '../lib/validate.js';
+import { deviceName } from '../lib/device.js';
 import { sha256 } from '../lib/tokens.js';
 
 export async function authRoutes(
@@ -46,7 +48,7 @@ export async function authRoutes(
   // cannot burn the token. A successful confirmation logs the user in.
   app.post('/auth/verify-email', { config: loginLimit }, async (req, reply) => {
     const { token } = parse(verifyEmailSchema, req.body);
-    const { user, token: sessionToken, next } = await auth.verifyEmail(token);
+    const { user, token: sessionToken, next } = await auth.verifyEmail(token, deviceName(req));
     app.setSessionCookie(reply, sessionToken);
     return { user, next };
   });
@@ -66,17 +68,31 @@ export async function authRoutes(
   // Ends every session of the account (closing their sockets) and signs this browser in.
   app.post('/auth/reset-password', { config: loginLimit }, async (req, reply) => {
     const { token, password } = parse(resetPasswordSchema, req.body);
-    const { user, token: sessionToken } = await auth.resetPassword(token, password);
+    const { user, token: sessionToken } = await auth.resetPassword(
+      token,
+      password,
+      deviceName(req),
+    );
     for (const c of opts.hub.allClients()) {
       if (c.userId === user.id) c.socket.close(WS_CLOSE.UNAUTHORIZED, 'password changed');
     }
+    // With a second factor nobody is signed in here: the normal login follows.
+    if (!sessionToken) return { signIn: true };
     app.setSessionCookie(reply, sessionToken);
     return { user };
   });
 
   app.post('/auth/login', { config: loginLimit }, async (req, reply) => {
     const input = parse(loginSchema, req.body);
-    const { user, token } = await auth.login(input);
+    const result = await auth.login(input, deviceName(req));
+    if ('ticket' in result) return { twoFactor: true, ticket: result.ticket };
+    app.setSessionCookie(reply, result.token);
+    return { user: result.user };
+  });
+
+  app.post('/auth/login/two-factor', { config: loginLimit }, async (req, reply) => {
+    const { ticket, code } = parse(loginTwoFactorSchema, req.body);
+    const { user, token } = await auth.loginTwoFactor(ticket, code);
     app.setSessionCookie(reply, token);
     return { user };
   });

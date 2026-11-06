@@ -476,6 +476,26 @@ kontoweiten Rollen `owner`/`admin`/`user` aus dem Admin-Bereich.
 - **Sperre:** `guild_bans`; Vorschau und Beitritt melden `BANNED`, auch für Leute, die schon weg sind.
   Rollen verschwinden mit der Mitgliedschaft (Fremdschlüssel).
 
+## Konto-Sicherheit: Zwei-Faktor, Geräte, Datenexport
+
+Migration `0014_account_security`, neue Variable `TWO_FACTOR_KEY` (32 Byte Base64, siehe
+`.env.example`). Ohne sie lässt sich 2FA nicht einrichten. Geht sie verloren, kommen Betroffene nur
+noch mit Ersatzcodes an ihr Konto, deshalb gehört sie gesichert wie die `.env`.
+
+- **TOTP** nach RFC 6238 (`lib/totp.ts`, ohne Fremdbibliothek): 6 Ziffern, 30 s, ±1 Schritt. Das
+  Geheimnis liegt AES-256-GCM-verschlüsselt in der DB (`lib/secretBox.ts`), ein Dump allein reicht
+  nicht. Ein Code gilt nur einmal (`totp_last_step`).
+- **Anmeldung in zwei Schritten:** `POST /api/auth/login` gibt bei aktivem 2FA nur `{ twoFactor,
+  ticket }`, keine Sitzung. `POST /api/auth/login/two-factor` löst das Ticket ein (5 Minuten gültig).
+- **Bremse pro Konto:** Nach 10 falschen Codes 15 Minuten Sperre, unabhängig von IP und Ticket.
+- **Passwort-Reset** meldet Konten mit 2FA nicht mehr an, sonst würde das E-Mail-Postfach allein
+  reichen. Antwort `{ signIn: true }`, offene Tickets verfallen.
+- **Ersatzcodes:** 10 Stück, nur als Hash gespeichert, je einmal nutzbar.
+- **Geräte:** `sessions.device` („Firefox auf Windows"), `last_seen_at` alle 5 Minuten, keine
+  IP-Adresse. `GET /api/account/sessions`, einzeln oder alle anderen abmelden, Sockets gehen sofort zu.
+- **Export:** `GET /api/account/export`, JSON, 3 pro Stunde. Ohne Hashes und Geheimnisse. Dateien
+  erscheinen mit Namen, nicht als Inhalt.
+
 ## Audio-Geräte im Sprachkanal
 
 „Beitreten“ öffnet zuerst ein Menü: Mikrofon wählen (mit Live-Pegel), Ausgabe wählen

@@ -77,6 +77,7 @@ services:
       # TURN stops for the rest of the month at this much relayed traffic (Cloudflare: 1000 GB free).
       TURN_MONTHLY_LIMIT_GB: ${TURN_MONTHLY_LIMIT_GB:-900}
       # GIF picker (official GIPHY API, https://developers.giphy.com); empty = no GIF button.
+      TWO_FACTOR_KEY: ${TWO_FACTOR_KEY:-}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       # Cap for everything posted (uploads + message text); beyond it new posts get 507.
       STORAGE_LIMIT_GB: ${STORAGE_LIMIT_GB:-40}
