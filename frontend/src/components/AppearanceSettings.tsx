@@ -12,7 +12,6 @@ import {
 import { Icon, type IconName } from './Icon';
 
 const OPTIONS: { value: Theme; label: string; icon: IconName }[] = [
-  { value: 'system', label: 'Automatisch', icon: 'auto' },
   { value: 'light', label: 'Hell', icon: 'sun' },
   { value: 'dark', label: 'Dunkel', icon: 'moon' },
 ];

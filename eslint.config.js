@@ -7,6 +7,7 @@ import globals from 'globals';
 export default tseslint.config(
   {
     ignores: [
+      'sites/shared/modus.js',
       '**/node_modules/**',
       '**/dist/**',
       '**/coverage/**',

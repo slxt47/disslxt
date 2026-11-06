@@ -59,11 +59,18 @@ export function ServerList({
                 className={`guild-icon${g.id === activeGuildId ? ' active' : ''}${g.iconUrl ? ' has-image' : ''}`}
                 data-testid={`guild-item-${g.id}`}
                 title={g.name}
-                aria-label={`${g.name}${count ? ` – ${count} ungelesen` : ''}`}
                 style={{ '--hue': nameHue(g.name) } as CSSProperties}
                 aria-current={g.id === activeGuildId ? 'page' : undefined}
               >
-                {g.iconUrl ? <img src={g.iconUrl} alt="" /> : guildInitials(g.name)}
+                {g.iconUrl ? (
+                  <img src={g.iconUrl} alt="" />
+                ) : (
+                  <span aria-hidden="true">{guildInitials(g.name)}</span>
+                )}
+                <span className="sr-only">
+                  {g.name}
+                  {count ? ` – ${count} ungelesen` : ''}
+                </span>
                 {mentions > 0 && (
                   <span className="badge" data-testid={`guild-mentions-${g.id}`} aria-hidden="true">
                     {mentions > 99 ? '99+' : mentions}

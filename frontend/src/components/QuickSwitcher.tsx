@@ -107,6 +107,11 @@ export function QuickSwitcher({ onClose }: { onClose: () => void }) {
       <input
         className="search-input"
         autoFocus
+        role="combobox"
+        aria-expanded={shown.length > 0}
+        aria-controls="switcher-list"
+        aria-autocomplete="list"
+        aria-activedescendant={shown.length > 0 ? `switcher-option-${current}` : undefined}
         aria-label="Kanal oder Unterhaltung"
         placeholder="Kanal oder Unterhaltung…"
         value={query}
@@ -120,19 +125,21 @@ export function QuickSwitcher({ onClose }: { onClose: () => void }) {
       {shown.length === 0 ? (
         <p className="muted">Nichts gefunden.</p>
       ) : (
-        <ul className="switcher-list" role="listbox">
+        <ul className="switcher-list" id="switcher-list" role="listbox" aria-label="Treffer">
           {shown.map((t, i) => (
-            <li key={t.key} role="option" aria-selected={i === current}>
-              <button
-                type="button"
-                className={i === current ? 'active' : ''}
-                data-testid={`switcher-${t.label}`}
-                onClick={() => go(t)}
-              >
-                <Icon name={t.icon} size={16} />
-                <span>{t.label}</span>
-                <small>{t.hint}</small>
-              </button>
+            // Arrows and Enter work from the field; the row itself is only for the mouse.
+            <li
+              key={t.key}
+              id={`switcher-option-${i}`}
+              role="option"
+              aria-selected={i === current}
+              className={i === current ? 'active' : ''}
+              data-testid={`switcher-${t.label}`}
+              onClick={() => go(t)}
+            >
+              <Icon name={t.icon} size={16} />
+              <span>{t.label}</span>
+              <small>{t.hint}</small>
             </li>
           ))}
         </ul>

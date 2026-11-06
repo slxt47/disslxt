@@ -4,29 +4,28 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { usePrefs } from '../store/prefs';
 
-afterEach(() => usePrefs.getState().set({ theme: 'system' }));
+afterEach(() => usePrefs.getState().set({ theme: 'dark' }));
 
 describe('appearance', () => {
-  it('Hell / Dunkel / Automatisch set data-theme and the bar colour, and persist', async () => {
+  it('Hell / Dunkel set data-theme and the bar colour, and persist', async () => {
     const meta = document.createElement('meta');
     meta.name = 'theme-color';
-    meta.media = '(prefers-color-scheme: light)';
     document.head.appendChild(meta);
     render(<AppearanceSettings />);
-    expect(screen.getByTestId('theme-system').getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('theme-dark').getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByTestId('theme-system')).toBeNull();
 
+    await userEvent.click(screen.getByTestId('theme-light'));
     await userEvent.click(screen.getByTestId('theme-dark'));
     expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(meta.content).toBe('#09090e');
+    expect(meta.content).toBe('#04050d');
     expect(JSON.parse(localStorage.getItem('disslxt:prefs')!).theme).toBe('dark');
     expect(screen.getByTestId('theme-dark').getAttribute('aria-checked')).toBe('true');
 
     await userEvent.click(screen.getByTestId('theme-light'));
     expect(document.documentElement.dataset.theme).toBe('light');
 
-    await userEvent.click(screen.getByTestId('theme-system'));
-    expect(document.documentElement.dataset.theme).toBeUndefined();
-    expect(meta.content).toBe('#eaeaf3');
+    expect(meta.content).toBe('#dfe5ff');
     meta.remove();
   });
 });

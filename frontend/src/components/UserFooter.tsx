@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { nameOf } from '../profile';
 import { useAuthStore } from '../store/auth';
+import { usePrefs } from '../store/prefs';
+import { findTheme } from '../theme/themes';
 import { useVoiceStore } from '../store/voice';
 import { Avatar, Icon } from './Icon';
 import { StatusLine, UserBadges } from './Social';
@@ -9,6 +11,10 @@ import { StatusLine, UserBadges } from './Social';
 export function UserFooter({ onOpenSettings }: { onOpenSettings: () => void }) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const theme = usePrefs((s) => s.theme);
+  const customThemes = usePrefs((s) => s.customThemes);
+  const setPrefs = usePrefs((s) => s.set);
+  const dark = (findTheme(theme, customThemes)?.base ?? theme) !== 'light';
   const navigate = useNavigate();
   const inCall = useVoiceStore((s) => s.channelId !== null);
 
@@ -45,6 +51,15 @@ export function UserFooter({ onOpenSettings }: { onOpenSettings: () => void }) {
         </span>
       </button>
       <span className="footer-actions">
+        <button
+          className="icon-btn"
+          data-testid="mode-switch"
+          aria-label={dark ? 'Zum hellen Modus wechseln' : 'Zum dunklen Modus wechseln'}
+          title={dark ? 'Zum hellen Modus wechseln' : 'Zum dunklen Modus wechseln'}
+          onClick={() => setPrefs({ theme: dark ? 'light' : 'dark' })}
+        >
+          <Icon name={dark ? 'sun' : 'moon'} size={20} />
+        </button>
         <button
           className="icon-btn"
           data-testid="settings-button"

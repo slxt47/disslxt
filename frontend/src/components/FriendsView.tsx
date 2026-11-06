@@ -124,7 +124,6 @@ export function FriendsView({ onOpenMenu }: { onOpenMenu: () => void }) {
               type="button"
               role="tab"
               aria-selected={tab === value}
-              aria-checked={tab === value}
               data-testid={`friends-tab-${value}`}
               onClick={() => setTab(value)}
             >

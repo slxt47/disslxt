@@ -142,7 +142,7 @@ function hslToRgb(h: number, s: number, l: number): Rgb {
   return [f(0) * 255, f(8) * 255, f(4) * 255];
 }
 
-const hsl = (h: number, s: number, l: number) => rgbToHex(hslToRgb(h, s, l));
+export const hsl = (h: number, s: number, l: number) => rgbToHex(hslToRgb(h, s, l));
 
 function luminance([r, g, b]: Rgb): number {
   const c = [r, g, b].map((v) => {
@@ -158,6 +158,11 @@ export function contrast(a: string, b: string): number {
 }
 
 /** Moves a colour's lightness (keeping its hue) until it reaches `min` contrast on `bg`. */
+/** Like readableOn, for text that sits on any of these backgrounds. */
+function readableOnAll(color: string, backgrounds: string[]): string {
+  return backgrounds.reduce((out, bg) => readableOn(out, bg), color);
+}
+
 export function readableOn(color: string, bg: string, min = 4.5): string {
   const [h, s, l] = rgbToHsl(hexToRgb(color));
   const lighter = luminance(hexToRgb(bg)) < 0.2;
@@ -193,17 +198,22 @@ export function themeVars(t: ThemeDef): Record<string, string> {
   const bgTertiary = t.oled ? '#000000' : dark ? hsl(h, sat * 0.35, 4.5) : hsl(h, sat * 0.45, 92.5);
   const bgElevated = t.oled ? '#101014' : dark ? hsl(h, sat * 0.3, 13.5) : '#ffffff';
   const text = dark ? hsl(h, Math.min(25, sat * 0.25), 94) : hsl(h, Math.min(30, sat * 0.3), 10);
-  const textSecondary = readableOn(
+  // The hardest background last: it decides, and the others only get easier.
+  const surfaces = dark
+    ? [bgTertiary, bgSecondary, bg, bgElevated]
+    : [bgElevated, bg, bgSecondary, bgTertiary];
+  const textSecondary = readableOnAll(
     dark ? hsl(h, Math.min(15, sat * 0.2), 70) : hsl(h, Math.min(15, sat * 0.2), 38),
-    bgSecondary,
+    surfaces,
   );
-  const textTertiary = readableOn(dark ? hsl(h, 10, 50) : hsl(h, 10, 55), bgSecondary, 3);
-  const accentText = readableOn(t.accent, bgSecondary);
-  // White or near-black text on the accent gradient, whichever reads better on both ends.
-  const onAccent =
-    Math.min(contrast('#ffffff', t.accent), contrast('#ffffff', t.accent2)) >= 3
-      ? '#ffffff'
-      : '#111118';
+  const textTertiary = readableOnAll(dark ? hsl(h, 10, 60) : hsl(h, 10, 45), surfaces);
+  const accentText = readableOnAll(t.accent, surfaces);
+  // White or near-black on the accent, whichever reads better; then the accent itself is nudged
+  // until that text reaches 4.5:1 on both ends of the gradient.
+  const worstOn = (text: string) => Math.min(contrast(text, t.accent), contrast(text, t.accent2));
+  const onAccent = worstOn('#ffffff') >= worstOn('#111118') ? '#ffffff' : '#111118';
+  const accent = readableOn(t.accent, onAccent);
+  const accent2 = readableOn(t.accent2, onAccent);
   return {
     '--bg': bg,
     '--bg-secondary': bgSecondary,
@@ -216,19 +226,22 @@ export function themeVars(t: ThemeDef): Record<string, string> {
     '--text': text,
     '--text-secondary': textSecondary,
     '--text-tertiary': textTertiary,
-    '--accent': t.accent,
-    '--accent-2': t.accent2,
-    '--accent-hover': shade(t.accent, dark ? 5 : 4),
-    '--accent-pressed': shade(t.accent, -6),
+    '--accent': accent,
+    '--accent-2': accent2,
+    '--accent-hover': shade(accent, dark ? 5 : 4),
+    '--accent-pressed': shade(accent, -6),
     '--accent-text': accentText,
     '--accent-soft': rgba(t.accent, dark ? 0.14 : 0.09),
     '--accent-soft-strong': rgba(t.accent, dark ? 0.25 : 0.16),
     '--on-accent': onAccent,
-    '--focus-ring': `0 0 0 4px ${rgba(t.accent, dark ? 0.38 : 0.24)}`,
+    '--focus-ring': `0 0 0 3px ${accentText}`,
+    '--sky1': bgTertiary,
+    '--sky2': bgSecondary,
+    '--sky3': bg,
+    '--stars': dark && !t.oled ? '1' : '0',
+    '--aurora-a': t.oled ? 'transparent' : rgba(t.accent, 0.16),
+    '--aurora-b': t.oled ? 'transparent' : rgba(t.accent2, 0.12),
     '--glow': `0 10px 30px -6px ${rgba(t.accent, 0.55)}`,
-    '--backdrop': t.oled
-      ? 'none'
-      : `radial-gradient(1200px 600px at 110% -10%, ${rgba(t.accent, dark ? 0.13 : 0.06)}, transparent 60%), radial-gradient(900px 500px at -10% 110%, ${rgba(t.accent2, dark ? 0.09 : 0.05)}, transparent 60%)`,
   };
 }
 

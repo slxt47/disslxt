@@ -1,13 +1,14 @@
-// Applies the theme chosen in the settings before the first paint (no light flash in dark mode).
+// Applies the theme chosen in the settings before the first paint. Dark unless light was chosen.
 // Colour themes also bring their derived colours (stored by the app when the theme was chosen).
 // External file because the CSP allows no inline scripts.
 (function () {
+  var root = document.documentElement;
+  root.dataset.theme = 'dark';
   try {
-    var root = document.documentElement;
     var prefs = JSON.parse(localStorage.getItem('disslxt:prefs') || '{}');
-    if (prefs.theme === 'light' || prefs.theme === 'dark') {
-      root.dataset.theme = prefs.theme;
-    } else if (prefs.theme && prefs.theme !== 'system') {
+    if (prefs.theme === 'light') {
+      root.dataset.theme = 'light';
+    } else if (prefs.theme && prefs.theme !== 'dark' && prefs.theme !== 'system') {
       var stored = JSON.parse(localStorage.getItem('disslxt:theme-vars') || 'null');
       if (stored && (stored.base === 'light' || stored.base === 'dark')) {
         root.dataset.theme = stored.base;
@@ -19,6 +20,6 @@
       }
     }
   } catch {
-    // Storage blocked: follow the system setting.
+    // Storage blocked: stays dark.
   }
 })();
