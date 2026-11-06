@@ -171,8 +171,10 @@ export interface VoicePeerDto {
   displayName: string | null;
   avatarUrl: string | null;
   muted: boolean;
-  /** Camera is on. */
+  /** Sends a picture: camera or screen. */
   video: boolean;
+  /** The picture is a shared screen. */
+  screen?: boolean;
 }
 
 export type MessageAuthorDto = PublicUserDto;

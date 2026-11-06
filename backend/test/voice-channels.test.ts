@@ -116,6 +116,7 @@ describe('joining and signalling', () => {
         avatarUrl: null,
         muted: false,
         video: false,
+        screen: false,
       },
     ]);
     const pj = await a.waitFor('voice.peer-joined');
@@ -369,5 +370,34 @@ describe('ICE servers', () => {
     const res = await req(app, 'GET', '/api/voice/ice-servers', { cookie: alice.cookie });
     expect(res.json().iceServers[0].urls).toEqual(['stun:stun.cloudflare.com:3478']);
     expect(res.headers['cache-control']).toBe('no-store');
+  });
+});
+
+describe('sharing a screen', () => {
+  it('tells the others and shows in the participant list; old clients still work', async () => {
+    const a = await open(alice);
+    const b = await open(bob);
+    a.send({ type: 'voice.join', data: { channelId: voiceId } });
+    await a.waitFor('voice.joined');
+    b.send({ type: 'voice.join', data: { channelId: voiceId } });
+    await b.waitFor('voice.joined');
+    a.send({ type: 'voice.video', data: { video: true, screen: true } });
+    const on = await b.waitFor('voice.peer-video');
+    expect(on.data).toMatchObject({ video: true, screen: true });
+    const state = await b.waitFor('voice.state', (e) => e.data.peers.some((p) => p.screen));
+    expect(state.data.peers.find((p) => p.screen)?.username).toBe(alice.user.username);
+    a.send({ type: 'voice.video', data: { video: true } });
+    const off = await b.waitFor('voice.peer-video', (e) => !e.data.screen);
+    expect(off.data).toMatchObject({ video: true, screen: false });
+  });
+
+  it('someone joining later learns about the screen', async () => {
+    const a = await open(alice);
+    a.send({ type: 'voice.join', data: { channelId: voiceId, video: true, screen: true } });
+    await a.waitFor('voice.joined');
+    const b = await open(bob);
+    b.send({ type: 'voice.join', data: { channelId: voiceId } });
+    const joined = await b.waitFor('voice.joined');
+    expect(joined.data.peers[0]).toMatchObject({ video: true, screen: true });
   });
 });

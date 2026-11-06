@@ -4398,3 +4398,42 @@ img.lightbox-media.zoomed {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Shared screens */
+.screen-stage {
+  position: relative;
+  max-width: 960px;
+  margin: 0 auto 14px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #000;
+}
+.screen-stage .call-video {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+.screen-stage:fullscreen {
+  max-width: none;
+  border-radius: 0;
+}
+.screen-stage:fullscreen .call-video {
+  height: 100vh;
+  max-height: none;
+}
+.screen-label {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.8125rem;
+}
+.screen-full {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+}

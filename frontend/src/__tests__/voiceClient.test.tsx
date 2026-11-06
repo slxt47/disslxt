@@ -323,7 +323,10 @@ describe('VoiceClient', () => {
     await flush();
     client.rejoinAfterReconnect();
     expect(FakePC.all[0]!.closed).toBe(true);
-    expect(sent.at(-1)).toEqual({ type: 'voice.join', data: { channelId: CH, video: false } });
+    expect(sent.at(-1)).toEqual({
+      type: 'voice.join',
+      data: { channelId: CH, video: false, screen: false },
+    });
     expect(deps.getUserMedia).toHaveBeenCalledTimes(1);
   });
 
@@ -572,14 +575,74 @@ describe('TURN metering', () => {
     await client.setVideo(false);
     expect(video.sender.replaceTrack).toHaveBeenLastCalledWith(null);
     expect(camera.stop).toHaveBeenCalled();
-    expect(sent.at(-1)).toEqual({ type: 'voice.video', data: { video: false } });
+    expect(sent.at(-1)).toEqual({ type: 'voice.video', data: { video: false, screen: false } });
     expect(useVoiceStore.getState().video).toBe(false);
 
     client.handle({
       type: 'voice.peer-video',
-      data: { channelId: CH, peerId: 'peer-bob-1', video: true },
+      data: { channelId: CH, peerId: 'peer-bob-1', video: true, screen: false },
     });
     expect(useVoiceStore.getState().peers['peer-bob-1']!.video).toBe(true);
+  });
+
+  it('a shared screen replaces the camera on the connection and hands it back', async () => {
+    const { client, deps, sent } = setup();
+    const camera = { kind: 'video', stop: vi.fn() };
+    const screen = { kind: 'video', stop: vi.fn(), onended: null as null | (() => void) };
+    const camStream = { getVideoTracks: () => [camera] } as unknown as MediaStream;
+    vi.mocked(deps.getUserMedia).mockImplementation(async (c) =>
+      c.video ? camStream : ({ getTracks: () => [], getAudioTracks: () => [] } as never),
+    );
+    const shot = { getVideoTracks: () => [screen] } as unknown as MediaStream;
+    deps.getDisplayMedia = vi.fn(async () => shot);
+    await client.join(CH, null, {}, { video: true });
+    client.handle({
+      type: 'voice.joined',
+      data: { channelId: CH, peerId: 'self-peer-1', peers: [peer('peer-bob-1', 'bob')] },
+    });
+    await flush();
+    const video = FakePC.all[0]!.transceivers[0]!;
+
+    await client.setScreen(true);
+    expect(video.sender.track).toBe(screen);
+    expect(sent.at(-1)).toEqual({ type: 'voice.video', data: { video: true, screen: true } });
+    expect(useVoiceStore.getState().localScreen).toBe(shot);
+    expect(camera.stop).not.toHaveBeenCalled();
+
+    // The browser's own "stop sharing" button.
+    screen.onended?.();
+    await flush();
+    expect(video.sender.track).toBe(camera);
+    expect(sent.at(-1)).toEqual({ type: 'voice.video', data: { video: true, screen: false } });
+    expect(useVoiceStore.getState().localScreen).toBeNull();
+  });
+
+  it('closing the screen picker is no error; other failures say so', async () => {
+    const { client, deps } = setup();
+    deps.getDisplayMedia = vi.fn(async () => {
+      throw new DOMException('no', 'NotAllowedError');
+    });
+    await client.join(CH, null);
+    await client.setScreen(true);
+    expect(useVoiceStore.getState().error).toBeNull();
+    deps.getDisplayMedia = vi.fn(async () => {
+      throw new DOMException('no', 'NotReadableError');
+    });
+    await client.setScreen(true);
+    expect(useVoiceStore.getState().error).toContain('nicht möglich');
+  });
+
+  it('leaving stops the shared screen', async () => {
+    const { client, deps } = setup();
+    const screen = { kind: 'video', stop: vi.fn() };
+    deps.getDisplayMedia = vi.fn(
+      async () => ({ getVideoTracks: () => [screen] }) as unknown as MediaStream,
+    );
+    await client.join(CH, null);
+    await client.setScreen(true);
+    client.leave();
+    expect(screen.stop).toHaveBeenCalled();
+    expect(useVoiceStore.getState().localScreen).toBeNull();
   });
 
   it('calls: a ring shows up, ending it clears it; a declined call is left', async () => {

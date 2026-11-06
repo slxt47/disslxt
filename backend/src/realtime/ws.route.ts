@@ -183,7 +183,7 @@ export async function wsRoutes(
         hub.setVoiceMuted(client, msg.data.muted);
         return;
       case 'voice.video':
-        hub.setVoiceVideo(client, msg.data.video);
+        hub.setVoiceVideo(client, msg.data.video, !!msg.data.screen);
         return;
       case 'call.decline': {
         const { channelId } = msg.data;
@@ -225,7 +225,14 @@ export async function wsRoutes(
           const group = channel.kind === 'group';
           const visibleTo = (await services.channels.audience(channel)) ?? undefined;
           if (client.socket.readyState !== client.socket.OPEN) return;
-          const result = hub.joinVoice(client, channel, { video, audience, group, visibleTo });
+          const screen = !!msg.data.screen;
+          const result = hub.joinVoice(client, channel, {
+            video,
+            screen,
+            audience,
+            group,
+            visibleTo,
+          });
           if (!result.ok) {
             sendTo(client, {
               type: 'error',

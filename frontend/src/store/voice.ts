@@ -19,6 +19,8 @@ export interface VoiceState {
   /** Own camera is on; its picture for the preview. */
   video: boolean;
   localVideo: MediaStream | null;
+  /** Own shared screen, for the preview. */
+  localScreen: MediaStream | null;
   selfSpeaking: boolean;
   /** Remote audio+video per participant (for the video tiles). */
   streams: Record<string, MediaStream>;
@@ -39,6 +41,7 @@ const initial: VoiceState = {
   muted: false,
   video: false,
   localVideo: null,
+  localScreen: null,
   selfSpeaking: false,
   streams: {},
   incoming: null,

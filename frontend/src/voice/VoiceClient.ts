@@ -9,6 +9,8 @@ export interface VoiceDeps {
   send: (msg: WsClientMessage) => boolean;
   iceServers: () => Promise<RTCIceServer[]>;
   getUserMedia: (c: MediaStreamConstraints) => Promise<MediaStream>;
+  /** Asks which screen to share; missing where browsers cannot do it (phones). */
+  getDisplayMedia?: (c: DisplayMediaStreamOptions) => Promise<MediaStream>;
   createPeerConnection: (config: RTCConfiguration) => RTCPeerConnection;
   /** Creates (and attaches) the element that plays one remote participant. */
   createAudio: () => HTMLAudioElement;
@@ -74,6 +76,13 @@ const CAMERA: MediaTrackConstraints = {
 };
 const VIDEO_MAX_BITRATE = 600_000;
 
+/** A screen: text must stay readable, smooth motion matters less. */
+const SCREEN: DisplayMediaStreamOptions = {
+  video: { frameRate: { ideal: 15, max: 30 }, height: { max: 1080 } },
+  audio: false,
+};
+const SCREEN_MAX_BITRATE = 1_500_000;
+
 const MIC_ERRORS: Record<string, string> = {
   NotAllowedError: 'Mikrofon-Zugriff verweigert. Erlaube ihn in den Einstellungen deines Browsers.',
   NotFoundError: 'Kein Mikrofon gefunden.',
@@ -108,6 +117,7 @@ interface Link {
 export class VoiceClient {
   private local: MediaStream | null = null;
   private camera: MediaStreamTrack | null = null;
+  private screen: MediaStreamTrack | null = null;
   private links = new Map<string, Link>();
   private iceServers: RTCIceServer[] = [];
   private audioContext: AudioContext | null = null;
@@ -155,7 +165,7 @@ export class VoiceClient {
     this.applyMute(useVoiceStore.getState().muted);
     this.watchLocal();
     if (opts.video) await this.startCamera().catch((err: unknown) => this.cameraFailed(err));
-    if (!this.deps.send({ type: 'voice.join', data: { channelId, video: !!this.camera } })) {
+    if (!this.deps.send({ type: 'voice.join', data: { channelId, video: !!this.outgoing } })) {
       this.teardown('Keine Verbindung zum Server.');
     }
   }
@@ -187,9 +197,63 @@ export class VoiceClient {
     } else {
       this.stopCamera();
     }
+    await this.publishVideo();
+  }
+
+  /**
+   * Shares a screen or stops it. One picture per person: the screen takes the camera's place on
+   * every connection and hands it back afterwards, so nothing has to be renegotiated.
+   */
+  async setScreen(on: boolean): Promise<void> {
+    if (on === !!this.screen) return;
+    if (!on) {
+      this.stopScreen();
+      await this.publishVideo();
+      return;
+    }
+    if (!this.deps.getDisplayMedia) return;
+    try {
+      const stream = await this.deps.getDisplayMedia(SCREEN);
+      const track = stream.getVideoTracks()[0];
+      if (!track) return;
+      // Left the call while the picker was open.
+      if (!useVoiceStore.getState().channelId) {
+        track.stop();
+        return;
+      }
+      track.contentHint = 'detail';
+      // The browser's own "stop sharing" bar.
+      track.onended = () => void this.setScreen(false);
+      this.screen = track;
+      useVoiceStore.setState({ localScreen: stream, error: null });
+    } catch (err) {
+      // Closing the picker is no error.
+      if (err instanceof DOMException && err.name === 'NotAllowedError') return;
+      useVoiceStore.setState({ error: 'Bildschirm teilen ist nicht möglich.' });
+      return;
+    }
+    await this.publishVideo();
+  }
+
+  private stopScreen(): void {
+    if (this.screen) this.screen.onended = null;
+    this.screen?.stop();
+    this.screen = null;
+    useVoiceStore.setState({ localScreen: null });
+  }
+
+  /** The picture that goes out: a shared screen wins over the camera. */
+  private get outgoing(): MediaStreamTrack | null {
+    return this.screen ?? this.camera;
+  }
+
+  private async publishVideo(): Promise<void> {
     await Promise.all([...this.links.values()].map((l) => this.sendCamera(l)));
     if (useVoiceStore.getState().status === 'connected') {
-      this.deps.send({ type: 'voice.video', data: { video: on } });
+      this.deps.send({
+        type: 'voice.video',
+        data: { video: !!this.outgoing, screen: !!this.screen },
+      });
     }
   }
 
@@ -212,16 +276,16 @@ export class VoiceClient {
     useVoiceStore.setState({ error: CAMERA_ERRORS[name] ?? 'Kamera nicht verfügbar.' });
   }
 
-  /** Puts the current camera picture (or nothing) on a connection's video sender. */
+  /** Puts the current picture (or nothing) on a connection's video sender. */
   private async sendCamera(link: Link): Promise<void> {
     const sender = link.video?.sender;
     if (!sender) return;
     try {
-      await sender.replaceTrack(this.camera);
-      if (!this.camera || !sender.getParameters) return;
+      await sender.replaceTrack(this.outgoing);
+      if (!this.outgoing || !sender.getParameters) return;
       const params = sender.getParameters();
       if (!params.encodings?.length) params.encodings = [{}];
-      params.encodings[0]!.maxBitrate = VIDEO_MAX_BITRATE;
+      params.encodings[0]!.maxBitrate = this.screen ? SCREEN_MAX_BITRATE : VIDEO_MAX_BITRATE;
       await sender.setParameters(params);
     } catch {
       // Older browsers: the picture still goes out, just without the bitrate cap.
@@ -264,7 +328,10 @@ export class VoiceClient {
     if (!channelId || !this.local) return;
     this.closeLinks();
     useVoiceStore.setState({ status: 'joining', peers: {} });
-    this.deps.send({ type: 'voice.join', data: { channelId, video: !!this.camera } });
+    this.deps.send({
+      type: 'voice.join',
+      data: { channelId, video: !!this.outgoing, screen: !!this.screen },
+    });
   }
 
   handle(ev: WsServerMessage): void {
@@ -313,7 +380,7 @@ export class VoiceClient {
         patchPeer(ev.data.peerId, { muted: ev.data.muted });
         return;
       case 'voice.peer-video':
-        patchPeer(ev.data.peerId, { video: ev.data.video });
+        patchPeer(ev.data.peerId, { video: ev.data.video, screen: ev.data.screen });
         return;
       case 'call.ring':
         // Already in this call (e.g. on this device): nothing to answer.
@@ -421,11 +488,11 @@ export class VoiceClient {
     for (const track of this.local?.getTracks() ?? []) pc.addTrack(track, this.local!);
     // The offering side always opens a video line, so the camera can be switched on later.
     if (initiator && pc.addTransceiver) {
-      link.video = pc.addTransceiver(this.camera ?? 'video', {
+      link.video = pc.addTransceiver(this.outgoing ?? 'video', {
         direction: 'sendrecv',
         streams: this.local ? [this.local] : [],
       });
-      if (this.camera) void this.sendCamera(link);
+      if (this.outgoing) void this.sendCamera(link);
     }
 
     pc.onicecandidate = (ev) => {
@@ -522,6 +589,7 @@ export class VoiceClient {
     this.local = null;
     this.camera?.stop();
     this.camera = null;
+    this.stopScreen();
     if (this.levelTimer) clearInterval(this.levelTimer);
     this.levelTimer = null;
     if (this.meterTimer) clearInterval(this.meterTimer);

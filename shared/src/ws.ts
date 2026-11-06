@@ -38,11 +38,18 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
   // `video`: start with the camera on (in a private conversation this also rings as a video call).
   z.object({
     type: z.literal('voice.join'),
-    data: z.object({ channelId: z.guid(), video: z.boolean().optional() }),
+    data: z.object({
+      channelId: z.guid(),
+      video: z.boolean().optional(),
+      screen: z.boolean().optional(),
+    }),
   }),
   z.object({ type: z.literal('voice.leave'), data: z.unknown().optional() }),
   z.object({ type: z.literal('voice.mute'), data: z.object({ muted: z.boolean() }) }),
-  z.object({ type: z.literal('voice.video'), data: z.object({ video: z.boolean() }) }),
+  z.object({
+    type: z.literal('voice.video'),
+    data: z.object({ video: z.boolean(), screen: z.boolean().optional() }),
+  }),
   // Turn down an incoming call in a private conversation (the caller is told).
   z.object({ type: z.literal('call.decline'), data: z.object({ channelId: z.guid() }) }),
   z.object({
@@ -115,7 +122,10 @@ export type WsServerMessage =
   | { type: 'voice.peer-joined'; data: { channelId: string; peer: VoicePeerDto } }
   | { type: 'voice.peer-left'; data: { channelId: string; peerId: string } }
   | { type: 'voice.peer-muted'; data: { channelId: string; peerId: string; muted: boolean } }
-  | { type: 'voice.peer-video'; data: { channelId: string; peerId: string; video: boolean } }
+  | {
+      type: 'voice.peer-video';
+      data: { channelId: string; peerId: string; video: boolean; screen: boolean };
+    }
   | { type: 'voice.signal'; data: { from: string; signal: VoiceSignal } }
   /** To the whole guild: who is in which voice channel (for the channel list). */
   | {

@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { UserDto } from '@disslxt/shared';
 import { nameOf } from '../profile';
 import { useVoiceStore, type VoicePeerState } from '../store/voice';
-import { useVoice } from '../voice/VoiceProvider';
+import { screenShareSupported, useVoice } from '../voice/VoiceProvider';
 import { Avatar, Icon } from './Icon';
 
 const CONNECTION_TEXT: Record<string, string> = {
@@ -34,6 +34,32 @@ export function VideoView({ stream, mirror = false }: { stream: MediaStream; mir
   );
 }
 
+/** A shared screen, large; a click on the button fills the whole display. */
+function ScreenStage({ stream, label, own }: { stream: MediaStream; label: string; own: boolean }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const onChange = () => setFull(document.fullscreenElement === box.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  return (
+    <div className="screen-stage" ref={box} data-testid={own ? 'screen-own' : 'screen-stage'}>
+      <VideoView stream={stream} />
+      <span className="screen-label">{label}</span>
+      {box.current?.requestFullscreen && !own && (
+        <button
+          className="btn small screen-full"
+          data-testid="screen-fullscreen"
+          onClick={() => void (full ? document.exitFullscreen() : box.current?.requestFullscreen())}
+        >
+          {full ? 'Verkleinern' : 'Vollbild'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
  * Everyone in a voice channel or call: camera picture where it is on, otherwise the profile
  * picture with a ring while speaking (as in FaceTime).
@@ -57,52 +83,75 @@ export function CallTiles({
   const localVideo = useVoiceStore((s) => s.localVideo);
   const selfSpeaking = useVoiceStore((s) => s.selfSpeaking);
   const streams = useVoiceStore((s) => s.streams);
-  const anyVideo = (here && video) || others.some((p) => here && p.video && streams[p.peerId]);
+  const localScreen = useVoiceStore((s) => s.localScreen);
+  const sharing = here
+    ? others.filter((p): p is VoicePeerState => !!p.screen && !!streams[p.peerId])
+    : [];
+  const isShared = (p: VoicePeerState) => here && !!p.screen;
+  const anyVideo =
+    (here && video) || others.some((p) => here && p.video && !isShared(p) && streams[p.peerId]);
 
   return (
-    <ul className={`voice-tiles${anyVideo ? ' has-video' : ''}`}>
-      {here && me && (
-        <li
-          className={`voice-tile self${selfSpeaking ? ' speaking' : ''}${video && localVideo ? ' video' : ''}`}
-          data-testid={`voice-tile-${me.username}`}
-        >
-          {video && localVideo ? (
-            <VideoView stream={localVideo} mirror />
-          ) : (
-            <Avatar name={nameOf(me)} url={me.avatarUrl} />
-          )}
-          <span className="voice-name">{nameOf(me)} (du)</span>
-          <span className="voice-sub">
-            {status === 'joining' ? 'Verbinde…' : muted ? 'Stummgeschaltet' : 'Verbunden'}
-          </span>
-          {muted && <Icon name="mic-off" size={16} />}
-        </li>
-      )}
-      {others.map((p) => {
-        const stream = here && p.video ? streams[p.peerId] : undefined;
-        return (
+    <>
+      {sharing.map((p) => (
+        <ScreenStage
+          key={p.peerId}
+          stream={streams[p.peerId]!}
+          label={`Bildschirm von ${nameOf(p)}`}
+          own={false}
+        />
+      ))}
+      {here && localScreen && <ScreenStage stream={localScreen} label="Dein Bildschirm" own />}
+      <ul className={`voice-tiles${anyVideo ? ' has-video' : ''}`}>
+        {here && me && (
           <li
-            key={p.peerId}
-            className={`voice-tile${p.speaking ? ' speaking' : ''}${stream ? ' video' : ''}`}
-            data-testid={`voice-tile-${p.username}`}
-            data-connection={here ? p.connection : 'outside'}
+            className={`voice-tile self${selfSpeaking ? ' speaking' : ''}${video && localVideo ? ' video' : ''}`}
+            data-testid={`voice-tile-${me.username}`}
           >
-            {stream ? <VideoView stream={stream} /> : <Avatar name={nameOf(p)} url={p.avatarUrl} />}
-            <span className="voice-name">{nameOf(p)}</span>
+            {video && localVideo ? (
+              <VideoView stream={localVideo} mirror />
+            ) : (
+              <Avatar name={nameOf(me)} url={me.avatarUrl} />
+            )}
+            <span className="voice-name">{nameOf(me)} (du)</span>
             <span className="voice-sub">
-              {here
-                ? p.connection === 'connected'
-                  ? p.muted
-                    ? 'Stummgeschaltet'
-                    : 'Verbunden'
-                  : (CONNECTION_TEXT[p.connection] ?? '')
-                : outsideLabel}
+              {status === 'joining' ? 'Verbinde…' : muted ? 'Stummgeschaltet' : 'Verbunden'}
             </span>
-            {p.muted && <Icon name="mic-off" size={16} />}
+            {muted && <Icon name="mic-off" size={16} />}
           </li>
-        );
-      })}
-    </ul>
+        )}
+        {others.map((p) => {
+          const stream = here && p.video && !p.screen ? streams[p.peerId] : undefined;
+          return (
+            <li
+              key={p.peerId}
+              className={`voice-tile${p.speaking ? ' speaking' : ''}${stream ? ' video' : ''}`}
+              data-testid={`voice-tile-${p.username}`}
+              data-connection={here ? p.connection : 'outside'}
+            >
+              {stream ? (
+                <VideoView stream={stream} />
+              ) : (
+                <Avatar name={nameOf(p)} url={p.avatarUrl} />
+              )}
+              <span className="voice-name">{nameOf(p)}</span>
+              <span className="voice-sub">
+                {here
+                  ? p.connection === 'connected'
+                    ? p.screen
+                      ? 'Teilt den Bildschirm'
+                      : p.muted
+                        ? 'Stummgeschaltet'
+                        : 'Verbunden'
+                    : (CONNECTION_TEXT[p.connection] ?? '')
+                  : outsideLabel}
+              </span>
+              {p.muted && <Icon name="mic-off" size={16} />}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -111,6 +160,7 @@ export function CallControls({ onDevices }: { onDevices?: () => void }) {
   const voice = useVoice();
   const muted = useVoiceStore((s) => s.muted);
   const video = useVoiceStore((s) => s.video);
+  const sharing = useVoiceStore((s) => !!s.localScreen);
   return (
     <>
       <button
@@ -133,6 +183,18 @@ export function CallControls({ onDevices }: { onDevices?: () => void }) {
       >
         <Icon name={video ? 'video' : 'video-off'} size={22} />
       </button>
+      {screenShareSupported() && (
+        <button
+          className={`btn round${sharing ? ' on' : ''}`}
+          data-testid="voice-screen"
+          aria-pressed={sharing}
+          aria-label={sharing ? 'Teilen beenden' : 'Bildschirm teilen'}
+          title={sharing ? 'Teilen beenden' : 'Bildschirm teilen'}
+          onClick={() => void voice?.setScreen(!sharing)}
+        >
+          <Icon name="screen" size={22} />
+        </button>
+      )}
       {onDevices && (
         <button
           className="btn round"

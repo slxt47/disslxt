@@ -33,6 +33,7 @@ export interface Client {
     peerId: string;
     muted: boolean;
     video: boolean;
+    screen: boolean;
   } | null;
   isAlive: boolean;
   /** Last "is typing" passed on (a brake, the client repeats it every few seconds). */
@@ -266,7 +267,13 @@ export class Hub {
      * `audience`: private call (who hears about it); `group`: it is a group chat; `visibleTo`: a
      * restricted server channel.
      */
-    opts: { video?: boolean; audience?: string[]; group?: boolean; visibleTo?: string[] } = {},
+    opts: {
+      video?: boolean;
+      screen?: boolean;
+      audience?: string[];
+      group?: boolean;
+      visibleTo?: string[];
+    } = {},
   ): VoiceJoinResult {
     if (client.voice) this.leaveVoice(client, 'left');
     for (const other of this.socketsByUser.get(client.userId) ?? []) {
@@ -287,6 +294,7 @@ export class Hub {
       peerId,
       muted: false,
       video: !!opts.video,
+      screen: !!opts.screen,
     };
     room.set(peerId, client);
     if (opts.audience) this.callAudience.set(channel.id, opts.audience);
@@ -360,13 +368,14 @@ export class Hub {
       );
   }
 
-  setVoiceVideo(client: Client, video: boolean): void {
+  setVoiceVideo(client: Client, video: boolean, screen = false): void {
     const voice = client.voice;
-    if (!voice || voice.video === video) return;
+    if (!voice || (voice.video === video && voice.screen === screen)) return;
     voice.video = video;
+    voice.screen = screen;
     const msg: WsServerMessage = {
       type: 'voice.peer-video',
-      data: { channelId: voice.channelId, peerId: voice.peerId, video },
+      data: { channelId: voice.channelId, peerId: voice.peerId, video, screen },
     };
     for (const peer of this.voiceRooms.get(voice.channelId)?.values() ?? []) {
       if (peer !== client) sendTo(peer, msg);
@@ -466,6 +475,7 @@ function peerDto(client: Client): VoicePeerDto {
     avatarUrl: client.avatarUrl,
     muted: client.voice?.muted ?? false,
     video: client.voice?.video ?? false,
+    screen: client.voice?.screen ?? false,
   };
 }
 
