@@ -5,7 +5,7 @@ RUN apt-get update \
   && git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp /src \
   && test "$(git -C /src rev-parse HEAD)" = "d1be6fde11ac6e0407606b4e42fe72d34add8037" \
   && cmake -S /src -B /build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF \
-     -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF \
+     -DBUILD_SHARED_LIBS=OFF \
   && cmake --build /build -j 4 --target whisper-server \
   && curl -fsSL -o /ggml-base.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
   && echo "465707469ff3a37a2b9b8d8f89f2f99de7299dac  /ggml-base.bin" | sha1sum -c -
