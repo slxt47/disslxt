@@ -17,6 +17,8 @@ Bei Änderungen an einer Funktion die Seite mitpflegen.
 - [Anpinnen](anpinnen.md): Wichtige Nachrichten griffbereit halten.
 - [Suche](suche.md): Nachrichten finden, in allem, was man lesen darf.
 - [Link-Vorschau](link-vorschau.md): Titel, Text und Bild unter Nachrichten mit Link.
+- [Umfragen](umfragen.md): Abstimmen direkt im Chat.
+- [Schnellwechsler](schnellwechsler.md): Mit Strg+K per Name zu Kanal oder Unterhaltung springen.
 - [Entwürfe und Tastenkürzel](entwuerfe-und-tastenkuerzel.md): Halbfertiger Text bleibt, Bedienung geht ohne Maus.
 
 ## Medien
