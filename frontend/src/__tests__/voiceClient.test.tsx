@@ -386,6 +386,9 @@ describe('VoiceChannelView', () => {
     name: 'lounge',
     kind: 'voice',
     restricted: false,
+    description: null,
+    categoryId: null,
+    position: 0,
     createdAt: '',
   };
 

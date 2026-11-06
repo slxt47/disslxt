@@ -238,6 +238,13 @@ export class Hub {
     }
   }
 
+  /** The channel is gone: readers and everyone in its call lose it. */
+  closeChannel(guildId: string, channelId: string): void {
+    this.applyChannelAccess(guildId, new Map([[channelId, new Set<string>()]]));
+    this.voiceVisibleTo.delete(channelId);
+    this.callAudience.delete(channelId);
+  }
+
   voiceStateForGuild(guildId: string): Record<string, VoicePeerDto[]> {
     const out: Record<string, VoicePeerDto[]> = {};
     for (const [channelId, room] of this.voiceRooms) {

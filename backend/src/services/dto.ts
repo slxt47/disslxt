@@ -89,6 +89,9 @@ export const toChannelDto = (c: Channel): ChannelDto => ({
   name: c.name,
   kind: c.kind === 'voice' || c.kind === 'dm' || c.kind === 'group' ? c.kind : 'text',
   restricted: c.restricted,
+  description: c.description,
+  categoryId: c.categoryId,
+  position: c.position,
   createdAt: c.createdAt.toISOString(),
 });
 

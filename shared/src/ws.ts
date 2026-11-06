@@ -104,6 +104,8 @@ export type WsServerMessage =
   /** Roles, a member's roles or who sees which channel changed: load them again. */
   | { type: 'guild.roles-changed'; data: { guildId: string } }
   | { type: 'channel.created'; data: { channel: ChannelDto } }
+  /** Channels or categories were renamed, moved or deleted: load them again. */
+  | { type: 'guild.channels-changed'; data: { guildId: string } }
   /** The owner deleted the guild; it is gone for every member. */
   | { type: 'guild.deleted'; data: { guildId: string } }
   /** To the joining socket: its peer id and who is already there (it sends the offers). */

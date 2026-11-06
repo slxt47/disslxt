@@ -1,4 +1,5 @@
 import type {
+  CategoryDto,
   ChannelDto,
   ChannelKind,
   DmChannelDto,
@@ -27,6 +28,7 @@ import type {
   TwoFactorSetupDto,
   TwoFactorStatusDto,
   UnreadDto,
+  UpdateChannelInput,
   UserDto,
 } from '@disslxt/shared';
 import { apiRequest, apiUpload, apiUploadWithProgress } from './client';
@@ -146,6 +148,20 @@ export const api = {
     apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/bans/${enc(userId)}`),
   listBans: (guildId: string) =>
     apiRequest<{ bans: GuildBanDto[] }>('GET', `/guilds/${enc(guildId)}/bans`),
+  updateChannel: (channelId: string, patch: UpdateChannelInput) =>
+    apiRequest<{ channel: ChannelDto }>('PATCH', `/channels/${enc(channelId)}`, patch),
+  deleteChannel: (channelId: string, name: string) =>
+    apiRequest<void>('DELETE', `/channels/${enc(channelId)}`, { name }),
+  orderChannels: (guildId: string, channels: { id: string; categoryId: string | null }[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/channels/order`, { channels }),
+  listCategories: (guildId: string) =>
+    apiRequest<{ categories: CategoryDto[] }>('GET', `/guilds/${enc(guildId)}/categories`),
+  createCategory: (guildId: string, name: string) =>
+    apiRequest<{ category: CategoryDto }>('POST', `/guilds/${enc(guildId)}/categories`, { name }),
+  deleteCategory: (guildId: string, categoryId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/categories/${enc(categoryId)}`),
+  orderCategories: (guildId: string, categoryIds: string[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/categories/order`, { categoryIds }),
   channelAccess: (channelId: string) =>
     apiRequest<{ roleIds: string[] }>('GET', `/channels/${enc(channelId)}/access`),
   setChannelAccess: (channelId: string, restricted: boolean, roleIds: string[]) =>

@@ -36,6 +36,8 @@ export interface Prefs {
   pushToTalkKey: string;
   /** The browser filters background noise from the microphone. */
   noiseSuppression: boolean;
+  /** Categories folded away in the sidebar. */
+  collapsedCategories: string[];
 }
 
 export const FONT_SIZES = [14, 15, 16, 17, 18, 20] as const;
@@ -54,6 +56,7 @@ const defaults: Prefs = {
   pushToTalk: false,
   pushToTalkKey: 'KeyV',
   noiseSuppression: true,
+  collapsedCategories: [],
 };
 
 function load(): Prefs {
@@ -135,6 +138,7 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
       pushToTalk,
       pushToTalkKey,
       noiseSuppression,
+      collapsedCategories,
     } = {
       ...get(),
       ...patch,
@@ -157,6 +161,7 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
           pushToTalk,
           pushToTalkKey,
           noiseSuppression,
+          collapsedCategories,
         }),
       );
     } catch {

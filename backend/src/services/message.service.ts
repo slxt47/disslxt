@@ -185,7 +185,7 @@ export class MessageService {
           eq(channels.restricted, false),
         ),
       )
-      .orderBy(asc(channels.createdAt), asc(channels.name))
+      .orderBy(asc(channels.position), asc(channels.createdAt), asc(channels.name))
       .limit(1);
     if (!channel) return;
     const [row] = await this.db

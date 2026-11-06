@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   BADGES_SHOWN_MAX,
+  CATEGORY_NAME_MAX_LEN,
+  CHANNEL_DESCRIPTION_MAX_LEN,
   CHANNEL_NAME_MAX_LEN,
   DISPLAY_NAME_MAX_LEN,
   STATUS_TEXT_MAX_LEN,
@@ -271,6 +273,46 @@ export const createChannelSchema = z.object({
   kind: z.enum(['text', 'voice']).default('text'),
 });
 export type CreateChannelInput = z.infer<typeof createChannelSchema>;
+
+/** Empty description: none. */
+export const updateChannelSchema = z.object({
+  name: channelNameSchema.optional(),
+  description: z
+    .string()
+    .trim()
+    .refine(
+      (s) => textLength(s) <= CHANNEL_DESCRIPTION_MAX_LEN,
+      `Beschreibung: höchstens ${CHANNEL_DESCRIPTION_MAX_LEN} Zeichen`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Beschreibung enthält unzulässige Steuerzeichen')
+    .optional(),
+  categoryId: z.guid().nullable().optional(),
+});
+export type UpdateChannelInput = z.infer<typeof updateChannelSchema>;
+
+/** The channel's name again: deleting it takes all its messages. */
+export const deleteChannelSchema = z.object({ name: z.string().min(1).max(64) });
+
+export const categorySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name fehlt')
+    .refine(
+      (s) => textLength(s) <= CATEGORY_NAME_MAX_LEN,
+      `Name: höchstens ${CATEGORY_NAME_MAX_LEN} Zeichen`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Name enthält unzulässige Steuerzeichen'),
+});
+
+/** New order: top to bottom, each with its category. */
+export const channelOrderSchema = z.object({
+  channels: z
+    .array(z.object({ id: z.guid(), categoryId: z.guid().nullable() }))
+    .max(500)
+    .refine((list) => new Set(list.map((c) => c.id)).size === list.length, 'Jeder Kanal nur einmal'),
+});
+export const categoryOrderSchema = z.object({ categoryIds: z.array(z.guid()).max(100) });
 
 export const messageContentSchema = z
   .string()

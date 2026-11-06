@@ -23,6 +23,9 @@ const general: ChannelDto = {
   name: 'general',
   kind: 'text',
   restricted: false,
+  description: null,
+  categoryId: null,
+  position: 0,
   createdAt: '2026-10-20T12:00:00.000Z',
 };
 

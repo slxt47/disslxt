@@ -4,6 +4,7 @@ import { runCommand } from '../lib/commands';
 import { clearDrafts, loadDraft, saveDraft } from '../lib/drafts';
 import { ALL_EMOJI, emojiForCode, replaceShortcodes, searchEmoji } from '../lib/emoji';
 import { mentionsUser, renderMarkdown } from '../lib/markdown';
+import { groupChannels, moveChannel } from '../components/ChannelOrganizer';
 import { activeToken, Composer } from '../components/Composer';
 import { MessageItem } from '../components/MessageItem';
 import { inviteStatus } from '../components/InviteSettings';
@@ -496,5 +497,31 @@ describe('roles', () => {
       />,
     );
     expect(screen.getByTestId('message-author').style.color).toBe('rgb(255, 0, 0)');
+  });
+});
+
+describe('channel order', () => {
+  const channel = (id: string, categoryId: string | null) =>
+    ({ id, categoryId, name: id }) as Parameters<typeof groupChannels>[0][number];
+  const cats = [{ id: 'c1', name: 'Eins', position: 0 }];
+
+  it('groups by category; an unknown one counts as none', () => {
+    const groups = groupChannels(
+      [channel('a', null), channel('b', 'c1'), channel('x', 'weg')],
+      cats,
+    );
+    expect(groups.map((g) => g.channels.map((c) => c.id))).toEqual([['a', 'x'], ['b']]);
+  });
+
+  it('moves within a group and into another', () => {
+    const groups = groupChannels(
+      [channel('a', null), channel('b', null), channel('c', 'c1')],
+      cats,
+    );
+    const ids = (g: typeof groups) => g.map((x) => x.channels.map((c) => c.id));
+    expect(ids(moveChannel(groups, 'b', null, 'a'))).toEqual([['b', 'a'], ['c']]);
+    expect(ids(moveChannel(groups, 'a', null, null))).toEqual([['b', 'a'], ['c']]);
+    expect(ids(moveChannel(groups, 'a', 'c1', 'c'))).toEqual([['b'], ['a', 'c']]);
+    expect(ids(moveChannel(groups, 'a', 'c1', null))).toEqual([['b'], ['c', 'a']]);
   });
 });

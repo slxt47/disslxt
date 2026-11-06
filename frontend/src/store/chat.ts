@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  CategoryDto,
   ChannelDto,
   DmChannelDto,
   FriendDto,
@@ -85,6 +86,7 @@ export interface ChatState {
   /** Private conversations, newest activity first. */
   dms: DmChannelDto[];
   dmsLoaded: boolean;
+  categoriesByGuild: Record<string, CategoryDto[]>;
   /** Roles of the opened servers and what they allow me. */
   rolesByGuild: Record<string, GuildRolesDto>;
   /** Unread messages per channel and conversation (from the server, then kept current). */
@@ -97,6 +99,7 @@ export interface ChatState {
 
   setGuilds: (guilds: GuildDto[]) => void;
   setRoles: (guildId: string, roles: GuildRolesDto) => void;
+  setCategories: (guildId: string, categories: CategoryDto[]) => void;
   upsertGuild: (guild: GuildDto) => void;
   removeGuild: (guildId: string) => void;
   setChannels: (guildId: string, channels: ChannelDto[]) => void;
@@ -153,6 +156,7 @@ const initial = {
   dms: [] as DmChannelDto[],
   dmsLoaded: false,
   rolesByGuild: {} as Record<string, GuildRolesDto>,
+  categoriesByGuild: {} as Record<string, CategoryDto[]>,
   unread: {} as Record<string, UnreadEntry>,
   connection: 'stopped' as ConnectionStatus,
   subscribedChannelId: null as string | null,
@@ -166,6 +170,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   setRoles: (guildId, roles) =>
     set((s) => ({ rolesByGuild: { ...s.rolesByGuild, [guildId]: roles } })),
+
+  setCategories: (guildId, categories) =>
+    set((s) => ({ categoriesByGuild: { ...s.categoriesByGuild, [guildId]: categories } })),
 
   upsertGuild: (guild) =>
     set((s) => {

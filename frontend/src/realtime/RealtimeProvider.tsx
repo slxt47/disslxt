@@ -56,6 +56,22 @@ export async function loadUnread(): Promise<void> {
   useChatStore.getState().setUnread(unread);
 }
 
+/** Channels and categories in their current order and names. */
+export async function loadGuildChannels(guildId: string): Promise<void> {
+  const chat = useChatStore.getState();
+  if (!chat.channelsByGuild[guildId]) return;
+  try {
+    const [{ channels }, { categories }] = await Promise.all([
+      api.listChannels(guildId),
+      api.listCategories(guildId),
+    ]);
+    chat.setChannels(guildId, channels);
+    chat.setCategories(guildId, categories);
+  } catch {
+    // Left the server meanwhile, or offline: the next load corrects it.
+  }
+}
+
 /** Roles, what they allow me and (with `refresh`) what follows from them: channels and members. */
 export async function loadGuildRoles(guildId: string, refresh = false): Promise<void> {
   const chat = useChatStore.getState();
@@ -98,6 +114,8 @@ export function trackSocial(ev: WsServerMessage, selfId: string): void {
     if (authorId === selfId || looking(channelId)) return;
     const username = useAuthStore.getState().user?.username.toLowerCase() ?? '';
     useChatStore.getState().countUnread(channelId, guildId, messageId, mentions.includes(username));
+  } else if (ev.type === 'guild.channels-changed') {
+    void loadGuildChannels(ev.data.guildId);
   } else if (ev.type === 'guild.roles-changed') {
     void loadGuildRoles(ev.data.guildId, true);
   } else if (ev.type === 'typing') {

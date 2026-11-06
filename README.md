@@ -496,6 +496,23 @@ ticket }`, keine Sitzung. `POST /api/auth/login/two-factor` löst das Ticket ein
 - **Export:** `GET /api/account/export`, JSON, 3 pro Stunde. Ohne Hashes und Geheimnisse. Dateien
   erscheinen mit Namen, nicht als Inhalt.
 
+## Kanäle verwalten
+
+Migration `0015_channel_management`. Alles braucht `manage_channels`, verborgene Kanäle bleiben auch
+dafür 404.
+
+- **Bearbeiten:** `PATCH /api/channels/:id` (Name, Beschreibung, Kategorie).
+- **Löschen:** `DELETE /api/channels/:id` mit dem Namen als Bestätigung. Nachrichten, Dateien und
+  Lesestände gehen mit, Leser und Anrufer fliegen sofort raus. Der letzte offene Textkanal bleibt,
+  weil Neue dort landen und begrüßt werden.
+- **Reihenfolge:** `PUT /api/guilds/:id/channels/order`. Wer nicht alle Kanäle sieht, sortiert nur
+  die sichtbaren, die anderen behalten ihren Platz. Der oberste Textkanal ist der Einstieg und der
+  Ort der Begrüßung.
+- **Kategorien:** `/api/guilds/:id/categories`, höchstens 30. Löschen behält die Kanäle.
+  Zugeklappt wird pro Gerät, offene und ungelesene Kanäle bleiben sichtbar.
+- **Event:** `guild.channels-changed` enthält nur die Server-ID, der Client lädt neu. So verrät es
+  nichts über verborgene Kanäle.
+
 ## Audio-Geräte im Sprachkanal
 
 „Beitreten“ öffnet zuerst ein Menü: Mikrofon wählen (mit Live-Pegel), Ausgabe wählen

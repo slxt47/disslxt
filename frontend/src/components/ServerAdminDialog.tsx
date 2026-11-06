@@ -13,6 +13,7 @@ import { api } from '../api/endpoints';
 import { nameOf } from '../profile';
 import { useAuthStore } from '../store/auth';
 import { useChatStore } from '../store/chat';
+import { ChannelOrganizer } from './ChannelOrganizer';
 import { Avatar, Icon } from './Icon';
 import { InviteSettings } from './InviteSettings';
 import { Modal } from './Modal';
@@ -433,11 +434,15 @@ export function ServerAdminDialog({ guild, onClose }: { guild: GuildDto; onClose
       )}
       {active === 'roles' && <RolesTab guildId={guild.id} roles={roles} run={run} />}
       {active === 'channels' && (
-        <ul className="admin-channels">
-          {channels.map((c) => (
-            <ChannelAccess key={c.id} channel={c} roles={roles} run={run} />
-          ))}
-        </ul>
+        <>
+          <ChannelOrganizer guildId={guild.id} run={run} />
+          <h3 className="settings-subheading">Wer sieht welchen Kanal</h3>
+          <ul className="admin-channels">
+            {channels.map((c) => (
+              <ChannelAccess key={c.id} channel={c} roles={roles} run={run} />
+            ))}
+          </ul>
+        </>
       )}
       {active === 'bans' && <BansTab guildId={guild.id} run={run} />}
       {active === 'invite' && <InviteSettings guild={current} />}

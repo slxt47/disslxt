@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { GuildDto, GuildPermission } from '@disslxt/shared';
+import type { CategoryDto, ChannelDto, GuildDto, GuildPermission } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useAuthStore } from '../store/auth';
@@ -15,11 +15,15 @@ import { VoiceBar } from './VoiceBar';
 import { inviteStatus } from './InviteSettings';
 import { LineSkeleton } from './Skeleton';
 import { ServerAdminDialog } from './ServerAdminDialog';
+import { ChannelSettingsDialog } from './ChannelSettingsDialog';
+import { groupChannels } from './ChannelOrganizer';
+import { usePrefs } from '../store/prefs';
 import { useVoiceStore } from '../store/voice';
 import { nameOf } from '../profile';
 
 const NO_PEERS: never[] = [];
 const NO_PERMISSIONS: GuildPermission[] = [];
+const NO_CATEGORIES: CategoryDto[] = [];
 
 /** Who is in a voice channel, under its name in the list. */
 function VoiceParticipants({ channelId }: { channelId: string }) {
@@ -84,6 +88,63 @@ export function ChannelSidebar({
     guild ? (s.rolesByGuild[guild.id]?.myPermissions ?? NO_PERMISSIONS) : NO_PERMISSIONS,
   );
   const [adminOpen, setAdminOpen] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<ChannelDto | null>(null);
+  const categories = useChatStore((s) =>
+    guild ? (s.categoriesByGuild[guild.id] ?? NO_CATEGORIES) : NO_CATEGORIES,
+  );
+  const collapsed = usePrefs((s) => s.collapsedCategories);
+  const canManage = permissions.includes('manage_channels');
+  const groups = groupChannels(channels ?? [], categories);
+
+  function toggleCategory(id: string) {
+    usePrefs.getState().set({
+      collapsedCategories: collapsed.includes(id)
+        ? collapsed.filter((c) => c !== id)
+        : [...collapsed, id],
+    });
+  }
+
+  /** One channel in the list, text or voice. */
+  const row = (c: ChannelDto) => {
+    const news = c.id === activeChannelId ? undefined : unread[c.id];
+    return (
+      <li key={c.id} className="channel-row">
+        <Link
+          to={`/guilds/${guild?.id}/channels/${c.id}`}
+          className={`channel-link${c.id === activeChannelId ? ' active' : ''}${news ? ' unread' : ''}`}
+          data-testid={`channel-item-${c.name}`}
+          aria-current={c.id === activeChannelId ? 'page' : undefined}
+          onClick={onNavigate}
+        >
+          <Icon name={c.kind === 'voice' ? 'speaker' : 'hash'} size={16} />
+          {c.kind !== 'voice' && <span className="sr-only">#</span>}
+          <span className="channel-name">{c.name}</span>
+          {c.restricted && <Icon name="lock" size={14} />}
+          {news && (
+            <span
+              className={`badge inline${news.mentions ? '' : ' quiet'}`}
+              data-testid={`channel-unread-${c.name}`}
+              aria-label={`${news.count} ungelesen`}
+            >
+              {news.count > 99 ? '99+' : news.count}
+            </span>
+          )}
+        </Link>
+        {canManage && !news && (
+          <button
+            className="icon-btn channel-gear"
+            aria-label={`Kanal ${c.name} bearbeiten`}
+            title="Kanal bearbeiten"
+            data-testid={`channel-edit-${c.name}`}
+            onClick={() => setEditingChannel(c)}
+          >
+            <Icon name="gear" size={15} />
+          </button>
+        )}
+        {c.kind === 'voice' && <VoiceParticipants channelId={c.id} />}
+      </li>
+    );
+  };
   const pushConfig = usePushStore((s) => s.config);
   const muted = !!guild && !!pushConfig?.mutedGuildIds.includes(guild.id);
 
@@ -278,8 +339,8 @@ export function ChannelSidebar({
           </header>
           <div className="sidebar-section">
             <div className="sidebar-heading-row">
-              <h3 className="sidebar-heading">Textkanäle</h3>
-              {permissions.includes('manage_channels') && (
+              <h3 className="sidebar-heading">Kanäle</h3>
+              {canManage && (
                 <button
                   className="icon-btn"
                   data-testid="create-channel-button"
@@ -293,66 +354,44 @@ export function ChannelSidebar({
             </div>
             {!channels && <LineSkeleton rows={3} />}
             <ul className="channels" data-testid="channel-list">
-              {channels
-                ?.filter((c) => c.kind !== 'voice')
-                .map((c) => {
-                  const news = c.id === activeChannelId ? undefined : unread[c.id];
-                  return (
-                    <li key={c.id}>
-                      <Link
-                        to={`/guilds/${guild.id}/channels/${c.id}`}
-                        className={`channel-link${c.id === activeChannelId ? ' active' : ''}${news ? ' unread' : ''}`}
-                        data-testid={`channel-item-${c.name}`}
-                        aria-current={c.id === activeChannelId ? 'page' : undefined}
-                        onClick={onNavigate}
-                      >
-                        <Icon name="hash" size={16} />
-                        <span className="sr-only">#</span>
-                        <span className="channel-name">{c.name}</span>
-                        {c.restricted && <Icon name="lock" size={14} />}
-                        {news && (
-                          <span
-                            className={`badge inline${news.mentions ? '' : ' quiet'}`}
-                            data-testid={`channel-unread-${c.name}`}
-                            aria-label={`${news.count} ungelesen`}
-                          >
-                            {news.count > 99 ? '99+' : news.count}
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
+              {groups[0]?.channels.map(row)}
             </ul>
           </div>
-          {channels?.some((c) => c.kind === 'voice') && (
-            <div className="sidebar-section">
-              <div className="sidebar-heading-row">
-                <h3 className="sidebar-heading">Sprachkanäle</h3>
+          {groups.slice(1).map((group) => {
+            if (group.channels.length === 0 && !canManage) return null;
+            const closed = collapsed.includes(group.id ?? '');
+            // A closed category still shows where you are and what is new.
+            const shown = closed
+              ? group.channels.filter((c) => c.id === activeChannelId || unread[c.id])
+              : group.channels;
+            return (
+              <div
+                className="sidebar-section"
+                key={group.id}
+                data-testid={`category-${group.name}`}
+              >
+                <h3 className="sidebar-heading">
+                  <button
+                    className="category-toggle"
+                    aria-expanded={!closed}
+                    data-testid={`category-toggle-${group.name}`}
+                    onClick={() => toggleCategory(group.id ?? '')}
+                  >
+                    <Icon name="chevron-down" size={14} />
+                    {group.name}
+                  </button>
+                </h3>
+                <ul className="channels">{shown.map(row)}</ul>
               </div>
-              <ul className="channels" data-testid="voice-channel-list">
-                {channels
-                  .filter((c) => c.kind === 'voice')
-                  .map((c) => (
-                    <li key={c.id}>
-                      <Link
-                        to={`/guilds/${guild.id}/channels/${c.id}`}
-                        className={`channel-link${c.id === activeChannelId ? ' active' : ''}`}
-                        data-testid={`channel-item-${c.name}`}
-                        aria-current={c.id === activeChannelId ? 'page' : undefined}
-                        onClick={onNavigate}
-                      >
-                        <Icon name="speaker" size={16} />
-                        <span className="channel-name">{c.name}</span>
-                        {c.restricted && <Icon name="lock" size={14} />}
-                      </Link>
-                      <VoiceParticipants channelId={c.id} />
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          )}
+            );
+          })}
           {deleting && <DeleteGuildDialog guild={guild} onClose={() => setDeleting(false)} />}
+          {editingChannel && (
+            <ChannelSettingsDialog
+              channel={editingChannel}
+              onClose={() => setEditingChannel(null)}
+            />
+          )}
           {adminOpen && <ServerAdminDialog guild={guild} onClose={() => setAdminOpen(false)} />}
           {editing && <GuildSettingsDialog guild={guild} onClose={() => setEditing(false)} />}
           {creating && (

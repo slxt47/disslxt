@@ -99,6 +99,10 @@ export function AppLayout() {
       (err: unknown) => chat.setError(errorMessage(err)),
     );
     void loadGuildRoles(guildId);
+    api.listCategories(guildId).then(
+      (r) => useChatStore.getState().setCategories(guildId, r.categories),
+      () => undefined,
+    );
   }, [guildId, guildKnown]);
 
   // Who is in the guild's voice channels (kept current by voice.state events afterwards).

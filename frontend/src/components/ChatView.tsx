@@ -302,6 +302,11 @@ export function ChatView({
               {channel.name}
             </>
           )}
+          {channel.description && (
+            <span className="chat-description" data-testid="channel-description">
+              {channel.description}
+            </span>
+          )}
         </h1>
         <div className="chat-header-actions">
           {headerActions}

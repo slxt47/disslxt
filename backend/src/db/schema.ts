@@ -244,6 +244,24 @@ export const guildMembers = pgTable(
   ],
 );
 
+/** Groups of channels in the sidebar. */
+export const channelCategories = pgTable(
+  'channel_categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    guildId: uuid('guild_id')
+      .notNull()
+      .references(() => guilds.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 32 }).notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('channel_categories_guild_name_uq').on(t.guildId, t.name),
+    index('channel_categories_guild_idx').on(t.guildId),
+  ],
+);
+
 export const channels = pgTable(
   'channels',
   {
@@ -258,11 +276,19 @@ export const channels = pgTable(
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     /** Only the owner and people with a role from channel_roles see this channel. */
     restricted: boolean('restricted').notNull().default(false),
+    /** What the channel is for, shown in its header. */
+    description: varchar('description', { length: 200 }),
+    /** Null: above all categories. */
+    categoryId: uuid('category_id').references(() => channelCategories.id, {
+      onDelete: 'set null',
+    }),
+    position: integer('position').notNull().default(0),
     createdAt: createdAt(),
   },
   (t) => [
     unique('channels_guild_id_name_uq').on(t.guildId, t.name),
     index('channels_guild_id_idx').on(t.guildId),
+    index('channels_category_idx').on(t.categoryId),
     // Private conversations ('dm', 'group') have no guild; only a 'dm' has a pair key.
     check(
       'channels_dm_shape_chk',

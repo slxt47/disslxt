@@ -99,7 +99,17 @@ export interface ChannelDto {
   kind: ChannelKind;
   /** Only certain roles see it. */
   restricted: boolean;
+  description: string | null;
+  categoryId: string | null;
+  position: number;
   createdAt: string;
+}
+
+/** A group of channels in the sidebar. */
+export interface CategoryDto {
+  id: string;
+  name: string;
+  position: number;
 }
 
 export type GuildPermission = (typeof GUILD_PERMISSIONS)[number];

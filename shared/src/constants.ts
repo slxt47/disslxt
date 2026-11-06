@@ -42,6 +42,10 @@ export const INVITE_MAX_HOURS = 24 * 30;
 export const TYPING_REPEAT_MS = 3000;
 export const TYPING_SHOW_MS = 5000;
 
+export const CHANNEL_DESCRIPTION_MAX_LEN = 200;
+export const CATEGORY_NAME_MAX_LEN = 32;
+export const CATEGORIES_PER_GUILD_MAX = 30;
+
 /** What a server role can allow. Roles themselves are managed by the owner only. */
 export const GUILD_PERMISSIONS = [
   'manage_channels',

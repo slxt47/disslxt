@@ -76,7 +76,15 @@ export function createServices(
   const badges = new BadgeService(db);
   const users = new UserService(db, hub, guilds, friends, images, badges);
   const admin = new AdminService(db, hub, users, badges);
-  const channels = new ChannelService(db, hub, guilds, friends, perms);
+  const channels = new ChannelService(
+    db,
+    hub,
+    guilds,
+    friends,
+    perms,
+    { voiceDir: config.voice.dir, fileDir: config.files.dir },
+    storage,
+  );
   const roles = new RoleService(db, hub, guilds, perms);
   guilds.profilesChanged = (ids) => users.republish(ids);
   const messages = new MessageService(
