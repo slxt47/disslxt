@@ -310,7 +310,10 @@ export const channelOrderSchema = z.object({
   channels: z
     .array(z.object({ id: z.guid(), categoryId: z.guid().nullable() }))
     .max(500)
-    .refine((list) => new Set(list.map((c) => c.id)).size === list.length, 'Jeder Kanal nur einmal'),
+    .refine(
+      (list) => new Set(list.map((c) => c.id)).size === list.length,
+      'Jeder Kanal nur einmal',
+    ),
 });
 export const categoryOrderSchema = z.object({ categoryIds: z.array(z.guid()).max(100) });
 
