@@ -68,7 +68,10 @@ Bei Änderungen an einer Funktion die Seite mitpflegen.
 - [Angemeldete Geräte](geraete.md): Sehen und beenden, wo man angemeldet ist.
 - [Datenexport](datenexport.md): Eine Kopie der eigenen Daten als Datei.
 - [Konto löschen](konto-loeschen.md): Das Konto und alles dazu selbst entfernen.
+- [Passkeys](passkeys.md): Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN.
 
 ## Betrieb
 
 - [Admin-Bereich](admin-bereich.md): Kontoweite Verwaltung für den Betreiber.
+- [Webhooks und Bot-Nachrichten](webhooks.md): Programme schreiben als Bot in einen Textkanal.
+- [Dienste-Übersicht](dienste.md): `/dienste` zeigt Admins, welche eigenen Dienste antworten.
