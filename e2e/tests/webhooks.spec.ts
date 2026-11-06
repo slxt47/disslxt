@@ -27,3 +27,24 @@ test('a program posts into the channel as a bot', async ({ browser, request }) =
   await b.page.getByTestId('composer-input').press('Enter');
   await expect(b.page.getByTestId('status-dialog')).toContainText('Nur für Admins');
 });
+
+test('/dienste lists what answers and what does not', async ({ browser }) => {
+  const { a } = await twoUsersInGuild(browser, 'Dienste');
+  await a.page.route('**/api/admin/status', (route) =>
+    route.fulfill({
+      json: {
+        entries: [
+          { name: 'Git', up: true, ms: 120 },
+          { name: 'Shop', up: false, ms: null },
+        ],
+      },
+    }),
+  );
+  await a.page.getByTestId('composer-input').fill('/dienste');
+  await a.page.getByTestId('composer-input').press('Enter');
+  await expect(a.page.getByTestId('status-summary')).toHaveText('1 von 2 antworten nicht.');
+  const dialog = a.page.getByTestId('status-dialog');
+  await expect(dialog).toContainText('120 ms');
+  await expect(dialog.locator('li[data-up="false"]')).toContainText('keine Antwort');
+  await expect(a.page.getByTestId('composer-input')).toHaveValue('');
+});
