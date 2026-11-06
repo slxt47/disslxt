@@ -15,6 +15,8 @@ Bei Änderungen an einer Funktion die Seite mitpflegen.
 - [Ungelesen](ungelesen.md): Zeigt auf jedem Gerät, was neu ist.
 - [Schreibt gerade](schreibt-gerade.md): Zeigt, wer gerade tippt.
 - [Anpinnen](anpinnen.md): Wichtige Nachrichten griffbereit halten.
+- [Suche](suche.md): Nachrichten finden, in allem, was man lesen darf.
+- [Link-Vorschau](link-vorschau.md): Titel, Text und Bild unter Nachrichten mit Link.
 - [Entwürfe und Tastenkürzel](entwuerfe-und-tastenkuerzel.md): Halbfertiger Text bleibt, Bedienung geht ohne Maus.
 
 ## Medien

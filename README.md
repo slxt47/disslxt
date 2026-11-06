@@ -498,6 +498,19 @@ ticket }`, keine Sitzung. `POST /api/auth/login/two-factor` löst das Ticket ein
 - **Export:** `GET /api/account/export`, JSON, 3 pro Stunde. Ohne Hashes und Geheimnisse. Dateien
   erscheinen mit Namen, nicht als Inhalt.
 
+## Suche und Link-Vorschau
+
+Migration `0016_search_and_link_previews`.
+
+**Suche:** `GET /api/search` über einen GIN-Index auf `to_tsvector('simple', content)`, ohne
+Stemming, weil Deutsch und Englisch gemischt sind. Jedes Wort findet auch längere Wörter. Sichtbar
+ist nur, was man lesen darf (`channelVisibleSql`, Mitgliedschaft).
+
+**Link-Vorschau:** Der Server ruft den ersten Link im Hintergrund ab, nie der Browser. `safeFetch.ts`
+schützt vor SSRF: nur http/https auf Port 80/443, ohne Zugangsdaten. Alle Adressen eines Namens
+werden beim Verbinden geprüft (auch IPv4 in IPv6, Docker, Metadaten-Dienst), Weiterleitungen laufen
+durch dieselbe Prüfung. `LINK_PREVIEWS=false` schaltet es ab.
+
 ## Kanäle verwalten
 
 Migration `0015_channel_management`. Alles braucht `manage_channels`, verborgene Kanäle bleiben auch
