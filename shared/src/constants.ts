@@ -106,3 +106,6 @@ export const WS_CLOSE = {
   /** Origin not allowed. */
   BAD_ORIGIN: 4403,
 } as const;
+
+export const MAX_PASSKEYS = 10;
+export const PASSKEY_CHALLENGE_TTL_MINUTES = 5;

@@ -17,6 +17,7 @@ import {
   loginChallenges,
   messageReactions,
   messages,
+  passkeys,
   recoveryCodes,
   sessions,
   users,
@@ -178,7 +179,7 @@ export class SecurityService {
   /** A copy of what the account holds (Art. 15 and 20 GDPR), without hashes and secrets. */
   async exportData(userId: string): Promise<unknown> {
     const user = await this.user(userId);
-    const [servers, ownedServers, friends, written, reactions] = await Promise.all([
+    const [servers, ownedServers, friends, written, reactions, keys] = await Promise.all([
       this.db
         .select({ name: guilds.name, joinedAt: guildMembers.joinedAt })
         .from(guildMembers)
@@ -221,6 +222,14 @@ export class SecurityService {
         })
         .from(messageReactions)
         .where(eq(messageReactions.userId, userId)),
+      this.db
+        .select({
+          name: passkeys.name,
+          createdAt: passkeys.createdAt,
+          lastUsedAt: passkeys.lastUsedAt,
+        })
+        .from(passkeys)
+        .where(eq(passkeys.userId, userId)),
     ]);
     return {
       exportedAt: new Date().toISOString(),
@@ -233,6 +242,7 @@ export class SecurityService {
         role: user.role,
         createdAt: user.createdAt,
         twoFactor: !!user.totpEnabledAt,
+        passkeys: keys,
       },
       servers,
       ownedServers,

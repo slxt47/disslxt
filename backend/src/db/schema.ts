@@ -195,6 +195,35 @@ export const loginChallenges = pgTable(
   (t) => [index('login_challenges_user_idx').on(t.userId)],
 );
 
+/** Device keys for signing in; a public key proves nothing about the person on its own. */
+export const passkeys = pgTable(
+  'passkeys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    credentialId: text('credential_id').notNull().unique(),
+    publicKey: text('public_key').notNull(),
+    counter: bigint('counter', { mode: 'number' })
+      .notNull()
+      .default(sql`0`),
+    transports: text('transports').notNull().default(''),
+    name: varchar('name', { length: 64 }).notNull(),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (t) => [index('passkeys_user_idx').on(t.userId)],
+);
+
+/** A question to a device that may be answered once. No user: a sign-in. */
+export const passkeyChallenges = pgTable('passkey_challenges', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  challenge: varchar('challenge', { length: 128 }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
 /** One-time codes for when the authenticator is gone; only their hashes are stored. */
 export const recoveryCodes = pgTable(
   'recovery_codes',

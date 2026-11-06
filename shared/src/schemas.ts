@@ -109,6 +109,18 @@ export const loginTwoFactorSchema = z.object({
   code: twoFactorCodeSchema,
 });
 
+/** The answer of a device; its signature is checked in full on the server. */
+const passkeyResponse = z.object({ id: z.string().min(1).max(1024) }).passthrough();
+
+export const passkeyLoginSchema = z.object({
+  challengeId: z.string().uuid(),
+  response: passkeyResponse,
+});
+
+export const passkeyAddSchema = passkeyLoginSchema.extend({
+  name: z.string().trim().min(1, 'Name fehlt').max(64),
+});
+
 export const passwordConfirmSchema = z.object({
   password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
 });

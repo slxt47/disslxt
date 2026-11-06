@@ -1,8 +1,10 @@
+import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 import type { FastifyInstance } from 'fastify';
 import {
   forgotPasswordSchema,
   loginSchema,
   loginTwoFactorSchema,
+  passkeyLoginSchema,
   resetPasswordSchema,
   registerSchema,
   resendVerificationSchema,
@@ -93,6 +95,21 @@ export async function authRoutes(
   app.post('/auth/login/two-factor', { config: loginLimit }, async (req, reply) => {
     const { ticket, code } = parse(loginTwoFactorSchema, req.body);
     const { user, token } = await auth.loginTwoFactor(ticket, code);
+    app.setSessionCookie(reply, token);
+    return { user };
+  });
+
+  app.post('/auth/passkey/options', { config: loginLimit }, async () =>
+    opts.services.passkeys.loginOptions(),
+  );
+
+  app.post('/auth/passkey', { config: loginLimit }, async (req, reply) => {
+    const { challengeId, response } = parse(passkeyLoginSchema, req.body);
+    const { user, token } = await opts.services.passkeys.login(
+      challengeId,
+      response as unknown as AuthenticationResponseJSON,
+      deviceName(req),
+    );
     app.setSessionCookie(reply, token);
     return { user };
   });

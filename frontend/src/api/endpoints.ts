@@ -1,10 +1,15 @@
 import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser';
+import type {
   CategoryDto,
   CreatePollInput,
   EventDto,
   PollDto,
   RsvpAnswer,
   ScheduleInput,
+  PasskeyDto,
   ScheduledDto,
   StatusEntryDto,
   WebhookDto,
@@ -66,6 +71,27 @@ export const api = {
     apiRequest<LoginResultDto>('POST', '/auth/login', input),
   loginTwoFactor: (ticket: string, code: string) =>
     apiRequest<{ user: UserDto }>('POST', '/auth/login/two-factor', { ticket, code }),
+  passkeyLoginOptions: () =>
+    apiRequest<{ challengeId: string; options: PublicKeyCredentialRequestOptionsJSON }>(
+      'POST',
+      '/auth/passkey/options',
+    ),
+  loginPasskey: (challengeId: string, response: unknown) =>
+    apiRequest<{ user: UserDto }>('POST', '/auth/passkey', { challengeId, response }),
+  passkeys: () => apiRequest<{ passkeys: PasskeyDto[] }>('GET', '/account/passkeys'),
+  passkeyOptions: (password: string) =>
+    apiRequest<{ challengeId: string; options: PublicKeyCredentialCreationOptionsJSON }>(
+      'POST',
+      '/account/passkeys/options',
+      { password },
+    ),
+  addPasskey: (challengeId: string, response: unknown, name: string) =>
+    apiRequest<{ passkey: PasskeyDto }>('POST', '/account/passkeys', {
+      challengeId,
+      response,
+      name,
+    }),
+  deletePasskey: (id: string) => apiRequest<void>('DELETE', `/account/passkeys/${enc(id)}`),
   twoFactorStatus: () => apiRequest<TwoFactorStatusDto>('GET', '/account/two-factor'),
   twoFactorSetup: (password: string) =>
     apiRequest<TwoFactorSetupDto>('POST', '/account/two-factor/setup', { password }),

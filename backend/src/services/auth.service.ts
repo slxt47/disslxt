@@ -441,7 +441,7 @@ export class AuthService {
     return !!row;
   }
 
-  private async createSession(userId: string, device: string | null): Promise<string> {
+  async createSession(userId: string, device: string | null): Promise<string> {
     const token = randomToken();
     await this.db.insert(sessions).values({
       userId,

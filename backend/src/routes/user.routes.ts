@@ -1,9 +1,11 @@
+import type { RegistrationResponseJSON } from '@simplewebauthn/server';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   AVATAR_MAX_BYTES,
   confirmTwoFactorSchema,
   deleteAccountSchema,
   enableTwoFactorSchema,
+  passkeyAddSchema,
   passwordConfirmSchema,
   setBadgesSchema,
   setRoleSchema,
@@ -95,6 +97,35 @@ export async function userRoutes(
   });
 
   const sessionToken = (req: FastifyRequest): string => req.cookies[SESSION_COOKIE] ?? '';
+
+  const { passkeys } = opts.services;
+
+  app.get('/account/passkeys', async (req) => ({
+    passkeys: await passkeys.list(currentUser(req).id),
+  }));
+
+  app.post('/account/passkeys/options', guessLimit, async (req) => {
+    const { password } = parse(passwordConfirmSchema, req.body);
+    return passkeys.registrationOptions(currentUser(req).id, password);
+  });
+
+  app.post('/account/passkeys', guessLimit, async (req, reply) => {
+    const { challengeId, response, name } = parse(passkeyAddSchema, req.body);
+    return reply.status(201).send({
+      passkey: await passkeys.register(
+        currentUser(req).id,
+        challengeId,
+        response as unknown as RegistrationResponseJSON,
+        name,
+      ),
+    });
+  });
+
+  app.delete<{ Params: { id: string } }>('/account/passkeys/:id', async (req, reply) => {
+    const id = parseParam(uuidSchema, req.params.id, () => notFound('Passkey nicht gefunden'));
+    await passkeys.remove(currentUser(req).id, id);
+    return reply.status(204).send();
+  });
 
   app.get('/account/sessions', async (req) => ({
     sessions: await security.sessions(currentUser(req).id, sessionToken(req)),

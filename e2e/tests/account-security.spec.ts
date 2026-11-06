@@ -81,3 +81,37 @@ test('two-factor sign-in from setup to recovery code', async ({ browser }) => {
   await context.close();
   await other.context.close();
 });
+
+test('a passkey replaces password and code', async ({ browser }) => {
+  const { page } = await newUserPage(browser);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+  const user = uniqueUser('passkey');
+  await registerViaUi(page, user);
+  await openSettings(page);
+  await page.getByTestId('passkey-add').click();
+  await page.getByTestId('passkey-name').fill('Testgerät');
+  await page.getByTestId('passkey-password').fill(user.password);
+  await page.getByTestId('passkey-submit').click();
+  await expect(page.getByTestId('passkey-list')).toContainText('Noch nicht benutzt');
+  await page.keyboard.press('Escape');
+
+  await page.getByTestId('logout-button').click();
+  await page.getByTestId('login-passkey').click();
+  await expect(page.getByTestId('settings-button')).toBeVisible();
+
+  await openSettings(page);
+  await expect(page.getByTestId('passkey-list')).toContainText('Zuletzt');
+  await page.getByTestId('passkey-delete').click();
+  await expect(page.getByTestId('passkey-list')).toHaveCount(0);
+});

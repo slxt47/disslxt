@@ -182,6 +182,13 @@ export type MessageAuthorDto = PublicUserDto;
 /** 'join': someone joined the server (shown as a greeting, has no text of its own). */
 export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join' | 'poll' | 'event' | 'bot';
 
+export interface PasskeyDto {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export interface WebhookDto {
   id: string;
   channelId: string;

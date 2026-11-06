@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TWO_FACTOR_MAX_FAILURES } from '@disslxt/shared';
-import { recoveryCodes, sessions, users } from '../src/db/schema.js';
+import { passkeys, recoveryCodes, sessions, users } from '../src/db/schema.js';
 import { describeDevice } from '../src/lib/device.js';
 import { open, seal } from '../src/lib/secretBox.js';
 import {
@@ -366,5 +366,59 @@ describe('data export', () => {
     for (let i = 0; i < 3; i += 1) expect((await get()).statusCode).toBe(200);
     expect((await get()).statusCode).toBe(429);
     await limited.close();
+  });
+});
+
+describe('passkeys', () => {
+  const fakeAnswer = { id: 'abc', rawId: 'abc', type: 'public-key', response: {} };
+
+  it('adding one needs the password and the answer of a device', async () => {
+    const bad = await api(alice, 'POST', '/account/passkeys/options', { password: 'falsch' });
+    expect(bad.statusCode).toBe(401);
+    const ok = await api(alice, 'POST', '/account/passkeys/options', { password: PASSWORD });
+    expect(ok.statusCode).toBe(200);
+    const { challengeId, options } = ok.json();
+    expect(options.rp.id).toBe('disslxt.test');
+    expect(options.authenticatorSelection.userVerification).toBe('required');
+    const add = () =>
+      api(alice, 'POST', '/account/passkeys', { challengeId, response: fakeAnswer, name: 'Handy' });
+    expect((await add()).statusCode).toBe(401);
+    // Even a wrong answer uses the challenge up.
+    expect((await add()).statusCode).toBe(401);
+    expect((await api(alice, 'GET', '/account/passkeys')).json().passkeys).toEqual([]);
+  });
+
+  it('a challenge of one account does not work for another', async () => {
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@example.test' });
+    const { challengeId } = (
+      await api(alice, 'POST', '/account/passkeys/options', { password: PASSWORD })
+    ).json();
+    const res = await api(bob, 'POST', '/account/passkeys', {
+      challengeId,
+      response: fakeAnswer,
+      name: 'x',
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('signing in with an unknown or forged key opens nothing', async () => {
+    const opts = await req(app, 'POST', '/api/auth/passkey/options', {});
+    const { challengeId, options } = opts.json();
+    expect(options.userVerification).toBe('required');
+    const res = await req(app, 'POST', '/api/auth/passkey', {
+      payload: { challengeId, response: fakeAnswer },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
+  it("someone else's passkey cannot be removed", async () => {
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@example.test' });
+    const [key] = await getDb()
+      .db.insert(passkeys)
+      .values({ userId: alice.user.id, credentialId: 'c1', publicKey: 'x', name: 'Handy' })
+      .returning();
+    expect((await api(bob, 'DELETE', `/account/passkeys/${key!.id}`)).statusCode).toBe(404);
+    expect((await api(alice, 'DELETE', `/account/passkeys/${key!.id}`)).statusCode).toBe(204);
   });
 });

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
 import qrcode from 'qrcode-generator';
-import type { SessionDto, TwoFactorSetupDto, TwoFactorStatusDto } from '@disslxt/shared';
+import type {
+  PasskeyDto,
+  SessionDto,
+  TwoFactorSetupDto,
+  TwoFactorStatusDto,
+} from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useChatStore } from '../store/chat';
@@ -284,12 +290,130 @@ function SessionsSection() {
 }
 
 /** Second factor, signed-in devices and the copy of your data. */
+function PasskeySection() {
+  const [keys, setKeys] = useState<PasskeyDto[] | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    api.passkeys().then(
+      (r) => setKeys(r.passkeys),
+      () => undefined,
+    );
+  }, []);
+  useEffect(load, [load]);
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const { challengeId, options } = await api.passkeyOptions(password);
+      const response = await startRegistration({ optionsJSON: options });
+      await api.addPasskey(challengeId, response, name.trim());
+      setAdding(false);
+      setName('');
+      load();
+    } catch (err) {
+      if (!(err instanceof Error && err.name === 'NotAllowedError')) setError(errorMessage(err));
+    } finally {
+      setPassword('');
+      setBusy(false);
+    }
+  }
+
+  if (!browserSupportsWebAuthn()) {
+    return <p className="settings-hint">Dieser Browser kann keine Passkeys.</p>;
+  }
+  return (
+    <>
+      <p className="settings-hint">
+        Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN. Ersetzt Passwort und Code.
+      </p>
+      {!keys && <LineSkeleton rows={1} />}
+      {keys && keys.length > 0 && (
+        <ul className="session-list" data-testid="passkey-list">
+          {keys.map((k) => (
+            <li key={k.id}>
+              <span>
+                <strong>{k.name}</strong>
+                <small>
+                  {k.lastUsedAt
+                    ? `Zuletzt ${new Date(k.lastUsedAt).toLocaleDateString('de-DE')}`
+                    : 'Noch nicht benutzt'}
+                </small>
+              </span>
+              <button
+                className="btn small"
+                data-testid="passkey-delete"
+                onClick={() => void api.deletePasskey(k.id).then(load, () => undefined)}
+              >
+                Entfernen
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {adding ? (
+        <form className="two-factor-form" onSubmit={(e) => void add(e)}>
+          <label>
+            Name
+            <input
+              placeholder="z. B. iPhone"
+              maxLength={64}
+              value={name}
+              data-testid="passkey-name"
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <label>
+            Passwort
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              data-testid="passkey-password"
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+          <div className="inline-actions">
+            <button
+              className="btn primary"
+              data-testid="passkey-submit"
+              disabled={busy || !name.trim() || !password}
+            >
+              Weiter
+            </button>
+            <button type="button" className="btn" onClick={() => setAdding(false)}>
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button className="btn" data-testid="passkey-add" onClick={() => setAdding(true)}>
+          Passkey hinzufügen
+        </button>
+      )}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+
 export function SecuritySettings() {
   return (
     <section className="settings-section" aria-labelledby="settings-security">
       <h3 id="settings-security">Sicherheit</h3>
       <h4 className="settings-subheading">Zwei-Faktor-Anmeldung</h4>
       <TwoFactorSection />
+      <h4 className="settings-subheading">Passkeys</h4>
+      <PasskeySection />
       <h4 className="settings-subheading">Angemeldete Geräte</h4>
       <SessionsSection />
       <h4 className="settings-subheading">Deine Daten</h4>

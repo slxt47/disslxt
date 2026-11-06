@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import { Link, useLocation } from 'react-router-dom';
 import { loginSchema } from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
@@ -9,6 +10,7 @@ import { LegalLinks } from '../components/LegalLinks';
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const loginTwoFactor = useAuthStore((s) => s.loginTwoFactor);
+  const loginPasskey = useAuthStore((s) => s.loginPasskey);
   /** Set once the password was right and the second factor is missing. */
   const [ticket, setTicket] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -44,6 +46,18 @@ export function LoginPage() {
       } else {
         setError(errorMessage(err));
       }
+      setBusy(false);
+    }
+  }
+
+  async function onPasskey() {
+    setError(null);
+    setBusy(true);
+    try {
+      await loginPasskey();
+    } catch (err) {
+      // Closing the system dialog is a choice, not a failure.
+      if (!(err instanceof Error && err.name === 'NotAllowedError')) setError(errorMessage(err));
       setBusy(false);
     }
   }
@@ -155,6 +169,17 @@ export function LoginPage() {
         <button className="btn primary" type="submit" data-testid="login-submit" disabled={busy}>
           {busy ? 'Anmelden…' : 'Anmelden'}
         </button>
+        {browserSupportsWebAuthn() && (
+          <button
+            type="button"
+            className="btn"
+            data-testid="login-passkey"
+            disabled={busy}
+            onClick={() => void onPasskey()}
+          >
+            Mit Passkey anmelden
+          </button>
+        )}
         <p className="auth-switch">
           <Link to="/forgot-password" data-testid="to-forgot">
             Passwort vergessen?

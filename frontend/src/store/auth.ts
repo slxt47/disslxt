@@ -1,4 +1,5 @@
 import { clearDrafts } from '../lib/drafts';
+import { startAuthentication } from '@simplewebauthn/browser';
 import { create } from 'zustand';
 import type { UserDto } from '@disslxt/shared';
 import { ApiRequestError, onUnauthorized } from '../api/client';
@@ -18,6 +19,7 @@ interface AuthState {
   /** Null: signed in. Otherwise the ticket for the second step. */
   login: (email: string, password: string) => Promise<string | null>;
   loginTwoFactor: (ticket: string, code: string) => Promise<void>;
+  loginPasskey: () => Promise<void>;
   /** Starts a sign-up; the account exists only after the e-mail link is confirmed. */
   register: (email: string, username: string, password: string, next?: string) => Promise<void>;
   /** Redeems a confirmation link and logs in. Returns the in-app path to continue at. */
@@ -56,6 +58,12 @@ export const useAuthStore = create<AuthState>()((set) => ({
     return null;
   },
 
+  loginPasskey: async () => {
+    const { challengeId, options } = await api.passkeyLoginOptions();
+    const response = await startAuthentication({ optionsJSON: options });
+    const { user } = await api.loginPasskey(challengeId, response);
+    set({ user, status: 'authenticated', loggedOut: false, accountDeleted: false });
+  },
   loginTwoFactor: async (ticket, code) => {
     const { user } = await api.loginTwoFactor(ticket, code);
     set({ user, status: 'authenticated', loggedOut: false });
