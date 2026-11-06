@@ -20,7 +20,9 @@
     <a class="skip" href="#themen">Zu den Themen springen</a>
     <header class="top">
       <div class="wrap">
-        <a class="brand" href="/"><img src="/_/hilfe-icon.svg" alt="" />disslxt <small>Hilfe</small></a>
+        <a class="brand" href="/"
+          ><img src="/_/hilfe-icon.svg" alt="" />disslxt <small>Hilfe</small></a
+        >
         <nav aria-label="Hauptmenü">
           <a class="hide-sm" href="https://disslxt-info.slxt.org/">Über disslxt</a>
         </nav>
@@ -83,6 +85,13 @@
         <h2>Schreiben</h2>
         <ul>
           <li><a href="#nachrichten">Nachrichten</a></li>
+          <li><a href="#formatieren">Text formatieren</a></li>
+          <li><a href="#reaktionen">Reaktionen &amp; Antworten</a></li>
+          <li><a href="#erwaehnen">Erwähnen &amp; Emoji</a></li>
+          <li><a href="#befehle">Befehle</a></li>
+          <li><a href="#ungelesen">Ungelesen &amp; Entwürfe</a></li>
+          <li><a href="#anpinnen">Anpinnen</a></li>
+          <li><a href="#tastenkuerzel">Tastenkürzel</a></li>
           <li><a href="#bilder">Bilder &amp; Dateien</a></li>
           <li><a href="#gifs">GIFs</a></li>
           <li><a href="#sprachnachrichten">Sprachnachrichten</a></li>
@@ -221,6 +230,11 @@
             <p class="tip">
               Gib den Link nur Leuten, die du dabeihaben willst – jeder mit dem Link kann beitreten.
             </p>
+            <p>
+              Als Besitzer:in stellst du unter <span class="ui">Server-Einstellungen</span> ein, wie
+              lange und wie oft der Link gilt. <span class="ui">Neuen Link erzeugen</span> macht den
+              alten sofort ungültig. Wer neu dazukommt, wird im ersten Kanal begrüßt.
+            </p>
           </article>
           <article class="topic" id="kanaele">
             <h3><span class="ico" aria-hidden="true">#️⃣</span>Kanäle</h3>
@@ -272,6 +286,113 @@
                 <span class="ui">Bearbeiten</span> oder zu <span class="ui">Löschen</span>.
               </li>
               <li>Beim Bearbeiten speichert <kbd>Enter</kbd>, <kbd>Esc</kbd> bricht ab.</li>
+            </ul>
+          </article>
+          <article class="topic" id="formatieren">
+            <h3><span class="ico" aria-hidden="true">✍️</span>Text formatieren</h3>
+            <ul>
+              <li><code>**fett**</code> wird <strong>fett</strong>.</li>
+              <li><code>*kursiv*</code> oder <code>_kursiv_</code> wird <em>kursiv</em>.</li>
+              <li><code>~~durchgestrichen~~</code> wird <s>durchgestrichen</s>.</li>
+              <li>
+                Einfache Backticks zeigen <code>Code</code>, drei Backticks vor und nach dem Text
+                einen Codeblock.
+              </li>
+              <li>Links mit <code>https://</code> werden von selbst anklickbar.</li>
+            </ul>
+            <p class="tip">Ein <code>\</code> davor zeigt das Zeichen selbst: <code>\*</code></p>
+          </article>
+          <article class="topic" id="reaktionen">
+            <h3><span class="ico" aria-hidden="true">😀</span>Reaktionen &amp; Antworten</h3>
+            <ul>
+              <li>
+                Fahr mit der Maus über eine Nachricht (am Handy: antippen) und tippe auf das
+                <span class="ui">Smiley</span>. Sechs Emoji stehen oben, alle anderen findest du
+                über die Suche.
+              </li>
+              <li>
+                Auf eine vorhandene Reaktion tippen macht mit, noch einmal tippen nimmt deine wieder
+                weg.
+              </li>
+              <li>
+                Mit <span class="ui">Antworten</span> zitierst du die Nachricht. Über dem
+                Eingabefeld steht dann, worauf du antwortest, <kbd>Esc</kbd> bricht ab. Ein Tipp auf
+                das Zitat springt zur Originalnachricht.
+              </li>
+              <li>Wer eine Antwort bekommt, wird benachrichtigt wie bei einer Erwähnung.</li>
+            </ul>
+          </article>
+          <article class="topic" id="erwaehnen">
+            <h3><span class="ico" aria-hidden="true">📣</span>Erwähnen &amp; Emoji</h3>
+            <ul>
+              <li>
+                Tippe <kbd>@</kbd> und den Anfang eines Namens, dann mit <kbd>↑</kbd>/<kbd>↓</kbd>
+                wählen und <kbd>Enter</kbd> oder <kbd>Tab</kbd> drücken. Wer erwähnt wird, bekommt
+                eine Mitteilung, auch wenn der Server stummgeschaltet ist.
+              </li>
+              <li>
+                Das <span class="ui">Smiley</span> im Eingabefeld öffnet die Emoji-Auswahl mit
+                Suche, auch auf Deutsch („katze“).
+              </li>
+              <li>
+                Kürzel gehen auch: <code>:thumbsup:</code> wird 👍. Schon nach zwei Buchstaben wie
+                <code>:th</code> erscheinen Vorschläge.
+              </li>
+            </ul>
+          </article>
+          <article class="topic" id="befehle">
+            <h3><span class="ico" aria-hidden="true">⌨️</span>Befehle</h3>
+            <p>Schreib <kbd>/</kbd> an den Anfang, die Liste erscheint von selbst.</p>
+            <ul>
+              <li><code>/shrug</code> hängt ¯\_(ツ)_/¯ an deine Nachricht.</li>
+              <li>
+                <code>/tableflip</code> und <code>/unflip</code> werfen den Tisch um und stellen ihn
+                wieder hin.
+              </li>
+              <li><code>/me winkt</code> schreibt den Text kursiv, wie eine Handlung.</li>
+              <li><code>/würfeln</code> würfelt, <code>/würfeln 20</code> mit 20 Seiten.</li>
+              <li><code>/münze</code> wirft eine Münze.</li>
+            </ul>
+            <p class="tip">
+              Willst du eine Zeile mit <code>/</code> beginnen, schreib <code>//</code>.
+            </p>
+          </article>
+          <article class="topic" id="ungelesen">
+            <h3><span class="ico" aria-hidden="true">📬</span>Ungelesen &amp; Entwürfe</h3>
+            <ul>
+              <li>
+                Kanäle mit neuen Nachrichten sind fett und zeigen die Anzahl. Eine bunte Zahl heißt:
+                Du wurdest erwähnt oder hast eine Antwort. Links am Server zeigt ein Strich, dass
+                dort etwas Neues ist.
+              </li>
+              <li>
+                Der Stand gilt auf allen Geräten: Was du am Handy liest, ist auch am Computer
+                gelesen.
+              </li>
+              <li>
+                Eine Linie <span class="ui">Neue Nachrichten</span> zeigt, wo du aufgehört hast.
+              </li>
+              <li>
+                Text, den du noch nicht gesendet hast, bleibt pro Kanal stehen, auch wenn du
+                wechselst. Beim Abmelden wird er gelöscht.
+              </li>
+            </ul>
+          </article>
+          <article class="topic" id="anpinnen">
+            <h3><span class="ico" aria-hidden="true">📌</span>Anpinnen</h3>
+            <p>
+              Wichtiges bleibt mit dem <span class="ui">Pin</span> griffbereit: Das Pin-Symbol oben
+              im Chat zeigt alle angepinnten Nachrichten, ein Tipp springt hin. Auf einem Server
+              pinnt nur der Besitzer, in privaten Chats und Gruppen alle. Bis zu 50 pro Kanal.
+            </p>
+          </article>
+          <article class="topic" id="tastenkuerzel">
+            <h3><span class="ico" aria-hidden="true">🎹</span>Tastenkürzel</h3>
+            <ul>
+              <li><kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: vorheriger oder nächster Kanal.</li>
+              <li><kbd>↑</kbd> im leeren Eingabefeld: letzte eigene Nachricht bearbeiten.</li>
+              <li><kbd>Esc</kbd>: Antwort abbrechen, Vorschläge schließen.</li>
+              <li><kbd>Shift</kbd> + <kbd>Enter</kbd>: neue Zeile.</li>
             </ul>
           </article>
           <article class="topic" id="bilder">
@@ -377,6 +498,18 @@
               Stummschalten und <span class="ui">Auflegen</span>. Ein- und Ausgabegerät wählst du in
               den Einstellungen unter <span class="ui">Sprachkanäle</span>.
             </p>
+            <ul>
+              <li><strong>Wer spricht</strong> leuchtet grün, im Kanal und in der Seitenleiste.</li>
+              <li>
+                <strong>Push-to-Talk:</strong> In den Einstellungen einschalten und eine Taste
+                wählen (Standard: <kbd>V</kbd>). Das Mikrofon ist nur offen, solange du sie hältst,
+                am Handy den Mikrofon-Knopf in der Leiste.
+              </li>
+              <li>
+                <strong>Rauschunterdrückung</strong> ist an und lässt sich dort abschalten, zum
+                Beispiel für Musik. Das gilt ab dem nächsten Beitritt.
+              </li>
+            </ul>
           </article>
           <article class="topic" id="anrufe">
             <h3><span class="ico" aria-hidden="true">📞</span>Anrufe &amp; Video</h3>
@@ -445,7 +578,9 @@
             <p>
               In den Einstellungen unter <span class="ui">Darstellung</span>: hell, dunkel oder
               <span class="ui">Systemstandard</span>, dazu fertige Farbthemes – oder unter
-              <span class="ui">Eigenes Theme</span> deine eigenen Farben.
+              <span class="ui">Eigenes Theme</span> deine eigenen Farben. Unter
+              <span class="ui">Chat</span> stellst du die kompakte Ansicht und die Schriftgröße ein.
+              Das gilt pro Gerät.
             </p>
           </article>
           <article class="topic" id="mitteilungen">

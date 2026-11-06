@@ -438,6 +438,23 @@ Zahlenfolgen); enthält weder Benutzernamen noch den Namensteil der E-Mail; kein
 Folge. Dieselbe Prüfung läuft im Browser (Checkliste mit Stärke-Anzeige beim Registrieren) und
 auf dem Server (`shared/src/password.ts`).
 
+## Chat: Reaktionen, Antworten, Ungelesen
+
+Seit 06.11.2026 (Migration `0012_chat_features`, sie markiert alles Vorhandene als gelesen).
+
+| Funktion        | Wie                                                                                                                                                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reaktionen      | `POST /api/messages/:id/reactions` schaltet um, höchstens 20 verschiedene Emoji pro Nachricht, nur echte Emoji (Prüfung in `shared`). Event `message.reactions`                                                                                      |
+| Antworten       | `replyToId` beim Senden, nur im selben Kanal. Wird das Original gelöscht, bleibt die Antwort ohne Zitat (`ON DELETE SET NULL`)                                                                                                                       |
+| Text            | `frontend/src/lib/markdown.tsx` baut React-Elemente, nie HTML; Links nur http(s), `rel="noopener noreferrer nofollow ugc"`. Bewusst ohne Lookbehind-RegExp (ältere Safari würden das ganze Bundle nicht laden)                                       |
+| schreibt gerade | Client-Frame `typing`, alle 3 s beim Tippen. Der Server gibt ihn nur für den abonnierten Kanal weiter, höchstens alle 500 ms, nicht an den Absender. Anzeige 5 s oder bis zur Nachricht                                                              |
+| Ungelesen       | Tabelle `channel_reads`, `GET /api/unread`, `POST /api/channels/:id/read` (rückt nie zurück, nie über die letzte Nachricht hinaus). Event `channel.activity` an den Server, `channel.read` an die eigenen Geräte. Neue Mitglieder zählen ab Beitritt |
+| Erwähnungen     | Vorschläge im Eingabefeld, Zähler `mentions` per Regex auf den Benutzernamen, Antworten zählen mit                                                                                                                                                   |
+| Anpinnen        | `POST /api/messages/:id/pin`, `GET /api/channels/:id/pins`, Server: nur Besitzer, private Chats: alle, höchstens 50                                                                                                                                  |
+| Begrüßung       | Nachricht `kind = 'join'` im ersten Textkanal, ohne Push, zählt nicht als ungelesen, keine Reaktionen                                                                                                                                                |
+| Einladung       | `POST /api/guilds/:id/invite` (`expiresInHours`, `maxUses`, `regenerate`), Zählen und Beitreten in einer Transaktion                                                                                                                                 |
+| Nur im Browser  | Entwürfe (`disslxt:draft:*`, beim Abmelden gelöscht), Befehle (`lib/commands.ts`), Emoji (`lib/emoji.ts`), Kompakt/Schriftgröße/Push-to-Talk/Rauschfilter (`prefs`)                                                                                  |
+
 ## Audio-Geräte im Sprachkanal
 
 „Beitreten“ öffnet zuerst ein Menü: Mikrofon wählen (mit Live-Pegel), Ausgabe wählen
@@ -541,4 +558,4 @@ Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
 Alle Endpunkte unter `/api`, JSON, Session-Cookie `sid` (httpOnly, SameSite=Lax). Fehlerformat:
 `{ "error": { "code", "message", "details?" } }`. Echtzeit über `GET /ws` (Server→Client-Events,
-Client sendet `subscribe`/`unsubscribe`/`ping`/`visibility` und `voice.*` für Sprachkanäle). Details: `docs/PLAN.md` §3.
+Client sendet `subscribe`/`unsubscribe`/`ping`/`visibility`/`typing` und `voice.*` für Sprachkanäle). Details: `docs/PLAN.md` §3.
