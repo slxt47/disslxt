@@ -7,6 +7,9 @@ import { PRESENCE_TEXT, ProfileLink, StatusLine, UserBadges } from './Social';
 export function MemberList({ guildId }: { guildId: string }) {
   const members = useChatStore((s) => s.membersByGuild[guildId]);
   const online = members?.filter((m) => m.online).length ?? 0;
+  const roles = useChatStore((s) => s.rolesByGuild[guildId]?.roles);
+  const colorOf = (roleIds: string[] = []) =>
+    roles?.find((r) => r.color && roleIds.includes(r.id))?.color ?? undefined;
 
   return (
     <aside className="member-list" aria-label="Mitglieder">
@@ -27,7 +30,11 @@ export function MemberList({ guildId }: { guildId: string }) {
               <span className="presence-dot" aria-hidden="true" />
             </span>
             <span className="member-text">
-              <span className="member-name" title={`@${m.username}`}>
+              <span
+                className="member-name"
+                title={`@${m.username}`}
+                style={{ color: colorOf(m.roleIds) }}
+              >
                 <ProfileLink userId={m.userId}>{nameOf(m)}</ProfileLink>
                 <UserBadges user={m} />
               </span>

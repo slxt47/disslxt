@@ -70,6 +70,10 @@ export interface MessageListProps {
   onReply?: (message: MessageDto) => void;
   /** Without it messages cannot be pinned. */
   onPin?: (id: string, pinned: boolean) => Promise<void>;
+  /** May delete other people's messages (the server checks the rank). */
+  canModerate?: boolean;
+  /** Colour of a name, from its highest role. */
+  authorColors?: Record<string, string>;
   /** Message to open for editing, cleared with onEditHandled. */
   editId?: string | null;
   onEditHandled?: () => void;
@@ -105,6 +109,8 @@ export function MessageList({
   onReact,
   onReply,
   onPin,
+  canModerate = false,
+  authorColors,
   editId = null,
   onEditHandled,
 }: MessageListProps) {
@@ -258,6 +264,8 @@ export function MessageList({
               onReact={onReact}
               onReply={onReply}
               onPin={onPin}
+              canModerate={canModerate}
+              authorColor={authorColors?.[m.author.id]}
               onJump={jumpToMessage}
               editRequested={m.id === editId}
               onEditHandled={onEditHandled}

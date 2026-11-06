@@ -449,3 +449,52 @@ describe('invite status', () => {
     );
   });
 });
+
+describe('roles', () => {
+  beforeEach(() => useChatStore.getState().reset());
+
+  it('tells you when you were removed from a server', () => {
+    const s = useChatStore.getState();
+    s.setGuilds([{ id: 'g' } as Parameters<typeof s.upsertGuild>[0]]);
+    s.applyEvent(
+      { type: 'member.left', data: { guildId: 'g', userId: ME.id, reason: 'banned' } },
+      ME.id,
+    );
+    expect(useChatStore.getState().guilds).toEqual([]);
+    expect(useChatStore.getState().error).toContain('gesperrt');
+  });
+
+  it('leaving yourself is no error', () => {
+    const s = useChatStore.getState();
+    s.setGuilds([{ id: 'g' } as Parameters<typeof s.upsertGuild>[0]]);
+    s.applyEvent({ type: 'member.left', data: { guildId: 'g', userId: ME.id } }, ME.id);
+    expect(useChatStore.getState().error).toBeNull();
+  });
+
+  it('delete button for moderators on foreign messages, without edit', () => {
+    render(
+      <MessageItem
+        message={msg(1)}
+        isOwn={false}
+        canModerate
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('message-delete')).toBeTruthy();
+    expect(screen.queryByTestId('message-edit')).toBeNull();
+  });
+
+  it('colours the name by role', () => {
+    render(
+      <MessageItem
+        message={msg(1)}
+        isOwn={false}
+        authorColor="#ff0000"
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('message-author').style.color).toBe('rgb(255, 0, 0)');
+  });
+});

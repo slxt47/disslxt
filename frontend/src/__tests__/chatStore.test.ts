@@ -22,6 +22,7 @@ const general: ChannelDto = {
   guildId: GUILD,
   name: 'general',
   kind: 'text',
+  restricted: false,
   createdAt: '2026-10-20T12:00:00.000Z',
 };
 

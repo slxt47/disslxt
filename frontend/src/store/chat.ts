@@ -4,6 +4,7 @@ import type {
   DmChannelDto,
   FriendDto,
   GuildDto,
+  GuildRolesDto,
   MemberDto,
   MessageDto,
   PublicUserDto,
@@ -84,6 +85,8 @@ export interface ChatState {
   /** Private conversations, newest activity first. */
   dms: DmChannelDto[];
   dmsLoaded: boolean;
+  /** Roles of the opened servers and what they allow me. */
+  rolesByGuild: Record<string, GuildRolesDto>;
   /** Unread messages per channel and conversation (from the server, then kept current). */
   unread: Record<string, UnreadEntry>;
   connection: ConnectionStatus;
@@ -93,6 +96,7 @@ export interface ChatState {
   error: string | null;
 
   setGuilds: (guilds: GuildDto[]) => void;
+  setRoles: (guildId: string, roles: GuildRolesDto) => void;
   upsertGuild: (guild: GuildDto) => void;
   removeGuild: (guildId: string) => void;
   setChannels: (guildId: string, channels: ChannelDto[]) => void;
@@ -148,6 +152,7 @@ const initial = {
   friendsLoaded: false,
   dms: [] as DmChannelDto[],
   dmsLoaded: false,
+  rolesByGuild: {} as Record<string, GuildRolesDto>,
   unread: {} as Record<string, UnreadEntry>,
   connection: 'stopped' as ConnectionStatus,
   subscribedChannelId: null as string | null,
@@ -158,6 +163,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   ...initial,
 
   setGuilds: (guilds) => set({ guilds, guildsLoaded: true }),
+
+  setRoles: (guildId, roles) =>
+    set((s) => ({ rolesByGuild: { ...s.rolesByGuild, [guildId]: roles } })),
 
   upsertGuild: (guild) =>
     set((s) => {
@@ -451,6 +459,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         const { guildId, userId } = event.data;
         if (userId === selfId) {
           s.removeGuild(guildId);
+          if (event.data.reason) {
+            set({
+              error:
+                event.data.reason === 'banned'
+                  ? 'Du wurdest von diesem Server gesperrt.'
+                  : 'Du wurdest vom Server entfernt.',
+            });
+          }
           return;
         }
         const list = s.membersByGuild[guildId];

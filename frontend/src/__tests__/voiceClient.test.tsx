@@ -385,6 +385,7 @@ describe('VoiceChannelView', () => {
     guildId: GUILD,
     name: 'lounge',
     kind: 'voice',
+    restricted: false,
     createdAt: '',
   };
 

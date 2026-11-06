@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { ChannelDto, ChannelKind, VoicePeerDto, WsServerMessage } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import { channels, dmMembers, type Channel } from '../db/schema.js';
@@ -8,6 +8,7 @@ import type { Hub } from '../realtime/hub.js';
 import { toChannelDto } from './dto.js';
 import type { FriendService } from './friend.service.js';
 import type { GuildService } from './guild.service.js';
+import { channelVisibleSql, type PermissionService } from './permission.service.js';
 
 export class ChannelService {
   constructor(
@@ -15,6 +16,7 @@ export class ChannelService {
     private readonly hub: Hub,
     private readonly guilds: GuildService,
     private readonly friends: FriendService,
+    private readonly perms: PermissionService,
   ) {}
 
   async list(userId: string, guildId: string): Promise<ChannelDto[]> {
@@ -22,12 +24,17 @@ export class ChannelService {
     const rows = await this.db
       .select()
       .from(channels)
-      .where(eq(channels.guildId, guildId))
+      .where(
+        and(
+          eq(channels.guildId, guildId),
+          channelVisibleSql(sql`${channels.id}`, sql`${userId}::uuid`),
+        ),
+      )
       .orderBy(asc(channels.createdAt), asc(channels.name));
     return rows.map(toChannelDto);
   }
 
-  /** Owner only. `name` must already be normalised by the shared schema. */
+  /** Needs manage_channels. `name` must already be normalised by the shared schema. */
   async create(
     userId: string,
     guildId: string,
@@ -35,7 +42,7 @@ export class ChannelService {
     kind: ChannelKind = 'text',
   ): Promise<ChannelDto> {
     const guild = await this.guilds.assertMember(userId, guildId);
-    if (guild.ownerId !== userId) throw forbidden('Nur der Besitzer kann Kanäle anlegen');
+    await this.perms.assert(userId, guild, 'manage_channels', 'Dafür fehlt dir das Recht');
     let row: Channel | undefined;
     try {
       [row] = await this.db.insert(channels).values({ guildId, name, kind }).returning();
@@ -59,7 +66,10 @@ export class ChannelService {
   /** Who is in which voice channel of a guild right now (members only). */
   async voiceState(userId: string, guildId: string): Promise<Record<string, VoicePeerDto[]>> {
     await this.guilds.assertMember(userId, guildId);
-    return this.hub.voiceStateForGuild(guildId);
+    const visible = new Set((await this.list(userId, guildId)).map((c) => c.id));
+    return Object.fromEntries(
+      Object.entries(this.hub.voiceStateForGuild(guildId)).filter(([id]) => visible.has(id)),
+    );
   }
 
   /**
@@ -115,7 +125,11 @@ export class ChannelService {
       .limit(1);
     if (!channel) throw notFound('Kanal nicht gefunden');
     if (channel.guildId) {
-      await this.guilds.assertMember(userId, channel.guildId);
+      const guild = await this.guilds.assertMember(userId, channel.guildId);
+      // A channel you may not see does not exist for you.
+      if (!(await this.perms.canSeeChannel(userId, channel, guild))) {
+        throw notFound('Kanal nicht gefunden');
+      }
     } else {
       const [row] = await this.db
         .select({ userId: dmMembers.userId })
@@ -125,6 +139,16 @@ export class ChannelService {
       if (!row) throw forbidden('Das ist nicht deine Unterhaltung');
     }
     return channel;
+  }
+
+  /** Restricted server channel: who sees it (null: everyone on the server). */
+  async audience(
+    channel: Pick<Channel, 'id' | 'guildId' | 'restricted'>,
+  ): Promise<string[] | null> {
+    if (!channel.restricted || !channel.guildId) return null;
+    const ownerId = await this.guilds.ownerOf(channel.guildId);
+    const all = await this.perms.restrictedAudience(channel.guildId, ownerId);
+    return [...(all.get(channel.id) ?? [])];
   }
 
   /** Delivers an event to everyone who reads the channel: its subscribers, or both DM members. */

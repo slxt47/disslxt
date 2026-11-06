@@ -96,7 +96,13 @@ export type WsServerMessage =
       data: { guildId: string; userId: string; status: PresenceStatus };
     }
   | { type: 'member.joined'; data: { guildId: string; member: MemberDto } }
-  | { type: 'member.left'; data: { guildId: string; userId: string } }
+  /** `reason`: they did not leave themselves. */
+  | {
+      type: 'member.left';
+      data: { guildId: string; userId: string; reason?: 'kicked' | 'banned' };
+    }
+  /** Roles, a member's roles or who sees which channel changed: load them again. */
+  | { type: 'guild.roles-changed'; data: { guildId: string } }
   | { type: 'channel.created'; data: { channel: ChannelDto } }
   /** The owner deleted the guild; it is gone for every member. */
   | { type: 'guild.deleted'; data: { guildId: string } }

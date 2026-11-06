@@ -1,3 +1,5 @@
+import type { GUILD_PERMISSIONS } from './constants.js';
+
 /** A short server tag (e.g. "GAME" + 🎮) someone wears next to their name. */
 export interface UserTagDto {
   guildId: string;
@@ -95,6 +97,31 @@ export interface ChannelDto {
   guildId: string | null;
   name: string;
   kind: ChannelKind;
+  /** Only certain roles see it. */
+  restricted: boolean;
+  createdAt: string;
+}
+
+export type GuildPermission = (typeof GUILD_PERMISSIONS)[number];
+
+/** A role of a server. `position`: lower ranks higher. */
+export interface RoleDto {
+  id: string;
+  name: string;
+  color: string | null;
+  permissions: GuildPermission[];
+  position: number;
+}
+
+/** Roles of a server and what they allow the person asking. */
+export interface GuildRolesDto {
+  roles: RoleDto[];
+  /** The owner has all of them. */
+  myPermissions: GuildPermission[];
+}
+
+export interface GuildBanDto {
+  user: PublicUserDto;
   createdAt: string;
 }
 
@@ -201,6 +228,8 @@ export interface MemberDto {
   badges?: string[];
   tag?: UserTagDto | null;
   status?: UserStatusDto | null;
+  /** Roles on this server. */
+  roleIds?: string[];
 }
 
 /** 'friend' once accepted; otherwise a request sent to me ('incoming') or by me ('outgoing'). */
@@ -278,6 +307,7 @@ export type ErrorCode =
   | 'VERIFICATION_INVALID'
   | 'FORBIDDEN'
   | 'OWNER_PROTECTED'
+  | 'BANNED'
   | 'BAD_ORIGIN'
   | 'NOT_AUTHOR'
   | 'NOT_FOUND'

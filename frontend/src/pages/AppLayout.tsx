@@ -26,7 +26,7 @@ import { Icon } from '../components/Icon';
 import { MemberList } from '../components/MemberList';
 import { MessageSkeleton } from '../components/Skeleton';
 import { ServerList } from '../components/ServerList';
-import { activeView } from '../realtime/RealtimeProvider';
+import { activeView, loadGuildRoles } from '../realtime/RealtimeProvider';
 import { useChatStore } from '../store/chat';
 import { usePrefs } from '../store/prefs';
 
@@ -97,6 +97,7 @@ export function AppLayout() {
       (r) => useChatStore.getState().setMembers(guildId, r.members),
       (err: unknown) => chat.setError(errorMessage(err)),
     );
+    void loadGuildRoles(guildId);
   }, [guildId, guildKnown]);
 
   // Who is in the guild's voice channels (kept current by voice.state events afterwards).

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { GuildDto } from '@disslxt/shared';
+import type { GuildDto, GuildPermission } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useAuthStore } from '../store/auth';
@@ -14,10 +14,12 @@ import { UserFooter } from './UserFooter';
 import { VoiceBar } from './VoiceBar';
 import { inviteStatus } from './InviteSettings';
 import { LineSkeleton } from './Skeleton';
+import { ServerAdminDialog } from './ServerAdminDialog';
 import { useVoiceStore } from '../store/voice';
 import { nameOf } from '../profile';
 
 const NO_PEERS: never[] = [];
+const NO_PERMISSIONS: GuildPermission[] = [];
 
 /** Who is in a voice channel, under its name in the list. */
 function VoiceParticipants({ channelId }: { channelId: string }) {
@@ -78,6 +80,10 @@ export function ChannelSidebar({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isOwner = !!guild && guild.ownerId === user?.id;
+  const permissions = useChatStore((s) =>
+    guild ? (s.rolesByGuild[guild.id]?.myPermissions ?? NO_PERMISSIONS) : NO_PERMISSIONS,
+  );
+  const [adminOpen, setAdminOpen] = useState(false);
   const pushConfig = usePushStore((s) => s.config);
   const muted = !!guild && !!pushConfig?.mutedGuildIds.includes(guild.id);
 
@@ -198,6 +204,19 @@ export function ChannelSidebar({
                   </button>
                 </div>
                 <div className="guild-menu-section">
+                  {permissions.length > 0 && (
+                    <button
+                      className="menu-item"
+                      data-testid="server-admin-button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setAdminOpen(true);
+                      }}
+                    >
+                      <Icon name="users" size={18} />
+                      Rollen &amp; Mitglieder
+                    </button>
+                  )}
                   {!isOwner &&
                     (confirmLeave ? (
                       <div className="leave-confirm">
@@ -260,7 +279,7 @@ export function ChannelSidebar({
           <div className="sidebar-section">
             <div className="sidebar-heading-row">
               <h3 className="sidebar-heading">Textkanäle</h3>
-              {isOwner && (
+              {permissions.includes('manage_channels') && (
                 <button
                   className="icon-btn"
                   data-testid="create-channel-button"
@@ -290,6 +309,7 @@ export function ChannelSidebar({
                         <Icon name="hash" size={16} />
                         <span className="sr-only">#</span>
                         <span className="channel-name">{c.name}</span>
+                        {c.restricted && <Icon name="lock" size={14} />}
                         {news && (
                           <span
                             className={`badge inline${news.mentions ? '' : ' quiet'}`}
@@ -323,7 +343,8 @@ export function ChannelSidebar({
                         onClick={onNavigate}
                       >
                         <Icon name="speaker" size={16} />
-                        {c.name}
+                        <span className="channel-name">{c.name}</span>
+                        {c.restricted && <Icon name="lock" size={14} />}
                       </Link>
                       <VoiceParticipants channelId={c.id} />
                     </li>
@@ -332,6 +353,7 @@ export function ChannelSidebar({
             </div>
           )}
           {deleting && <DeleteGuildDialog guild={guild} onClose={() => setDeleting(false)} />}
+          {adminOpen && <ServerAdminDialog guild={guild} onClose={() => setAdminOpen(false)} />}
           {editing && <GuildSettingsDialog guild={guild} onClose={() => setEditing(false)} />}
           {creating && (
             <CreateChannelDialog guildId={guild.id} onClose={() => setCreating(false)} />

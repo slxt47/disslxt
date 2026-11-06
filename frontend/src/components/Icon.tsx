@@ -3,6 +3,7 @@ import { useState, type CSSProperties } from 'react';
 /** Line icons in the style of SF Symbols; they inherit the text colour and scale with font size. */
 const PATHS = {
   menu: 'M4 7h16M4 12h16M4 17h16',
+  lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
   reply: 'M10 7l-5 5 5 5M5 12h9a5 5 0 0 1 5 5v1',
   smile:
     'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8.5 14.5c.8 1.2 2 2 3.5 2s2.7-.8 3.5-2M9 10h.01M15 10h.01',

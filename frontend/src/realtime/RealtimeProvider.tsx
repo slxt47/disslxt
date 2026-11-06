@@ -56,6 +56,26 @@ export async function loadUnread(): Promise<void> {
   useChatStore.getState().setUnread(unread);
 }
 
+/** Roles, what they allow me and (with `refresh`) what follows from them: channels and members. */
+export async function loadGuildRoles(guildId: string, refresh = false): Promise<void> {
+  const chat = useChatStore.getState();
+  try {
+    const tasks: Promise<unknown>[] = [
+      api.listRoles(guildId).then((r) => chat.setRoles(guildId, r)),
+    ];
+    if (refresh && chat.channelsByGuild[guildId]) {
+      tasks.push(api.listChannels(guildId).then((r) => chat.setChannels(guildId, r.channels)));
+      tasks.push(api.unread().then((r) => chat.setUnread(r.unread)));
+    }
+    if (refresh && chat.membersByGuild[guildId]) {
+      tasks.push(api.listMembers(guildId).then((r) => chat.setMembers(guildId, r.members)));
+    }
+    await Promise.all(tasks);
+  } catch {
+    // Left the server meanwhile, or offline: the next load corrects it.
+  }
+}
+
 const looking = (channelId: string): boolean =>
   channelId === activeView.channelId && document.visibilityState === 'visible';
 
@@ -78,6 +98,8 @@ export function trackSocial(ev: WsServerMessage, selfId: string): void {
     if (authorId === selfId || looking(channelId)) return;
     const username = useAuthStore.getState().user?.username.toLowerCase() ?? '';
     useChatStore.getState().countUnread(channelId, guildId, messageId, mentions.includes(username));
+  } else if (ev.type === 'guild.roles-changed') {
+    void loadGuildRoles(ev.data.guildId, true);
   } else if (ev.type === 'typing') {
     if (ev.data.userId !== selfId) {
       useTypingStore.getState().started(ev.data.channelId, ev.data.userId, ev.data.name);

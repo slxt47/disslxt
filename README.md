@@ -455,6 +455,27 @@ Seit 06.11.2026 (Migration `0012_chat_features`, sie markiert alles Vorhandene a
 | Einladung       | `POST /api/guilds/:id/invite` (`expiresInHours`, `maxUses`, `regenerate`), Zählen und Beitreten in einer Transaktion                                                                                                                                 |
 | Nur im Browser  | Entwürfe (`disslxt:draft:*`, beim Abmelden gelöscht), Befehle (`lib/commands.ts`), Emoji (`lib/emoji.ts`), Kompakt/Schriftgröße/Push-to-Talk/Rauschfilter (`prefs`)                                                                                  |
 
+## Server-Rollen und Moderation
+
+Migration `0013_server_roles`. Die Rollen gelten pro Server und sind getrennt von den
+kontoweiten Rollen `owner`/`admin`/`user` aus dem Admin-Bereich.
+
+- **Rollen** legt nur der Server-Besitzer an und vergibt sie (höchstens 20). Das kann keine Rolle
+  weitergeben, so entsteht keine Rechteausweitung.
+- **Rechte:** `manage_channels`, `manage_messages`, `manage_invites`, `kick_members`,
+  `ban_members`. Der Besitzer hat alle.
+- **Rang:** `position`, niedriger ist höher. Entfernen, Sperren und fremde Nachrichten löschen geht
+  nur bei Mitgliedern unter dem eigenen Rang, nie beim Besitzer. Fremde Nachrichten ändern kann
+  niemand.
+- **Eingeschränkte Kanäle:** `channels.restricted` + `channel_roles`. Ohne passende Rolle gibt es
+  den Kanal nicht (404), auch mit Rechten. `channelVisibleSql` in `permission.service.ts` ist die
+  eine Definition für Listen, Ungelesen und Push; `assertAccess` deckt Lesen, Schreiben, Dateien,
+  Reaktionen und WebSocket ab. `channel.activity` und `voice.state` gehen nur an Berechtigte.
+- **Sofort wirksam:** Jede Änderung ruft `hub.applyChannelAccess`: Sockets verlieren das Abo, wer im
+  Sprachkanal ist, fliegt raus. Danach lädt der Client über `guild.roles-changed` neu.
+- **Sperre:** `guild_bans`; Vorschau und Beitritt melden `BANNED`, auch für Leute, die schon weg sind.
+  Rollen verschwinden mit der Mitgliedschaft (Fremdschlüssel).
+
 ## Audio-Geräte im Sprachkanal
 
 „Beitreten“ öffnet zuerst ein Menü: Mikrofon wählen (mit Live-Pegel), Ausgabe wählen

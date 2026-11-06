@@ -42,6 +42,17 @@ export const INVITE_MAX_HOURS = 24 * 30;
 export const TYPING_REPEAT_MS = 3000;
 export const TYPING_SHOW_MS = 5000;
 
+/** What a server role can allow. Roles themselves are managed by the owner only. */
+export const GUILD_PERMISSIONS = [
+  'manage_channels',
+  'manage_messages',
+  'manage_invites',
+  'kick_members',
+  'ban_members',
+] as const;
+export const ROLES_PER_GUILD_MAX = 20;
+export const ROLE_NAME_MAX_LEN = 32;
+
 /** How many badges one person can show next to their name. */
 export const BADGES_SHOWN_MAX = 3;
 

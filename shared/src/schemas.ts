@@ -8,6 +8,7 @@ import {
   GROUP_NAME_MAX_LEN,
   EMAIL_MAX_LEN,
   GUILD_NAME_MAX_LEN,
+  GUILD_PERMISSIONS,
   INVITE_MAX_HOURS,
   INVITE_MAX_USES_LIMIT,
   MESSAGE_MAX_LEN,
@@ -16,6 +17,8 @@ import {
   PAGE_MAX,
   PASSWORD_MAX_LEN,
   PASSWORD_MIN_LEN,
+  ROLE_NAME_MAX_LEN,
+  ROLES_PER_GUILD_MAX,
   USERNAME_MAX_LEN,
   USERNAME_MIN_LEN,
 } from './constants.js';
@@ -291,6 +294,36 @@ export const reactionSchema = z.object({
 export const pinSchema = z.object({ pinned: z.boolean() });
 
 export const markReadSchema = z.object({ messageId: messageIdSchema });
+
+const roleFields = {
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name fehlt')
+    .refine(
+      (s) => textLength(s) <= ROLE_NAME_MAX_LEN,
+      `Name: höchstens ${ROLE_NAME_MAX_LEN} Zeichen`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Name enthält unzulässige Steuerzeichen'),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Farbe als #rrggbb')
+    .nullable(),
+  permissions: z.array(z.enum(GUILD_PERMISSIONS)).max(GUILD_PERMISSIONS.length),
+};
+export const createRoleSchema = z.object(roleFields);
+export type RoleInput = z.infer<typeof createRoleSchema>;
+export const updateRoleSchema = z.object(roleFields).partial();
+
+const roleIds = z
+  .array(z.guid())
+  .max(ROLES_PER_GUILD_MAX)
+  .refine((ids) => new Set(ids).size === ids.length, 'Jede Rolle nur einmal');
+export const roleOrderSchema = z.object({ roleIds });
+export const memberRolesSchema = z.object({ roleIds });
+/** Who sees a channel: `restricted` false means the whole server. */
+export const channelAccessSchema = z.object({ restricted: z.boolean(), roleIds });
+export const banSchema = z.object({ userId: z.guid() });
 
 /** Owner: limits of the invite link; `regenerate` makes the old link stop working. */
 export const inviteSettingsSchema = z.object({

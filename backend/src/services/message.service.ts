@@ -12,6 +12,7 @@ import {
   type PublicUserDto,
   type ReactionDto,
   type UnreadDto,
+  type WsServerMessage,
 } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
 import {
@@ -29,6 +30,7 @@ import type { Hub } from '../realtime/hub.js';
 import type { ChannelService } from './channel.service.js';
 import type { StorageService } from './storage.service.js';
 import { profileColumns, toMessageDto, toMessageRef, toPublicUser } from './dto.js';
+import { channelVisibleSql, type PermissionService } from './permission.service.js';
 import { mentionedNames, type PushService } from './push.service.js';
 
 export class MessageService {
@@ -42,6 +44,7 @@ export class MessageService {
     private readonly voiceDir: string,
     /** Directory of shared files (deleted together with their message). */
     private readonly fileDir: string,
+    private readonly perms: PermissionService,
   ) {}
 
   /** Stores a file message whose file is already in the file directory. */
@@ -76,7 +79,7 @@ export class MessageService {
     if (channel.guildId) {
       const mentions = mentionedNames(message.content);
       if (message.replyTo) mentions.add(message.replyTo.author.username.toLowerCase());
-      this.hub.publishToGuild(channel.guildId, {
+      const activity: WsServerMessage = {
         type: 'channel.activity',
         data: {
           channelId: channel.id,
@@ -85,7 +88,10 @@ export class MessageService {
           authorId: message.author.id,
           mentions: [...mentions],
         },
-      });
+      };
+      const audience = await this.channels.audience(channel);
+      if (audience) this.hub.publishToUsers(audience, activity);
+      else this.hub.publishToGuild(channel.guildId, activity);
     }
     this.push.messageCreated(message);
     return message;
@@ -172,7 +178,13 @@ export class MessageService {
     const [channel] = await this.db
       .select()
       .from(channels)
-      .where(and(eq(channels.guildId, guild.id), eq(channels.kind, 'text')))
+      .where(
+        and(
+          eq(channels.guildId, guild.id),
+          eq(channels.kind, 'text'),
+          eq(channels.restricted, false),
+        ),
+      )
       .orderBy(asc(channels.createdAt), asc(channels.name))
       .limit(1);
     if (!channel) return;
@@ -376,12 +388,12 @@ export class MessageService {
     const msg = await this.assertReadable(userId, messageId);
     if (msg.kind === 'join') throw new AppError('BAD_REQUEST', 400, 'Das kann man nicht anpinnen');
     if (msg.guildId) {
-      const [guild] = await this.db
-        .select({ ownerId: guilds.ownerId })
-        .from(guilds)
-        .where(eq(guilds.id, msg.guildId))
-        .limit(1);
-      if (guild?.ownerId !== userId) throw forbidden('Nur der Besitzer kann Nachrichten anpinnen');
+      await this.perms.assert(
+        userId,
+        await this.guildOf(msg.guildId),
+        'manage_messages',
+        'Dafür fehlt dir das Recht',
+      );
     }
     if (pinned) {
       const [row] = await this.db
@@ -416,6 +428,16 @@ export class MessageService {
     return message;
   }
 
+  private async guildOf(guildId: string): Promise<{ id: string; ownerId: string }> {
+    const [guild] = await this.db
+      .select({ id: guilds.id, ownerId: guilds.ownerId })
+      .from(guilds)
+      .where(eq(guilds.id, guildId))
+      .limit(1);
+    if (!guild) throw notFound('Server nicht gefunden');
+    return guild;
+  }
+
   /** Pinned messages of a channel, last pinned first. */
   async pins(userId: string, channelId: string): Promise<MessageDto[]> {
     await this.channels.assertAccess(userId, channelId);
@@ -446,6 +468,7 @@ export class MessageService {
         join channels c on c.guild_id = gm.guild_id and c.kind = 'text'
         left join channel_reads r on r.channel_id = c.id and r.user_id = gm.user_id
         where gm.user_id = ${userId}
+          and ${channelVisibleSql(sql`c.id`, sql`gm.user_id`)}
         union all
         select dm.channel_id, null, r.last_read_id, null
         from dm_members dm
@@ -527,8 +550,9 @@ export class MessageService {
     return message;
   }
 
+  /** Your own, or with manage_messages those of people below your rank. */
   async delete(userId: string, messageId: string): Promise<void> {
-    const msg = await this.assertAuthor(userId, messageId);
+    const msg = await this.assertMayDelete(userId, messageId);
     const deleted = await this.db
       .delete(messages)
       .where(eq(messages.id, msg.id))
@@ -541,6 +565,23 @@ export class MessageService {
       { id: msg.channelId, kind: msg.channelKind },
       { type: 'message.deleted', data: { id: msg.id.toString(), channelId: msg.channelId } },
     );
+  }
+
+  private async assertMayDelete(userId: string, messageId: string) {
+    const [row] = await this.db
+      .select({ authorId: messages.authorId, guildId: channels.guildId })
+      .from(messages)
+      .innerJoin(channels, eq(channels.id, messages.channelId))
+      .where(eq(messages.id, BigInt(messageId)))
+      .limit(1);
+    if (!row?.guildId || row.authorId === userId) return this.assertAuthor(userId, messageId);
+    await this.assertReadable(userId, messageId);
+    const guild = await this.guildOf(row.guildId);
+    if (!(await this.perms.has(userId, guild, 'manage_messages'))) {
+      return this.assertAuthor(userId, messageId);
+    }
+    await this.perms.assertOutranks(userId, row.authorId, guild);
+    return this.assertAuthor(row.authorId, messageId, true);
   }
 
   /** 404 if missing, 403 without access to the channel. */
@@ -563,7 +604,7 @@ export class MessageService {
   }
 
   /** 404 if missing, 403 FORBIDDEN without access to the channel, 403 NOT_AUTHOR if not the author. */
-  private async assertAuthor(userId: string, messageId: string) {
+  private async assertAuthor(userId: string, messageId: string, moderated = false) {
     const [row] = await this.db
       .select({
         id: messages.id,
@@ -579,7 +620,7 @@ export class MessageService {
       .where(eq(messages.id, BigInt(messageId)))
       .limit(1);
     if (!row) throw notFound('Nachricht nicht gefunden');
-    await this.channels.assertAccess(userId, row.channelId);
+    if (!moderated) await this.channels.assertAccess(userId, row.channelId);
     if (row.authorId !== userId) {
       throw forbidden('Nur der Autor darf diese Nachricht ändern', 'NOT_AUTHOR');
     }

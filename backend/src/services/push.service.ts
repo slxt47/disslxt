@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type {
   MessageDto,
@@ -19,6 +19,7 @@ import {
 } from '../db/schema.js';
 import type { PushSender } from '../lib/push.js';
 import type { Hub } from '../realtime/hub.js';
+import { channelVisibleSql } from './permission.service.js';
 
 const BODY_MAX = 140;
 /** Devices per account; the oldest subscription goes when a new one would exceed it. */
@@ -164,7 +165,7 @@ export class PushService {
         .where(eq(channels.id, message.channelId))
         .limit(1);
       if (!ctx) return;
-      const members = await this.recipients(ctx.guildId, message.author.id);
+      const members = await this.recipients(ctx.guildId, message.author.id, message.channelId);
       const mentioned = mentionedNames(message.content);
       // An answer counts like a mention of the person it answers.
       if (message.replyTo) mentioned.add(message.replyTo.author.username.toLowerCase());
@@ -270,7 +271,7 @@ export class PushService {
         .where(eq(channels.id, channelId))
         .limit(1);
       if (!ctx) return;
-      const members = await this.recipients(ctx.guildId, user.id);
+      const members = await this.recipients(ctx.guildId, user.id, channelId);
       await this.sendToUsers(
         members.filter((m) => !m.muted).map((m) => m.userId),
         {
@@ -288,7 +289,8 @@ export class PushService {
     while (this.pending.size > 0) await Promise.allSettled([...this.pending]);
   }
 
-  private async recipients(guildId: string, exceptUserId: string) {
+  /** Members who see the channel, without the sender. */
+  private async recipients(guildId: string, exceptUserId: string, channelId: string) {
     return this.db
       .select({
         userId: guildMembers.userId,
@@ -304,7 +306,13 @@ export class PushService {
           eq(guildNotificationSettings.userId, guildMembers.userId),
         ),
       )
-      .where(and(eq(guildMembers.guildId, guildId), ne(guildMembers.userId, exceptUserId)))
+      .where(
+        and(
+          eq(guildMembers.guildId, guildId),
+          ne(guildMembers.userId, exceptUserId),
+          channelVisibleSql(sql`${channelId}::uuid`, sql`${guildMembers.userId}`),
+        ),
+      )
       .then((rows) => rows.map((r) => ({ ...r, muted: r.muted ?? false })));
   }
 

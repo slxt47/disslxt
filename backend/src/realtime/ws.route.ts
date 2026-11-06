@@ -223,7 +223,9 @@ export async function wsRoutes(
           if (client.socket.readyState !== client.socket.OPEN) return;
           const video = !!msg.data.video;
           const group = channel.kind === 'group';
-          const result = hub.joinVoice(client, channel, { video, audience, group });
+          const visibleTo = (await services.channels.audience(channel)) ?? undefined;
+          if (client.socket.readyState !== client.socket.OPEN) return;
+          const result = hub.joinVoice(client, channel, { video, audience, group, visibleTo });
           if (!result.ok) {
             sendTo(client, {
               type: 'error',

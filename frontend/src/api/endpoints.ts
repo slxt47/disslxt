@@ -10,13 +10,17 @@ import type {
   ProfileDto,
   UserRole,
   VoicePeerDto,
+  GuildBanDto,
   GuildDto,
+  GuildRolesDto,
   InvitePreviewDto,
   InviteSettingsInput,
   MemberDto,
   MessageDto,
   PushConfigDto,
   ReactionDto,
+  RoleDto,
+  RoleInput,
   TurnUsageDto,
   UnreadDto,
   UserDto,
@@ -99,6 +103,29 @@ export const api = {
   unread: () => apiRequest<{ unread: UnreadDto[] }>('GET', '/unread'),
   markRead: (channelId: string, messageId: string) =>
     apiRequest<void>('POST', `/channels/${enc(channelId)}/read`, { messageId }),
+  listRoles: (guildId: string) => apiRequest<GuildRolesDto>('GET', `/guilds/${enc(guildId)}/roles`),
+  createRole: (guildId: string, input: RoleInput) =>
+    apiRequest<{ role: RoleDto }>('POST', `/guilds/${enc(guildId)}/roles`, input),
+  updateRole: (guildId: string, roleId: string, patch: Partial<RoleInput>) =>
+    apiRequest<{ role: RoleDto }>('PATCH', `/guilds/${enc(guildId)}/roles/${enc(roleId)}`, patch),
+  deleteRole: (guildId: string, roleId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/roles/${enc(roleId)}`),
+  orderRoles: (guildId: string, roleIds: string[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/roles/order`, { roleIds }),
+  setMemberRoles: (guildId: string, userId: string, roleIds: string[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/members/${enc(userId)}/roles`, { roleIds }),
+  kickMember: (guildId: string, userId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/members/${enc(userId)}`),
+  banMember: (guildId: string, userId: string) =>
+    apiRequest<void>('POST', `/guilds/${enc(guildId)}/bans`, { userId }),
+  unbanMember: (guildId: string, userId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/bans/${enc(userId)}`),
+  listBans: (guildId: string) =>
+    apiRequest<{ bans: GuildBanDto[] }>('GET', `/guilds/${enc(guildId)}/bans`),
+  channelAccess: (channelId: string) =>
+    apiRequest<{ roleIds: string[] }>('GET', `/channels/${enc(channelId)}/access`),
+  setChannelAccess: (channelId: string, restricted: boolean, roleIds: string[]) =>
+    apiRequest<void>('PUT', `/channels/${enc(channelId)}/access`, { restricted, roleIds }),
   updateInvite: (guildId: string, settings: InviteSettingsInput) =>
     apiRequest<{ guild: GuildDto }>('POST', `/guilds/${enc(guildId)}/invite`, settings),
   editMessage: (messageId: string, content: string) =>

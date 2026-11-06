@@ -10,6 +10,8 @@ import { DmService } from './dm.service.js';
 import { FriendService } from './friend.service.js';
 import { GuildService } from './guild.service.js';
 import { MessageService } from './message.service.js';
+import { PermissionService } from './permission.service.js';
+import { RoleService } from './role.service.js';
 import { IceService } from './ice.service.js';
 import { PushService } from './push.service.js';
 import { TurnUsageService } from './turnUsage.service.js';
@@ -37,6 +39,7 @@ export interface Services {
   accounts: AccountService;
   badges: BadgeService;
   admin: AdminService;
+  roles: RoleService;
 }
 
 export function createServices(
@@ -52,12 +55,14 @@ export function createServices(
   const push = new PushService(db, hub, config, pushSender, log);
   const storage = new StorageService(db, config.storage.root, config.storage.limitBytes);
   const images = new ImageStore(config.avatars.dir, storage);
+  const perms = new PermissionService(db);
   const guilds = new GuildService(
     db,
     hub,
     push,
     { voiceDir: config.voice.dir, fileDir: config.files.dir },
     images,
+    perms,
   );
   const friends = new FriendService(db, hub);
   const dms = new DmService(db, hub, friends, {
@@ -68,7 +73,8 @@ export function createServices(
   const badges = new BadgeService(db);
   const users = new UserService(db, hub, guilds, friends, images, badges);
   const admin = new AdminService(db, hub, users, badges);
-  const channels = new ChannelService(db, hub, guilds, friends);
+  const channels = new ChannelService(db, hub, guilds, friends, perms);
+  const roles = new RoleService(db, hub, guilds, perms);
   guilds.profilesChanged = (ids) => users.republish(ids);
   const messages = new MessageService(
     db,
@@ -78,6 +84,7 @@ export function createServices(
     push,
     config.voice.dir,
     config.files.dir,
+    perms,
   );
   guilds.memberJoined = (user, guild) => messages.joined(user, guild);
   const accounts = new AccountService(db, hub, guilds, channels, dms, images, storage, {
@@ -102,5 +109,6 @@ export function createServices(
     accounts,
     badges,
     admin,
+    roles,
   };
 }

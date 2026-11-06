@@ -42,6 +42,9 @@ export interface MessageItemProps {
   onReply?: (message: MessageDto) => void;
   /** Without it there is no pin button. */
   onPin?: (id: string, pinned: boolean) => Promise<void>;
+  /** May delete this message although it is someone else's. */
+  canModerate?: boolean;
+  authorColor?: string;
   onJump?: (id: string) => void;
   /** Open this message for editing (↑ in the empty composer). */
   editRequested?: boolean;
@@ -88,6 +91,8 @@ function MessageItemImpl({
   onReact,
   onReply,
   onPin,
+  canModerate = false,
+  authorColor,
   onJump,
   editRequested = false,
   onEditHandled,
@@ -263,6 +268,7 @@ function MessageItemImpl({
           className="message-author"
           data-testid="message-author"
           title={message.author.displayName ? `@${message.author.username}` : undefined}
+          style={authorColor ? { color: authorColor } : undefined}
         >
           <ProfileLink userId={message.author.id}>{nameOf(message.author)}</ProfileLink>
         </span>
@@ -474,19 +480,21 @@ function MessageItemImpl({
                   <Icon name="edit" size={18} />
                 </button>
               )}
-              <button
-                className="icon-btn danger"
-                data-testid="message-delete"
-                aria-label="Löschen"
-                title="Löschen"
-                onClick={() => {
-                  setError(null);
-                  setMode('confirm-delete');
-                }}
-              >
-                <Icon name="trash" size={18} />
-              </button>
             </>
+          )}
+          {(isOwn || canModerate) && (
+            <button
+              className="icon-btn danger"
+              data-testid="message-delete"
+              aria-label="Löschen"
+              title="Löschen"
+              onClick={() => {
+                setError(null);
+                setMode('confirm-delete');
+              }}
+            >
+              <Icon name="trash" size={18} />
+            </button>
           )}
         </div>
       )}

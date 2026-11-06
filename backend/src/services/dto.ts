@@ -88,6 +88,7 @@ export const toChannelDto = (c: Channel): ChannelDto => ({
   guildId: c.guildId,
   name: c.name,
   kind: c.kind === 'voice' || c.kind === 'dm' || c.kind === 'group' ? c.kind : 'text',
+  restricted: c.restricted,
   createdAt: c.createdAt.toISOString(),
 });
 

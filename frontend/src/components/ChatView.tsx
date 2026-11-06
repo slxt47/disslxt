@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ChannelDto, MessageDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
@@ -70,13 +70,26 @@ export function ChatView({
   const realtime = useRealtime();
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const username = useAuthStore((s) => s.user?.username ?? null);
-  const guildOwnerId = useChatStore(
-    (s) => s.guilds.find((g) => g.id === channel.guildId)?.ownerId ?? null,
-  );
   const members = useChatStore((s) =>
     channel.guildId ? s.membersByGuild[channel.guildId] : undefined,
   );
-  const canPin = !channel.guildId || guildOwnerId === userId;
+  const canModerate = useChatStore(
+    (s) =>
+      !!channel.guildId &&
+      !!s.rolesByGuild[channel.guildId]?.myPermissions.includes('manage_messages'),
+  );
+  const canPin = !channel.guildId || canModerate;
+  const roles = useChatStore((s) =>
+    channel.guildId ? s.rolesByGuild[channel.guildId]?.roles : undefined,
+  );
+  const authorColors = useMemo(() => {
+    const colors: Record<string, string> = {};
+    for (const m of members ?? []) {
+      const top = roles?.find((r) => r.color && m.roleIds?.includes(r.id));
+      if (top?.color) colors[m.userId] = top.color;
+    }
+    return colors;
+  }, [members, roles]);
   const [replyTo, setReplyTo] = useState<MessageDto | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [pinsOpen, setPinsOpen] = useState(false);
@@ -332,6 +345,8 @@ export function ChatView({
         onReact={onReact}
         onReply={onReply}
         onPin={canPin ? onPin : undefined}
+        canModerate={canModerate}
+        authorColors={authorColors}
         editId={editId}
         onEditHandled={onEditHandled}
       />

@@ -33,7 +33,7 @@ export async function closeDb(): Promise<void> {
 
 export async function resetDb(): Promise<void> {
   await getDb().db.execute(
-    sql`TRUNCATE users, sessions, guilds, guild_members, channels, dm_members, friendships, messages, pending_registrations, mail_log, push_subscriptions, guild_notification_settings RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE users, sessions, guilds, guild_members, channels, dm_members, friendships, messages, pending_registrations, mail_log, push_subscriptions, guild_notification_settings, guild_roles, guild_bans RESTART IDENTITY CASCADE`,
   );
 }
 

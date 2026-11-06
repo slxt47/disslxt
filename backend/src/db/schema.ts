@@ -4,6 +4,7 @@ import {
   boolean,
   char,
   check,
+  foreignKey,
   index,
   type AnyPgColumn,
   integer,
@@ -216,6 +217,8 @@ export const channels = pgTable(
     dmKey: varchar('dm_key', { length: 80 }).unique('channels_dm_key_uq'),
     /** Group chats: who started it (may rename, add and remove people); passes on when they leave. */
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
+    /** Only the owner and people with a role from channel_roles see this channel. */
+    restricted: boolean('restricted').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [
@@ -227,6 +230,81 @@ export const channels = pgTable(
       sql`(${t.kind} in ('dm', 'group')) = (${t.guildId} is null) and (${t.kind} = 'dm') = (${t.dmKey} is not null)`,
     ),
   ],
+);
+
+/** Roles of one server. `position`: lower ranks higher; only the owner manages them. */
+export const guildRoles = pgTable(
+  'guild_roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    guildId: uuid('guild_id')
+      .notNull()
+      .references(() => guilds.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 32 }).notNull(),
+    /** "#rrggbb", null: no colour. */
+    color: char('color', { length: 7 }),
+    permissions: varchar('permissions', { length: 32 })
+      .array()
+      .notNull()
+      .default(sql`'{}'::varchar[]`),
+    position: integer('position').notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [unique('guild_roles_guild_name_uq').on(t.guildId, t.name)],
+);
+
+/** Goes away with the membership and with the role. */
+export const guildMemberRoles = pgTable(
+  'guild_member_roles',
+  {
+    guildId: uuid('guild_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => guildRoles.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.guildId, t.userId, t.roleId] }),
+    foreignKey({
+      columns: [t.guildId, t.userId],
+      foreignColumns: [guildMembers.guildId, guildMembers.userId],
+    }).onDelete('cascade'),
+    index('guild_member_roles_role_idx').on(t.roleId),
+    index('guild_member_roles_user_idx').on(t.userId),
+  ],
+);
+
+/** Which roles may see a restricted channel. */
+export const channelRoles = pgTable(
+  'channel_roles',
+  {
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => guildRoles.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.channelId, t.roleId] }),
+    index('channel_roles_role_idx').on(t.roleId),
+  ],
+);
+
+/** Banned from a server: cannot join again until unbanned. */
+export const guildBans = pgTable(
+  'guild_bans',
+  {
+    guildId: uuid('guild_id')
+      .notNull()
+      .references(() => guilds.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    bannedBy: uuid('banned_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.guildId, t.userId] })],
 );
 
 /** The two participants of a direct-message channel. */
