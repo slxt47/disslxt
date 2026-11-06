@@ -17,6 +17,7 @@ import { authRoutes } from './routes/auth.routes.js';
 import { channelRoutes } from './routes/channel.routes.js';
 import { guildRoutes } from './routes/guild.routes.js';
 import { healthRoutes } from './routes/health.js';
+import { webhookRoutes } from './routes/webhook.routes.js';
 import { inviteRoutes } from './routes/invite.routes.js';
 import type { Fetcher } from './services/linkPreview.service.js';
 import type { Transcriber } from './lib/whisper.js';
@@ -157,6 +158,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     async (api) => {
       await api.register(healthRoutes, { db });
       await api.register(authRoutes, { services, config, hub });
+      await api.register(webhookRoutes, { services, config });
       // Local development / E2E only: read captured mails instead of a real inbox. Never
       // registered in production, where the in-memory transport is rejected anyway.
       if (config.nodeEnv !== 'production' && mailer instanceof MemoryMailer) {

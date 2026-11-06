@@ -13,6 +13,7 @@ import { Icon } from './Icon';
 import { jumpToMessage, MessageList } from './MessageList';
 import { PinsPanel } from './PinsPanel';
 import { SearchDialog } from './SearchDialog';
+import { StatusDialog } from './StatusDialog';
 import { ThreadPanel } from './ThreadPanel';
 import { UploadQueue, useUploads } from './UploadQueue';
 
@@ -96,6 +97,7 @@ export function ChatView({
   const [editId, setEditId] = useState<string | null>(null);
   const [pinsOpen, setPinsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
   const [threadRootId, setThreadRootId] = useState<string | null>(null);
   const jumpTarget = useChatStore((s) => s.jumpTarget);
   /** Read state when the channel was opened: the "Neue Nachrichten" line stays until you leave. */
@@ -454,6 +456,7 @@ export function ChatView({
         onSendGif={onSendGif}
         onSendPoll={onSendPoll}
         onSendEvent={onSendEvent}
+        onOpenStatus={() => setStatusOpen(true)}
         onSchedule={onSchedule}
         draftKey={channelId}
         people={(channel.guildId ? members : people)?.filter((p) => p.username !== username)}
@@ -470,6 +473,7 @@ export function ChatView({
           onClose={() => setThreadRootId(null)}
         />
       )}
+      {statusOpen && <StatusDialog onClose={() => setStatusOpen(false)} />}
       {searchOpen && <SearchDialog channel={channel} onClose={() => setSearchOpen(false)} />}
       {pinsOpen && (
         <PinsPanel

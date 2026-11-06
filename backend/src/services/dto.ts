@@ -117,7 +117,8 @@ const toKind = (kind: string): MessageDto['kind'] =>
   kind === 'gif' ||
   kind === 'join' ||
   kind === 'poll' ||
-  kind === 'event'
+  kind === 'event' ||
+  kind === 'bot'
     ? kind
     : 'text';
 
@@ -186,6 +187,7 @@ export const toMessageDto = (
   linkPreview: extras.linkPreview ?? null,
   poll: extras.poll ?? null,
   event: extras.event ?? null,
+  botName: m.botName,
   threadRootId: m.threadRootId ? m.threadRootId.toString() : null,
   threadCount: extras.threadCount ?? 0,
   createdAt: m.createdAt.toISOString(),

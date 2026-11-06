@@ -78,6 +78,8 @@ const envSchema = z.object({
   GIPHY_API_KEY: z.string().default(''),
   /** Local whisper container, e.g. http://whisper:8080. Empty: voice messages stay without text. */
   WHISPER_URL: z.string().default(''),
+  /** Services shown by /dienste: "Name=https://…,Name=https://…". */
+  STATUS_TARGETS: z.string().default(''),
   /** false: the server never fetches linked pages. */
   LINK_PREVIEWS: z.enum(['true', 'false']).default('true'),
   /** 32 bytes as base64: encrypts authenticator secrets. Without it 2FA cannot be set up. */
@@ -124,6 +126,7 @@ export interface Config {
   mail: MailConfig;
   /** null = push disabled (no VAPID keys). */
   push: PushConfig | null;
+  statusTargets: string;
   /** Local speech recognition for voice messages; null = off. */
   whisperUrl: string | null;
   /** The server fetches linked pages for previews. */
@@ -238,6 +241,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     giphyApiKey: e.GIPHY_API_KEY.trim() || null,
     twoFactorKey: parseTwoFactorKey(e.TWO_FACTOR_KEY),
+    statusTargets: e.STATUS_TARGETS,
     whisperUrl: e.WHISPER_URL.trim().replace(/\/$/, '') || null,
     linkPreviews: { enabled: e.LINK_PREVIEWS === 'true', dir: resolve(e.UPLOAD_DIR, 'previews') },
     storage: { root: resolve(e.UPLOAD_DIR), limitBytes: Math.round(e.STORAGE_LIMIT_GB * 1e9) },

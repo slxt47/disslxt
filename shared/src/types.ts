@@ -180,7 +180,21 @@ export interface VoicePeerDto {
 export type MessageAuthorDto = PublicUserDto;
 
 /** 'join': someone joined the server (shown as a greeting, has no text of its own). */
-export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join' | 'poll' | 'event';
+export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join' | 'poll' | 'event' | 'bot';
+
+export interface WebhookDto {
+  id: string;
+  channelId: string;
+  name: string;
+  createdAt: string;
+}
+
+/** One line of the service overview. */
+export interface StatusEntryDto {
+  name: string;
+  up: boolean;
+  ms: number | null;
+}
 
 export type RsvpAnswer = 'yes' | 'maybe' | 'no';
 
@@ -295,6 +309,8 @@ export interface MessageDto {
   linkPreview: LinkPreviewDto | null;
   poll: PollDto | null;
   event: EventDto | null;
+  /** Posted by a webhook of this name. */
+  botName: string | null;
   /** Reply inside a thread: its first message. */
   threadRootId: string | null;
   /** Replies, if a thread hangs off this message. */

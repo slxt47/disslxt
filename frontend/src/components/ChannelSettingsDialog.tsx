@@ -4,6 +4,7 @@ import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { useChatStore } from '../store/chat';
 import { Modal } from './Modal';
+import { WebhookSettings } from './WebhookSettings';
 
 const NO_CATEGORIES: never[] = [];
 
@@ -105,6 +106,7 @@ export function ChannelSettingsDialog({
         </div>
       </form>
 
+      {channel.kind === 'text' && <WebhookSettings channelId={channel.id} />}
       <h3 className="settings-subheading">Kanal löschen</h3>
       {deleting ? (
         <form

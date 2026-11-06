@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PINS_PER_CHANNEL_MAX } from '@disslxt/shared';
 import { guilds, messages } from '../src/db/schema.js';
+import { parseStatusTargets, StatusService } from '../src/services/status.service.js';
 import { eq } from 'drizzle-orm';
 import {
   buildTestApp,
@@ -563,5 +564,100 @@ describe('threads', () => {
     expect(await replies(alice, root.id)).toHaveLength(1);
     await req(app, 'DELETE', `/api/messages/${root.id}`, { cookie: alice.cookie });
     expect((await history(alice)).some((m) => m.content === 'B')).toBe(true);
+  });
+});
+
+describe('webhooks', () => {
+  const add = async (name = 'Server') => {
+    const res = await post(alice, `/channels/${channelId}/webhooks`, { name });
+    expect(res.statusCode).toBe(201);
+    return res.json() as { webhook: { id: string }; token: string };
+  };
+  const send = (id: string, token: string, content = 'Backup fertig') =>
+    app.inject({
+      method: 'POST',
+      url: `/api/hooks/${id}`,
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      payload: { content },
+    });
+
+  it('posts under the name of the hook, without a login', async () => {
+    const { webhook, token } = await add();
+    expect((await send(webhook.id, token)).statusCode).toBe(204);
+    const last = (await history(bob)).at(-1) as unknown as { botName: string; kind: string };
+    expect(last).toMatchObject({ kind: 'bot', botName: 'Server', content: 'Backup fertig' });
+  });
+
+  it('a wrong secret or id gets nothing; no secret is 401', async () => {
+    const { webhook } = await add();
+    expect((await send(webhook.id, 'falsch')).statusCode).toBe(404);
+    expect((await send('00000000-0000-4000-8000-000000000000', 'x')).statusCode).toBe(404);
+    const none = await app.inject({
+      method: 'POST',
+      url: `/api/hooks/${webhook.id}`,
+      payload: { content: 'x' },
+    });
+    expect(none.statusCode).toBe(401);
+  });
+
+  it('only with manage_channels, the secret never comes back, deleting ends it', async () => {
+    const { webhook, token } = await add();
+    expect((await post(bob, `/channels/${channelId}/webhooks`, { name: 'x' })).statusCode).toBe(
+      403,
+    );
+    const list = await req(app, 'GET', `/api/channels/${channelId}/webhooks`, {
+      cookie: alice.cookie,
+    });
+    expect(list.body).not.toContain(token);
+    await req(app, 'DELETE', `/api/channels/${channelId}/webhooks/${webhook.id}`, {
+      cookie: alice.cookie,
+    });
+    expect((await send(webhook.id, token)).statusCode).toBe(404);
+  });
+
+  it('a restricted channel stays closed for others', async () => {
+    const { webhook, token } = await add();
+    await req(app, 'PUT', `/api/channels/${channelId}/access`, {
+      cookie: alice.cookie,
+      payload: { restricted: true, roleIds: [] },
+    });
+    await send(webhook.id, token, 'nur für Alice');
+    const res = await req(app, 'GET', `/api/channels/${channelId}/messages`, {
+      cookie: bob.cookie,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('service status', () => {
+  it('only for admins', async () => {
+    expect((await req(app, 'GET', '/api/admin/status', { cookie: bob.cookie })).statusCode).toBe(
+      403,
+    );
+  });
+
+  it('reads the list and tells up from down, once a minute', async () => {
+    expect(parseStatusTargets('Git=https://a.de, kaputt, Shop=http://b.de')).toEqual([
+      { name: 'Git', url: 'https://a.de' },
+      { name: 'Shop', url: 'http://b.de' },
+    ]);
+    let calls = 0;
+    const fake = (async (url: string) => {
+      calls += 1;
+      if (url.includes('tot')) throw new Error('down');
+      return new Response(null, { status: url.includes('fehler') ? 503 : 302 });
+    }) as typeof fetch;
+    const board = new StatusService(
+      [
+        { name: 'A', url: 'https://ok' },
+        { name: 'B', url: 'https://fehler' },
+        { name: 'C', url: 'https://tot' },
+      ],
+      fake,
+    );
+    const entries = await board.board();
+    expect(entries.map((e) => e.up)).toEqual([true, false, false]);
+    await board.board();
+    expect(calls).toBe(3);
   });
 });

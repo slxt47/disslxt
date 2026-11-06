@@ -32,6 +32,7 @@ export interface ComposerProps {
   onSendGif?: (gif: GifDto) => Promise<void>;
   /** Sends what /umfrage typed. */
   onSendPoll?: (poll: { question: string; options: string[] }) => Promise<void>;
+  onOpenStatus?: () => void;
   onSendEvent?: (event: { title: string; startsAt: string }) => Promise<void>;
   onSchedule?: (item: {
     kind: 'send' | 'remind';
@@ -100,6 +101,7 @@ export function Composer({
   onSendGif,
   onSendPoll,
   onSendEvent,
+  onOpenStatus,
   onSchedule,
   draftKey,
   people,
@@ -265,6 +267,11 @@ export function Composer({
     const command = runCommand(typed);
     if (command && 'error' in command) {
       setError(command.error);
+      return;
+    }
+    if (command && 'open' in command) {
+      onOpenStatus?.();
+      setValue('');
       return;
     }
     if (command && !('text' in command)) {

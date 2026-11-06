@@ -164,6 +164,12 @@ export async function userRoutes(
 
   // --- Admin area: admins and the owner (checked per request against the stored role) ---------
 
+  /** The operator's services: their names are nobody else's business. */
+  app.get('/admin/status', async (req) => {
+    opts.services.admin.assertModerator(currentUser(req).role ?? 'user');
+    return { entries: await opts.services.status.board() };
+  });
+
   /** Storage use against the cap. */
   app.get('/admin/storage', async (req) => {
     opts.services.admin.assertModerator(currentUser(req).role ?? 'user');

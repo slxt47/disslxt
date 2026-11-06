@@ -299,6 +299,30 @@ export class MessageService {
     return event;
   }
 
+  /** A message from a webhook; shown under the hook's name. */
+  async createBot(
+    channel: Channel,
+    authorId: string,
+    name: string,
+    content: string,
+  ): Promise<void> {
+    const [author] = await this.db
+      .select(profileColumns)
+      .from(users)
+      .where(eq(users.id, authorId))
+      .limit(1);
+    if (!author) throw notFound('Webhook nicht gefunden');
+    const bytes = Buffer.byteLength(content);
+    await this.storage.assertRoom(bytes);
+    this.storage.added(bytes);
+    const [row] = await this.db
+      .insert(messages)
+      .values({ channelId: channel.id, authorId, kind: 'bot', content, botName: name })
+      .returning();
+    if (!row) throw new Error('insert returned no row');
+    await this.published(channel, await this.toDto(row, toPublicUser(author)));
+  }
+
   /** A poll is a message whose text is the question. */
   async createPoll(
     user: PublicUserDto,
@@ -419,7 +443,7 @@ export class MessageService {
     const conditions: (SQL | undefined)[] = [
       sql`to_tsvector('simple', ${messages.content}) @@ to_tsquery('simple', ${tsquery})`,
       // Voice messages hold their transcript as text.
-      inArray(messages.kind, ['text', 'voice', 'poll', 'event']),
+      inArray(messages.kind, ['text', 'voice', 'poll', 'event', 'bot']),
       or(
         and(
           isNotNull(channels.guildId),

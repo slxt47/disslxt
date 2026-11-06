@@ -432,6 +432,8 @@ export const createEventSchema = z.object({
 
 export const rsvpSchema = z.object({ answer: z.enum(['yes', 'maybe', 'no']).nullable() });
 
+export const createWebhookSchema = z.object({ name: pollText(32, 'Name') });
+
 export const pinSchema = z.object({ pinned: z.boolean() });
 
 export const markReadSchema = z.object({ messageId: messageIdSchema });

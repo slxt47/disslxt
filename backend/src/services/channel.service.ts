@@ -105,6 +105,11 @@ export class ChannelService {
     return { channel, guild };
   }
 
+  /** For webhooks: a server channel you see and may manage. */
+  async assertManageable(userId: string, channelId: string): Promise<Channel> {
+    return (await this.managed(userId, channelId)).channel;
+  }
+
   private async managedGuild(userId: string, guildId: string): Promise<Guild> {
     const guild = await this.guilds.assertMember(userId, guildId);
     await this.perms.assert(userId, guild, 'manage_channels', NO_RIGHT);

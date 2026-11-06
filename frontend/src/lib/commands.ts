@@ -15,6 +15,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'münze', args: '', description: 'Wirft eine Münze' },
   { name: 'umfrage', args: 'Frage | A | B', description: 'Startet eine Umfrage' },
   { name: 'termin', args: '8.11. 20:00 | Titel', description: 'Legt einen Termin mit Zusagen an' },
+  { name: 'dienste', args: '', description: 'Zeigt, welche Dienste laufen (Admins)' },
   { name: 'später', args: '30m Text', description: 'Sendet die Nachricht später' },
   { name: 'erinnern', args: '1h Text', description: 'Erinnert nur dich' },
 ];
@@ -74,6 +75,7 @@ export type CommandResult =
   | { poll: { question: string; options: string[] } }
   | { schedule: { kind: 'send' | 'remind'; content: string; sendAt: string } }
   | { event: { title: string; startsAt: string } }
+  | { open: 'status' }
   | null;
 
 /** The text to send for a command; null when it is no command (normal message). */
@@ -114,6 +116,8 @@ export function runCommand(input: string, random = randomUpTo): CommandResult {
       }
       return { poll: { question, options } };
     }
+    case 'dienste':
+      return { open: 'status' };
     case 'später':
     case 'spaeter':
     case 'erinnern': {

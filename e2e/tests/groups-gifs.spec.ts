@@ -98,6 +98,7 @@ test('GIF picker: search, pick, shown in the chat (GIPHY simulated)', async ({ p
           linkPreview: null,
           poll: null,
           event: null,
+          botName: null,
           threadRootId: null,
           threadCount: 0,
           editedAt: null,

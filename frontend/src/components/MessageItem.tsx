@@ -276,9 +276,15 @@ function MessageItemImpl({
           title={message.author.displayName ? `@${message.author.username}` : undefined}
           style={authorColor ? { color: authorColor } : undefined}
         >
-          <ProfileLink userId={message.author.id}>{nameOf(message.author)}</ProfileLink>
+          {message.botName ?? (
+            <ProfileLink userId={message.author.id}>{nameOf(message.author)}</ProfileLink>
+          )}
         </span>
-        <UserBadges user={message.author} />
+        {message.botName ? (
+          <span className="bot-pill">BOT</span>
+        ) : (
+          <UserBadges user={message.author} />
+        )}
         <time
           className="message-time"
           dateTime={message.createdAt}

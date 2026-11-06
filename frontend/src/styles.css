@@ -4722,3 +4722,39 @@ img.lightbox-media.zoomed {
 .chat-view {
   position: relative;
 }
+
+/* Bots and service status */
+.bot-pill {
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft-strong);
+  color: var(--accent-text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.status-list {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+.status-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.status-list span:nth-child(2) {
+  flex: 1;
+}
+.status-list small {
+  color: var(--text-tertiary);
+}
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #30d158;
+}
+.status-list li[data-up='false'] .status-dot {
+  background: #ff453a;
+}

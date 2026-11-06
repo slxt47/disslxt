@@ -16,6 +16,8 @@ import { whisperTranscriber, type Transcriber } from '../lib/whisper.js';
 import { PermissionService } from './permission.service.js';
 import { RoleService } from './role.service.js';
 import { ScheduleService } from './schedule.service.js';
+import { parseStatusTargets, StatusService } from './status.service.js';
+import { WebhookService } from './webhook.service.js';
 import { SecurityService } from './security.service.js';
 import { IceService } from './ice.service.js';
 import { PushService } from './push.service.js';
@@ -47,6 +49,8 @@ export interface Services {
   roles: RoleService;
   security: SecurityService;
   schedule: ScheduleService;
+  webhooks: WebhookService;
+  status: StatusService;
   linkPreviews: LinkPreviewService;
   transcripts: TranscriptionService;
 }
@@ -119,6 +123,8 @@ export function createServices(
     transcripts,
   );
   const schedule = new ScheduleService(db, hub, channels, messages, push, log);
+  const webhooks = new WebhookService(db, channels, messages);
+  const status = new StatusService(parseStatusTargets(config.statusTargets), opts.fetchFn ?? fetch);
   guilds.memberJoined = (user, guild) => messages.joined(user, guild);
   const accounts = new AccountService(db, hub, guilds, channels, dms, images, storage, {
     voiceDir: config.voice.dir,
@@ -145,6 +151,8 @@ export function createServices(
     roles,
     security,
     schedule,
+    webhooks,
+    status,
     linkPreviews,
     transcripts,
   };

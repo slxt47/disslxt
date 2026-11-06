@@ -467,6 +467,8 @@ export const messages = pgTable(
       (): AnyPgColumn => messages.id,
       { onDelete: 'set null' },
     ),
+    /** Posted by a webhook: its name is shown instead of the author. */
+    botName: varchar('bot_name', { length: 32 }),
     linkPreviewId: uuid('link_preview_id').references(() => linkPreviews.id, {
       onDelete: 'set null',
     }),
@@ -480,7 +482,7 @@ export const messages = pgTable(
   (t) => [
     check(
       'messages_content_len_chk',
-      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '') or (${t.kind} in ('poll', 'event') and char_length(${t.content}) between 1 and 200)`,
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '') or (${t.kind} in ('poll', 'event') and char_length(${t.content}) between 1 and 200) or (${t.kind} = 'bot' and char_length(${t.content}) between 1 and 2000)`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
     // Words, lower-cased, without stemming: German and English are mixed here.
@@ -586,6 +588,24 @@ export const eventRsvps = pgTable(
     primaryKey({ columns: [t.messageId, t.userId] }),
     check('event_rsvps_answer_chk', sql`${t.answer} in ('yes', 'maybe', 'no')`),
   ],
+);
+
+/** A program allowed to post into a channel; only the hash of its secret is kept. */
+export const channelWebhooks = pgTable(
+  'channel_webhooks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 32 }).notNull(),
+    tokenHash: char('token_hash', { length: 64 }).notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('channel_webhooks_channel_idx').on(t.channelId)],
 );
 
 /** The answers of a poll; the question is the message's text. */

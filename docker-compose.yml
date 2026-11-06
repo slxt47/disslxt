@@ -80,6 +80,7 @@ services:
       TWO_FACTOR_KEY: ${TWO_FACTOR_KEY:-}
       LINK_PREVIEWS: ${LINK_PREVIEWS:-true}
       WHISPER_URL: ${WHISPER_URL:-}
+      STATUS_TARGETS: ${STATUS_TARGETS:-}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       # Cap for everything posted (uploads + message text); beyond it new posts get 507.
       STORAGE_LIMIT_GB: ${STORAGE_LIMIT_GB:-40}

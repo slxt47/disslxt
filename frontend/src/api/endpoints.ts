@@ -6,6 +6,8 @@ import type {
   RsvpAnswer,
   ScheduleInput,
   ScheduledDto,
+  StatusEntryDto,
+  WebhookDto,
   ChannelDto,
   ChannelKind,
   DmChannelDto,
@@ -144,6 +146,19 @@ export const api = {
     for (const [key, value] of Object.entries(params)) q.set(key, String(value));
     return apiRequest<{ results: SearchResultDto[] }>('GET', `/search?${q.toString()}`);
   },
+  listWebhooks: (channelId: string) =>
+    apiRequest<{ webhooks: WebhookDto[] }>('GET', `/channels/${enc(channelId)}/webhooks`),
+  createWebhook: (channelId: string, name: string) =>
+    apiRequest<{ webhook: WebhookDto; token: string }>(
+      'POST',
+      `/channels/${enc(channelId)}/webhooks`,
+      {
+        name,
+      },
+    ),
+  deleteWebhook: (channelId: string, id: string) =>
+    apiRequest<void>('DELETE', `/channels/${enc(channelId)}/webhooks/${enc(id)}`),
+  statusBoard: () => apiRequest<{ entries: StatusEntryDto[] }>('GET', '/admin/status'),
   schedule: (channelId: string, input: ScheduleInput) =>
     apiRequest<{ scheduled: ScheduledDto }>('POST', `/channels/${enc(channelId)}/scheduled`, input),
   listScheduled: () => apiRequest<{ scheduled: ScheduledDto[] }>('GET', '/scheduled'),

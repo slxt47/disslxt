@@ -5,6 +5,7 @@ import {
   channelAccessSchema,
   channelOrderSchema,
   createChannelSchema,
+  createWebhookSchema,
   deleteChannelSchema,
   updateChannelSchema,
   uuidSchema,
@@ -39,6 +40,28 @@ export async function channelRoutes(
     await roles.setChannelAccess(currentUser(req).id, channelId(req.params), restricted, roleIds);
     return reply.status(204).send();
   });
+
+  const { webhooks } = opts.services;
+
+  app.get<ChannelParams>('/channels/:channelId/webhooks', async (req) => ({
+    webhooks: await webhooks.list(currentUser(req).id, channelId(req.params)),
+  }));
+
+  app.post<ChannelParams>('/channels/:channelId/webhooks', async (req, reply) => {
+    const { name } = parse(createWebhookSchema, req.body);
+    return reply
+      .status(201)
+      .send(await webhooks.create(currentUser(req).id, channelId(req.params), name));
+  });
+
+  app.delete<{ Params: { channelId: string; id: string } }>(
+    '/channels/:channelId/webhooks/:id',
+    async (req, reply) => {
+      const id = parseParam(uuidSchema, req.params.id, () => notFound('Webhook nicht gefunden'));
+      await webhooks.remove(currentUser(req).id, channelId(req.params), id);
+      return reply.status(204).send();
+    },
+  );
 
   // Managing channels needs manage_channels (checked in the service).
   app.patch<ChannelParams>('/channels/:channelId', async (req) => {
