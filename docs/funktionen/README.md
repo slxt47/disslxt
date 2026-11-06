@@ -57,9 +57,10 @@ Bei Änderungen an einer Funktion die Seite mitpflegen.
 
 - [Profil, Status und Abzeichen](profil-und-status.md): Wie du für andere erscheinst.
 - [Server-Tags](server-tags.md): Kurzes Kürzel mit Emoji neben dem Namen.
-- [Darstellung](darstellung.md): Farben, Dichte und Schriftgröße.
+- [Darstellung](darstellung.md): Farben, Dichte und Schriftgröße im slxt-Design, Standard dunkel.
 - [Mitteilungen](mitteilungen.md): Push auf Handy und Computer, auch bei geschlossener App.
 - [App installieren](app-installation.md): disslxt läuft ohne App Store wie eine App.
+- [Barrierefreiheit](barrierefreiheit.md): disslxt soll mit Tastatur, Screenreader und schlechten Augen benutzbar sein.
 
 ## Konto
 

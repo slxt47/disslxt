@@ -551,7 +551,7 @@ und iOS lassen das nicht zu – dort entscheidet das System (iPhone: Kontrollzen
 
 ## Darstellung (Dark Mode)
 
-Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
+Einstellungen → **Darstellung** oder Schalter unten links: _Dunkel_ (Standard) oder _Hell_. Gilt pro
 Gerät; `/theme-init.js` setzt die Wahl vor dem ersten Zeichnen, damit nichts hell aufblitzt.
 
 **Themes:** acht fertige Farbthemes (Ozean, Wald, Sonnenuntergang, Nord, OLED Schwarz, Sakura, Sand,
