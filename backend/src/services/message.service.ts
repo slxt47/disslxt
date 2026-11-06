@@ -1,16 +1,34 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, asc, count, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import {
   PINS_PER_CHANNEL_MAX,
   REACTIONS_PER_MESSAGE_MAX,
+  SEARCH_PAGE_SIZE,
   type GifDto,
   type GuildDto,
+  type LinkPreviewDto,
   type ListMessagesQuery,
   type MessageDto,
   type MessageRefDto,
   type PublicUserDto,
   type ReactionDto,
+  type SearchQuery,
+  type SearchResultDto,
   type UnreadDto,
   type WsServerMessage,
 } from '@disslxt/shared';
@@ -19,6 +37,7 @@ import {
   channelReads,
   channels,
   guilds,
+  linkPreviews,
   messageReactions,
   messages,
   users,
@@ -29,7 +48,9 @@ import { AppError, forbidden, notFound } from '../lib/errors.js';
 import type { Hub } from '../realtime/hub.js';
 import type { ChannelService } from './channel.service.js';
 import type { StorageService } from './storage.service.js';
-import { profileColumns, toMessageDto, toMessageRef, toPublicUser } from './dto.js';
+import { firstUrl } from '../lib/linkMeta.js';
+import { profileColumns, toChannelKind, toMessageDto, toMessageRef, toPublicUser } from './dto.js';
+import type { LinkPreviewService } from './linkPreview.service.js';
 import { channelVisibleSql, type PermissionService } from './permission.service.js';
 import { mentionedNames, type PushService } from './push.service.js';
 
@@ -45,6 +66,7 @@ export class MessageService {
     /** Directory of shared files (deleted together with their message). */
     private readonly fileDir: string,
     private readonly perms: PermissionService,
+    private readonly previews: LinkPreviewService,
   ) {}
 
   /** Stores a file message whose file is already in the file directory. */
@@ -152,17 +174,139 @@ export class MessageService {
     return out;
   }
 
+  private async previewsOf(ids: string[]): Promise<Map<string, LinkPreviewDto>> {
+    const out = new Map<string, LinkPreviewDto>();
+    if (ids.length === 0) return out;
+    const rows = await this.db.select().from(linkPreviews).where(inArray(linkPreviews.id, ids));
+    for (const row of rows) {
+      if (!row.title) continue;
+      out.set(row.id, {
+        url: row.url,
+        title: row.title,
+        description: row.description,
+        siteName: row.siteName,
+        imageUrl: row.imageKey ? `/api/link-images/${row.imageKey}` : null,
+      });
+    }
+    return out;
+  }
+
+  /** Looks for a preview of the message's first link, in the background. */
+  private previewLater(row: Message, channel: Pick<Channel, 'id' | 'kind'>): void {
+    if (row.kind !== 'text' || row.previewHidden) return;
+    const url = firstUrl(row.content);
+    if (!url) return;
+    this.previews.enqueue(url, async (linkPreviewId) => {
+      // Edited or deleted in the meantime: only a message still holding this link gets it.
+      const [updated] = await this.db
+        .update(messages)
+        .set({ linkPreviewId })
+        .where(and(eq(messages.id, row.id), eq(messages.previewHidden, false)))
+        .returning();
+      if (!updated || firstUrl(updated.content) !== url) return;
+      await this.republish(updated, channel);
+    });
+  }
+
+  private async republish(row: Message, channel: Pick<Channel, 'id' | 'kind'>): Promise<void> {
+    const [author] = await this.db
+      .select(profileColumns)
+      .from(users)
+      .where(eq(users.id, row.authorId))
+      .limit(1);
+    if (!author) return;
+    const message = await this.toDto(row, toPublicUser(author));
+    await this.channels.publish(channel, { type: 'message.updated', data: { message } });
+  }
+
+  /** The author takes the preview off their message. */
+  async hidePreview(user: PublicUserDto, messageId: string): Promise<MessageDto> {
+    const msg = await this.assertAuthor(user.id, messageId);
+    const [row] = await this.db
+      .update(messages)
+      .set({ linkPreviewId: null, previewHidden: true })
+      .where(eq(messages.id, msg.id))
+      .returning();
+    if (!row) throw notFound('Nachricht nicht gefunden');
+    await this.republish(row, { id: row.channelId, kind: msg.channelKind });
+    return this.toDto(row, user);
+  }
+
+  /** Messages you can read that contain the words; newest first. */
+  async search(user: PublicUserDto, query: SearchQuery): Promise<SearchResultDto[]> {
+    const words = query.q.match(/[\p{L}\p{N}]+/gu) ?? [];
+    if (words.length === 0) return [];
+    // Only letters and digits reach the query syntax; each word also matches longer ones.
+    const tsquery = words
+      .slice(0, 10)
+      .map((w) => `${w}:*`)
+      .join(' & ');
+    const me = sql`${user.id}::uuid`;
+    const conditions: (SQL | undefined)[] = [
+      sql`to_tsvector('simple', ${messages.content}) @@ to_tsquery('simple', ${tsquery})`,
+      eq(messages.kind, 'text'),
+      or(
+        and(
+          isNotNull(channels.guildId),
+          sql`exists (select 1 from guild_members gm where gm.guild_id = ${channels.guildId} and gm.user_id = ${me})`,
+          channelVisibleSql(sql`${channels.id}`, me),
+        ),
+        sql`exists (select 1 from dm_members dm where dm.channel_id = ${channels.id} and dm.user_id = ${me})`,
+      ),
+      query.guildId ? eq(channels.guildId, query.guildId) : undefined,
+      query.channelId ? eq(messages.channelId, query.channelId) : undefined,
+      query.privateOnly ? isNull(channels.guildId) : undefined,
+      query.authorId ? eq(messages.authorId, query.authorId) : undefined,
+      query.after ? gte(messages.createdAt, new Date(query.after)) : undefined,
+      query.until
+        ? lt(messages.createdAt, new Date(new Date(query.until).getTime() + 86_400_000))
+        : undefined,
+      query.beforeId ? lt(messages.id, BigInt(query.beforeId)) : undefined,
+    ];
+    const rows = await this.db
+      .select({
+        message: messages,
+        author: profileColumns,
+        channelName: channels.name,
+        channelKind: channels.kind,
+        guildId: channels.guildId,
+        guildName: guilds.name,
+      })
+      .from(messages)
+      .innerJoin(channels, eq(channels.id, messages.channelId))
+      .innerJoin(users, eq(users.id, messages.authorId))
+      .leftJoin(guilds, eq(guilds.id, channels.guildId))
+      .where(and(...conditions))
+      .orderBy(desc(messages.id))
+      .limit(SEARCH_PAGE_SIZE);
+    const dtos = await this.toDtos(
+      rows.map((r) => ({ message: r.message, author: toPublicUser(r.author) })),
+    );
+    return rows.map((r, i) => ({
+      message: dtos[i]!,
+      channelName: r.channelName,
+      channelKind: toChannelKind(r.channelKind),
+      guildId: r.guildId,
+      guildName: r.guildName,
+    }));
+  }
+
   /** Stored messages with their reactions and quoted messages. */
   private async toDtos(rows: { message: Message; author: PublicUserDto }[]): Promise<MessageDto[]> {
     const replyIds = rows.flatMap((r) => (r.message.replyToId ? [r.message.replyToId] : []));
-    const [reactions, refs] = await Promise.all([
+    const previewIds = rows.flatMap((r) =>
+      r.message.linkPreviewId ? [r.message.linkPreviewId] : [],
+    );
+    const [reactions, refs, previews] = await Promise.all([
       this.reactionsOf(rows.map((r) => r.message.id)),
       this.refsOf([...new Set(replyIds)]),
+      this.previewsOf([...new Set(previewIds)]),
     ]);
     return rows.map(({ message, author }) =>
       toMessageDto(message, author, {
         reactions: reactions.get(message.id.toString()) ?? [],
         replyTo: message.replyToId ? (refs.get(message.replyToId.toString()) ?? null) : null,
+        linkPreview: message.linkPreviewId ? (previews.get(message.linkPreviewId) ?? null) : null,
       }),
     );
   }
@@ -307,7 +451,9 @@ export class MessageService {
       })
       .returning();
     if (!row) throw new Error('insert returned no row');
-    return this.published(channel, await this.toDto(row, user));
+    const message = await this.published(channel, await this.toDto(row, user));
+    this.previewLater(row, channel);
+    return message;
   }
 
   /** Newest `limit` messages with id < before, returned in ascending order. */
@@ -529,7 +675,8 @@ export class MessageService {
   }
 
   async edit(user: PublicUserDto, messageId: string, content: string): Promise<MessageDto> {
-    const msg = await this.assertAuthor(user.id, messageId);
+    const found = await this.assertAuthor(user.id, messageId);
+    const msg = { ...found, previewUrl: firstUrl(found.content) };
     if (msg.kind === 'voice') {
       throw new AppError('BAD_REQUEST', 400, 'Sprachnachrichten können nicht bearbeitet werden');
     }
@@ -542,11 +689,20 @@ export class MessageService {
       .where(eq(messages.id, msg.id))
       .returning();
     if (!row) throw notFound('Nachricht nicht gefunden');
-    const message = await this.toDto(row, user);
-    await this.channels.publish(
-      { id: row.channelId, kind: msg.channelKind },
-      { type: 'message.updated', data: { message } },
-    );
+    const channel = { id: row.channelId, kind: msg.channelKind };
+    // Another link (or none): the old preview no longer fits.
+    let current = row;
+    if (firstUrl(content) !== msg.previewUrl) {
+      const [cleared] = await this.db
+        .update(messages)
+        .set({ linkPreviewId: null })
+        .where(eq(messages.id, msg.id))
+        .returning();
+      if (cleared) current = cleared;
+    }
+    const message = await this.toDto(current, user);
+    await this.channels.publish(channel, { type: 'message.updated', data: { message } });
+    if (!current.linkPreviewId) this.previewLater(current, channel);
     return message;
   }
 
@@ -614,6 +770,7 @@ export class MessageService {
         audioKey: messages.audioKey,
         fileKey: messages.fileKey,
         channelKind: channels.kind,
+        content: messages.content,
       })
       .from(messages)
       .innerJoin(channels, eq(channels.id, messages.channelId))

@@ -525,3 +525,36 @@ describe('channel order', () => {
     expect(ids(moveChannel(groups, 'a', 'c1', null))).toEqual([['b'], ['c', 'a']]);
   });
 });
+
+describe('link preview', () => {
+  const linkPreview = {
+    url: 'https://example.com/x',
+    title: 'Titel',
+    description: 'Text',
+    siteName: 'Seite',
+    imageUrl: '/api/link-images/a.png',
+  };
+
+  it('shows title and picture from here, opening the link safely', () => {
+    render(
+      <MessageItem
+        message={msg(1, { linkPreview })}
+        isOwn={false}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const card = screen.getByTestId('link-preview');
+    expect(card.textContent).toContain('Titel');
+    expect(card.querySelector('a')?.getAttribute('rel')).toContain('noopener');
+    expect(card.querySelector('img')?.getAttribute('src')).toBe('/api/link-images/a.png');
+    expect(screen.queryByTestId('link-preview-hide')).toBeNull();
+  });
+
+  it('the author can take it away', () => {
+    render(
+      <MessageItem message={msg(1, { linkPreview })} isOwn onEdit={vi.fn()} onDelete={vi.fn()} />,
+    );
+    expect(screen.getByTestId('link-preview-hide')).toBeTruthy();
+  });
+});

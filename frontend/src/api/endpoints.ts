@@ -23,6 +23,7 @@ import type {
   ReactionDto,
   RoleDto,
   RoleInput,
+  SearchResultDto,
   SessionDto,
   TurnUsageDto,
   TwoFactorSetupDto,
@@ -34,6 +35,17 @@ import type {
 import { apiRequest, apiUpload, apiUploadWithProgress } from './client';
 
 const enc = encodeURIComponent;
+
+export interface SearchParams {
+  q: string;
+  guildId?: string;
+  channelId?: string;
+  privateOnly?: boolean;
+  authorId?: string;
+  after?: string;
+  until?: string;
+  beforeId?: string;
+}
 
 export const api = {
   register: (input: { email: string; username: string; password: string; next?: string }) =>
@@ -118,6 +130,13 @@ export const api = {
       content,
       ...(replyToId ? { replyToId } : {}),
     }),
+  search: (params: SearchParams) => {
+    const q = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) q.set(key, String(value));
+    return apiRequest<{ results: SearchResultDto[] }>('GET', `/search?${q.toString()}`);
+  },
+  hidePreview: (messageId: string) =>
+    apiRequest<{ message: MessageDto }>('POST', `/messages/${enc(messageId)}/hide-preview`),
   toggleReaction: (messageId: string, emoji: string) =>
     apiRequest<{ reactions: ReactionDto[] }>('POST', `/messages/${enc(messageId)}/reactions`, {
       emoji,

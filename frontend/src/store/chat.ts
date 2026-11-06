@@ -87,6 +87,8 @@ export interface ChatState {
   dms: DmChannelDto[];
   dmsLoaded: boolean;
   categoriesByGuild: Record<string, CategoryDto[]>;
+  /** Message to scroll to once its channel is open (from the search). */
+  jumpTarget: { channelId: string; messageId: string } | null;
   /** Roles of the opened servers and what they allow me. */
   rolesByGuild: Record<string, GuildRolesDto>;
   /** Unread messages per channel and conversation (from the server, then kept current). */
@@ -100,6 +102,7 @@ export interface ChatState {
   setGuilds: (guilds: GuildDto[]) => void;
   setRoles: (guildId: string, roles: GuildRolesDto) => void;
   setCategories: (guildId: string, categories: CategoryDto[]) => void;
+  setJumpTarget: (target: { channelId: string; messageId: string } | null) => void;
   upsertGuild: (guild: GuildDto) => void;
   removeGuild: (guildId: string) => void;
   setChannels: (guildId: string, channels: ChannelDto[]) => void;
@@ -157,6 +160,7 @@ const initial = {
   dmsLoaded: false,
   rolesByGuild: {} as Record<string, GuildRolesDto>,
   categoriesByGuild: {} as Record<string, CategoryDto[]>,
+  jumpTarget: null as { channelId: string; messageId: string } | null,
   unread: {} as Record<string, UnreadEntry>,
   connection: 'stopped' as ConnectionStatus,
   subscribedChannelId: null as string | null,
@@ -170,6 +174,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   setRoles: (guildId, roles) =>
     set((s) => ({ rolesByGuild: { ...s.rolesByGuild, [guildId]: roles } })),
+
+  setJumpTarget: (jumpTarget) => set({ jumpTarget }),
 
   setCategories: (guildId, categories) =>
     set((s) => ({ categoriesByGuild: { ...s.categoriesByGuild, [guildId]: categories } })),

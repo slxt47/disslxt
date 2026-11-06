@@ -12,6 +12,7 @@ import { ConnectionBanner } from './ConnectionBanner';
 import { Icon } from './Icon';
 import { jumpToMessage, MessageList } from './MessageList';
 import { PinsPanel } from './PinsPanel';
+import { SearchDialog } from './SearchDialog';
 import { UploadQueue, useUploads } from './UploadQueue';
 
 const EMPTY: never[] = [];
@@ -93,6 +94,8 @@ export function ChatView({
   const [replyTo, setReplyTo] = useState<MessageDto | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [pinsOpen, setPinsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const jumpTarget = useChatStore((s) => s.jumpTarget);
   /** Read state when the channel was opened: the "Neue Nachrichten" line stays until you leave. */
   const [readUpTo, setReadUpTo] = useState<string | null>(null);
   const unreadEntry = useChatStore((s) => s.unread[channelId]);
@@ -177,6 +180,50 @@ export function ChatView({
   useEffect(() => {
     if (subscribed) void loadLatest();
   }, [subscribed, loadLatest]);
+
+  // Coming from the search: load older pages until the message is there, then go to it.
+  useEffect(() => {
+    if (loading || jumpTarget?.channelId !== channelId) return;
+    const { messageId } = jumpTarget;
+    let cancelled = false;
+    void (async () => {
+      const chat = useChatStore.getState();
+      const loaded = () =>
+        useChatStore.getState().messagesByChannel[channelId]?.some((m) => m.id === messageId);
+      try {
+        for (let page = 0; page < 10 && !loaded() && !cancelled; page += 1) {
+          const oldest = useChatStore.getState().messagesByChannel[channelId]?.[0];
+          if (!oldest || !useChatStore.getState().hasMoreByChannel[channelId]) break;
+          const older = await api.listMessages(channelId, { before: oldest.id, limit: 100 });
+          chat.prependOlder(channelId, older.messages, older.hasMore);
+        }
+      } catch (err) {
+        chat.setError(errorMessage(err));
+      }
+      if (cancelled) return;
+      chat.setJumpTarget(null);
+      if (!loaded()) {
+        chat.setError('Diese Nachricht liegt zu weit zurück oder wurde gelöscht.');
+        return;
+      }
+      // After the list has settled at its usual place.
+      setTimeout(() => jumpToMessage(messageId), 120);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [jumpTarget, channelId, loading]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const onLoadOlder = useCallback(async () => {
     const oldest = useChatStore.getState().messagesByChannel[channelId]?.[0];
@@ -311,6 +358,15 @@ export function ChatView({
         <div className="chat-header-actions">
           {headerActions}
           <button
+            className="icon-btn"
+            data-testid="search-button"
+            aria-label="Suchen"
+            title="Suchen (Strg+Shift+F)"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Icon name="search" size={20} />
+          </button>
+          <button
             className={`icon-btn${pinsOpen ? ' active' : ''}`}
             data-testid="pins-button"
             aria-label="Angepinnte Nachrichten"
@@ -372,6 +428,7 @@ export function ChatView({
         onEditLast={onEditLast}
         onTyping={onTyping}
       />
+      {searchOpen && <SearchDialog channel={channel} onClose={() => setSearchOpen(false)} />}
       {pinsOpen && (
         <PinsPanel
           channelId={channelId}

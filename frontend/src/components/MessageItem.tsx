@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { MESSAGE_MAX_LEN, textLength, type MessageDto } from '@disslxt/shared';
 import { errorMessage } from '../api/client';
+import { api } from '../api/endpoints';
 import { QUICK_REACTIONS } from '../lib/emoji';
 import { messagePreview } from '../lib/preview';
 import { mentionsUser, renderMarkdown } from '../lib/markdown';
@@ -333,6 +334,34 @@ function MessageItemImpl({
         <span className="message-edited below" data-testid="message-edited">
           (bearbeitet)
         </span>
+      )}
+
+      {message.linkPreview && mode === 'view' && (
+        <div className="link-card" data-testid="link-preview">
+          <a href={message.linkPreview.url} target="_blank" rel="noopener noreferrer nofollow ugc">
+            {message.linkPreview.siteName && <small>{message.linkPreview.siteName}</small>}
+            <strong>{message.linkPreview.title}</strong>
+            {message.linkPreview.description && <span>{message.linkPreview.description}</span>}
+          </a>
+          {message.linkPreview.imageUrl && (
+            <img src={message.linkPreview.imageUrl} alt="" loading="lazy" />
+          )}
+          {isOwn && (
+            <button
+              className="icon-btn link-hide"
+              aria-label="Vorschau entfernen"
+              title="Vorschau entfernen"
+              data-testid="link-preview-hide"
+              onClick={() =>
+                void api
+                  .hidePreview(message.id)
+                  .catch((err: unknown) => setError(errorMessage(err)))
+              }
+            >
+              <Icon name="close" size={14} />
+            </button>
+          )}
+        </div>
       )}
 
       {message.reactions.length > 0 && (

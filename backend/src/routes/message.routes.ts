@@ -6,6 +6,7 @@ import {
   messageIdSchema,
   pinSchema,
   reactionSchema,
+  searchQuery,
   sendMessageSchema,
   uuidSchema,
 } from '@disslxt/shared';
@@ -14,6 +15,7 @@ import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 import { parse, parseParam } from '../lib/validate.js';
 import { notFound } from '../lib/errors.js';
+import { sendImage } from '../lib/imageReply.js';
 
 type ChannelParams = { Params: { channelId: string } };
 type MessageParams = { Params: { messageId: string } };
@@ -60,6 +62,31 @@ export async function messageRoutes(
     const { content } = parse(editMessageSchema, req.body);
     return { message: await messages.edit(currentUser(req), id, content) };
   });
+
+  app.get(
+    '/search',
+    {
+      config: {
+        rateLimit: {
+          max: opts.config.rateLimit.messageMax * 3,
+          timeWindow: opts.config.rateLimit.messageWindowMs,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req) => ({
+      results: await messages.search(currentUser(req), parse(searchQuery, req.query)),
+    }),
+  );
+
+  app.get<{ Params: { key: string } }>('/link-images/:key', async (req, reply) =>
+    sendImage(reply, await opts.services.linkPreviews.image(req.params.key)),
+  );
+
+  app.post<MessageParams>('/messages/:messageId/hide-preview', async (req) => ({
+    message: await messages.hidePreview(currentUser(req), messageId(req.params)),
+  }));
 
   app.get('/unread', async (req) => {
     const user = currentUser(req);

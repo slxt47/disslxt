@@ -46,6 +46,9 @@ export const CHANNEL_DESCRIPTION_MAX_LEN = 200;
 export const CATEGORY_NAME_MAX_LEN = 32;
 export const CATEGORIES_PER_GUILD_MAX = 30;
 
+/** Results per page of a search. */
+export const SEARCH_PAGE_SIZE = 25;
+
 /** What a server role can allow. Roles themselves are managed by the owner only. */
 export const GUILD_PERMISSIONS = [
   'manage_channels',

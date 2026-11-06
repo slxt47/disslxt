@@ -237,6 +237,16 @@ export interface VoiceAudioDto {
   mime: string;
 }
 
+/** What a linked page says about itself. */
+export interface LinkPreviewDto {
+  url: string;
+  title: string;
+  description: string | null;
+  siteName: string | null;
+  /** Same-origin copy of the page's picture. */
+  imageUrl: string | null;
+}
+
 export interface MessageDto {
   /** bigint as decimal string */
   id: string;
@@ -252,8 +262,19 @@ export interface MessageDto {
   replyTo: MessageRefDto | null;
   /** When it was pinned to the channel (null: not pinned). */
   pinnedAt: string | null;
+  linkPreview: LinkPreviewDto | null;
   createdAt: string;
   editedAt: string | null;
+}
+
+/** A hit of the message search, with where it was written. */
+export interface SearchResultDto {
+  message: MessageDto;
+  channelName: string;
+  channelKind: ChannelKind;
+  /** Null for private conversations. */
+  guildId: string | null;
+  guildName: string | null;
 }
 
 export interface MemberDto {

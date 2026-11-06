@@ -76,6 +76,8 @@ const envSchema = z.object({
   TURN_MONTHLY_LIMIT_GB: z.coerce.number().positive().default(900),
   // GIF search: official GIPHY API key (https://developers.giphy.com). Empty = no GIF button.
   GIPHY_API_KEY: z.string().default(''),
+  /** false: the server never fetches linked pages. */
+  LINK_PREVIEWS: z.enum(['true', 'false']).default('true'),
   /** 32 bytes as base64: encrypts authenticator secrets. Without it 2FA cannot be set up. */
   TWO_FACTOR_KEY: z.string().default(''),
   // Cap for everything posted (uploads + message text), in GB.
@@ -120,6 +122,8 @@ export interface Config {
   mail: MailConfig;
   /** null = push disabled (no VAPID keys). */
   push: PushConfig | null;
+  /** The server fetches linked pages for previews. */
+  linkPreviews: { enabled: boolean; dir: string };
   /** Encrypts authenticator secrets; null = two-factor sign-in cannot be set up. */
   twoFactorKey: Buffer | null;
   /** GIPHY API key for the GIF picker; null = GIFs switched off. */
@@ -230,6 +234,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     giphyApiKey: e.GIPHY_API_KEY.trim() || null,
     twoFactorKey: parseTwoFactorKey(e.TWO_FACTOR_KEY),
+    linkPreviews: { enabled: e.LINK_PREVIEWS === 'true', dir: resolve(e.UPLOAD_DIR, 'previews') },
     storage: { root: resolve(e.UPLOAD_DIR), limitBytes: Math.round(e.STORAGE_LIMIT_GB * 1e9) },
     files: { dir: resolve(e.UPLOAD_DIR, 'files') },
     avatars: { dir: resolve(e.UPLOAD_DIR, 'avatars') },

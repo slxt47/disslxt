@@ -10,6 +10,7 @@ import { DmService } from './dm.service.js';
 import { FriendService } from './friend.service.js';
 import { GuildService } from './guild.service.js';
 import { MessageService } from './message.service.js';
+import { LinkPreviewService, type Fetcher } from './linkPreview.service.js';
 import { PermissionService } from './permission.service.js';
 import { RoleService } from './role.service.js';
 import { SecurityService } from './security.service.js';
@@ -42,6 +43,7 @@ export interface Services {
   admin: AdminService;
   roles: RoleService;
   security: SecurityService;
+  linkPreviews: LinkPreviewService;
 }
 
 export function createServices(
@@ -51,7 +53,7 @@ export function createServices(
   mailer: Mailer,
   log: FastifyBaseLogger,
   pushSender: PushSender | null,
-  opts: { fetchFn?: typeof fetch } = {},
+  opts: { fetchFn?: typeof fetch; linkFetcher?: Fetcher } = {},
 ): Services {
   const auth = new AuthService(db, config, mailer, log);
   const security = new SecurityService(db, hub, auth, config);
@@ -87,6 +89,13 @@ export function createServices(
   );
   const roles = new RoleService(db, hub, guilds, perms);
   guilds.profilesChanged = (ids) => users.republish(ids);
+  const linkPreviews = new LinkPreviewService(
+    db,
+    new ImageStore(config.linkPreviews.dir, storage),
+    log,
+    config.linkPreviews.enabled,
+    opts.linkFetcher,
+  );
   const messages = new MessageService(
     db,
     hub,
@@ -96,6 +105,7 @@ export function createServices(
     config.voice.dir,
     config.files.dir,
     perms,
+    linkPreviews,
   );
   guilds.memberJoined = (user, guild) => messages.joined(user, guild);
   const accounts = new AccountService(db, hub, guilds, channels, dms, images, storage, {
@@ -122,5 +132,6 @@ export function createServices(
     admin,
     roles,
     security,
+    linkPreviews,
   };
 }

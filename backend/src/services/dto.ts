@@ -2,6 +2,7 @@ import type {
   ChannelDto,
   GifDto,
   GuildDto,
+  LinkPreviewDto,
   MessageDto,
   MessageRefDto,
   ReactionDto,
@@ -83,11 +84,14 @@ export const toGuildDto = (g: Guild): GuildDto => ({
   createdAt: g.createdAt.toISOString(),
 });
 
+export const toChannelKind = (kind: string): ChannelDto['kind'] =>
+  kind === 'voice' || kind === 'dm' || kind === 'group' ? kind : 'text';
+
 export const toChannelDto = (c: Channel): ChannelDto => ({
   id: c.id,
   guildId: c.guildId,
   name: c.name,
-  kind: c.kind === 'voice' || c.kind === 'dm' || c.kind === 'group' ? c.kind : 'text',
+  kind: toChannelKind(c.kind),
   restricted: c.restricted,
   description: c.description,
   categoryId: c.categoryId,
@@ -123,7 +127,11 @@ export const toMessageRef = (
 export const toMessageDto = (
   m: Message,
   author: PublicUserDto,
-  extras: { reactions?: ReactionDto[]; replyTo?: MessageRefDto | null } = {},
+  extras: {
+    reactions?: ReactionDto[];
+    replyTo?: MessageRefDto | null;
+    linkPreview?: LinkPreviewDto | null;
+  } = {},
 ): MessageDto => ({
   id: m.id.toString(),
   channelId: m.channelId,
@@ -163,6 +171,7 @@ export const toMessageDto = (
   reactions: extras.reactions ?? [],
   replyTo: extras.replyTo ?? null,
   pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
+  linkPreview: extras.linkPreview ?? null,
   createdAt: m.createdAt.toISOString(),
   editedAt: m.editedAt ? m.editedAt.toISOString() : null,
 });

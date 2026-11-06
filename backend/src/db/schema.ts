@@ -418,6 +418,20 @@ export const friendships = pgTable(
   ],
 );
 
+/** What a linked page says about itself; shared by all messages with the same link. */
+export const linkPreviews = pgTable('link_previews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  urlHash: char('url_hash', { length: 64 }).notNull().unique('link_previews_url_uq'),
+  url: text('url').notNull(),
+  /** Null: the page had nothing to show (kept, so it is not fetched again right away). */
+  title: varchar('title', { length: 200 }),
+  description: varchar('description', { length: 300 }),
+  siteName: varchar('site_name', { length: 80 }),
+  /** Copy of the page's picture in UPLOAD_DIR/previews. */
+  imageKey: varchar('image_key', { length: 64 }),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const messages = pgTable(
   'messages',
   {
@@ -448,6 +462,11 @@ export const messages = pgTable(
       (): AnyPgColumn => messages.id,
       { onDelete: 'set null' },
     ),
+    linkPreviewId: uuid('link_preview_id').references(() => linkPreviews.id, {
+      onDelete: 'set null',
+    }),
+    /** The author took the preview away; it does not come back. */
+    previewHidden: boolean('preview_hidden').notNull().default(false),
     /** Pinned to its channel since then (null: not pinned). */
     pinnedAt: timestamp('pinned_at', { withTimezone: true }),
     createdAt: createdAt(),
@@ -459,6 +478,8 @@ export const messages = pgTable(
       sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '')`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
+    // Words, lower-cased, without stemming: German and English are mixed here.
+    index('messages_search_idx').using('gin', sql`to_tsvector('simple', ${t.content})`),
     index('messages_reply_to_idx')
       .on(t.replyToId)
       .where(sql`${t.replyToId} is not null`),

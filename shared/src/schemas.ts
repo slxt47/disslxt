@@ -350,6 +350,21 @@ export const listMessagesQuery = z.object({
 });
 export type ListMessagesQuery = z.infer<typeof listMessagesQuery>;
 
+/** Words (each also found as the start of a longer word) and optional limits. */
+export const searchQuery = z.object({
+  q: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(100),
+  /** A server, a single channel or conversation, or just private conversations. */
+  guildId: z.guid().optional(),
+  channelId: z.guid().optional(),
+  privateOnly: z.coerce.boolean().optional(),
+  authorId: z.guid().optional(),
+  after: z.iso.date().optional(),
+  until: z.iso.date().optional(),
+  /** Next page: results older than this message. */
+  beforeId: messageIdSchema.optional(),
+});
+export type SearchQuery = z.infer<typeof searchQuery>;
+
 /** Emoji (with skin tones, flags, keycaps and sequences), nothing else. */
 const EMOJI_RE =
   // Sequences are what this class is for, the rule does not fit here.

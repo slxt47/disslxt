@@ -27,6 +27,7 @@ export function msg(id: number | string, overrides: Partial<MessageDto> = {}): M
     reactions: [],
     replyTo: null,
     pinnedAt: null,
+    linkPreview: null,
     createdAt: '2026-10-20T12:00:00.000Z',
     editedAt: null,
     ...overrides,
