@@ -21,6 +21,7 @@ Bei Änderungen an einer Funktion die Seite mitpflegen.
 - [Schnellwechsler](schnellwechsler.md): Mit Strg+K per Name zu Kanal oder Unterhaltung springen.
 - [Später senden und Erinnern](spaeter-und-erinnern.md): Nachrichten planen und sich selbst erinnern lassen.
 - [Termine](termine.md): Treffen mit Zusagen im Chat.
+- [Threads](threads.md): Antwort-Stränge zu einer Nachricht, neben dem Kanal.
 - [Entwürfe und Tastenkürzel](entwuerfe-und-tastenkuerzel.md): Halbfertiger Text bleibt, Bedienung geht ohne Maus.
 
 ## Medien
