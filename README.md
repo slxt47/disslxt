@@ -9,6 +9,8 @@ Erfüllte Erfolgskriterien (jeweils per Playwright-E2E-Test abgesichert):
 2. Ein neuer Nutzer tritt über einen Invite-Link bei (`e2e/tests/invite-join.spec.ts`).
 3. Der Verlauf bleibt nach einem Reload erhalten (`e2e/tests/history-reload.spec.ts`).
 
+Jede Funktion hat eine eigene Seite: [docs/funktionen](docs/funktionen/README.md).
+
 ## Aufbau
 
 pnpm-Monorepo:
@@ -354,7 +356,7 @@ Verlauf lesbar). Neue Nachrichten zählen als ungelesen (Zahl am „d“) und ko
 **Passwort vergessen** (Link auf der Anmeldeseite): Die Adresse eingeben; gibt es ein bestätigtes Konto,
 kommt ein Link (30 Minuten gültig, nur einmal nutzbar – die Antwort ist in jedem Fall gleich, damit
 niemand ausprobieren kann, welche Adressen es gibt). Das neue Passwort muss die Passwort-Regeln erfüllen;
-danach sind **alle anderen Geräte abgemeldet** und dieser Browser angemeldet. Das Token steht nur im
+danach sind **alle anderen Geräte abgemeldet** und dieser Browser angemeldet (mit Zwei-Faktor folgt stattdessen die normale Anmeldung). Das Token steht nur im
 `#`-Teil der URL (nie in Logs) und verschwindet sofort aus der Adresszeile.
 
 **Status**: Emoji + kurzer Text (höchstens 80 Zeichen), sichtbar unter dem Namen in Mitgliederliste,
