@@ -486,7 +486,7 @@ noch mit Ersatzcodes an ihr Konto, deshalb gehört sie gesichert wie die `.env`.
   Geheimnis liegt AES-256-GCM-verschlüsselt in der DB (`lib/secretBox.ts`), ein Dump allein reicht
   nicht. Ein Code gilt nur einmal (`totp_last_step`).
 - **Anmeldung in zwei Schritten:** `POST /api/auth/login` gibt bei aktivem 2FA nur `{ twoFactor,
-  ticket }`, keine Sitzung. `POST /api/auth/login/two-factor` löst das Ticket ein (5 Minuten gültig).
+ticket }`, keine Sitzung. `POST /api/auth/login/two-factor` löst das Ticket ein (5 Minuten gültig).
 - **Bremse pro Konto:** Nach 10 falschen Codes 15 Minuten Sperre, unabhängig von IP und Ticket.
 - **Passwort-Reset** meldet Konten mit 2FA nicht mehr an, sonst würde das E-Mail-Postfach allein
   reichen. Antwort `{ signIn: true }`, offene Tickets verfallen.
