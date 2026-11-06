@@ -28,6 +28,7 @@ export function msg(id: number | string, overrides: Partial<MessageDto> = {}): M
     replyTo: null,
     pinnedAt: null,
     linkPreview: null,
+    poll: null,
     createdAt: '2026-10-20T12:00:00.000Z',
     editedAt: null,
     ...overrides,

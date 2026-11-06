@@ -21,10 +21,12 @@ import {
   SEARCH_PAGE_SIZE,
   type GifDto,
   type GuildDto,
+  type CreatePollInput,
   type LinkPreviewDto,
   type ListMessagesQuery,
   type MessageDto,
   type MessageRefDto,
+  type PollDto,
   type PublicUserDto,
   type ReactionDto,
   type SearchQuery,
@@ -40,6 +42,8 @@ import {
   linkPreviews,
   messageReactions,
   messages,
+  pollVotes,
+  polls,
   users,
   type Channel,
   type Message,
@@ -176,6 +180,75 @@ export class MessageService {
     return out;
   }
 
+  private async pollsOf(ids: bigint[]): Promise<Map<string, PollDto>> {
+    const out = new Map<string, PollDto>();
+    if (ids.length === 0) return out;
+    const [rows, votes] = await Promise.all([
+      this.db.select().from(polls).where(inArray(polls.messageId, ids)),
+      this.db.select().from(pollVotes).where(inArray(pollVotes.messageId, ids)),
+    ]);
+    for (const row of rows) {
+      const own = votes.filter((v) => v.messageId === row.messageId);
+      out.set(row.messageId.toString(), {
+        multiple: row.multiple,
+        options: row.options.map((text, i) => ({
+          text,
+          userIds: own.filter((v) => v.option === i).map((v) => v.userId),
+        })),
+      });
+    }
+    return out;
+  }
+
+  /** A poll is a message whose text is the question. */
+  async createPoll(
+    user: PublicUserDto,
+    channelId: string,
+    input: CreatePollInput,
+  ): Promise<MessageDto> {
+    const channel = await this.channels.assertTextChannel(user.id, channelId);
+    await this.storage.assertRoom(Buffer.byteLength(input.question));
+    const row = await this.db.transaction(async (tx) => {
+      const [message] = await tx
+        .insert(messages)
+        .values({ channelId, authorId: user.id, kind: 'poll', content: input.question })
+        .returning();
+      if (!message) throw new Error('insert returned no row');
+      await tx
+        .insert(polls)
+        .values({ messageId: message.id, options: input.options, multiple: input.multiple });
+      return message;
+    });
+    return this.published(channel, await this.toDto(row, user));
+  }
+
+  /** Votes for an answer, or takes the vote back with a second tap. */
+  async vote(userId: string, messageId: string, option: number): Promise<PollDto> {
+    const msg = await this.assertReadable(userId, messageId);
+    const [poll] = await this.db.select().from(polls).where(eq(polls.messageId, msg.id)).limit(1);
+    if (!poll || option >= poll.options.length) throw notFound('Umfrage nicht gefunden');
+    await this.db.transaction(async (tx) => {
+      const mine = and(eq(pollVotes.messageId, msg.id), eq(pollVotes.userId, userId));
+      const had = await tx
+        .delete(pollVotes)
+        .where(and(mine, eq(pollVotes.option, option)))
+        .returning({ option: pollVotes.option });
+      if (had.length > 0) return;
+      if (!poll.multiple) await tx.delete(pollVotes).where(mine);
+      await tx.insert(pollVotes).values({ messageId: msg.id, option, userId });
+    });
+    const result = (await this.pollsOf([msg.id])).get(msg.id.toString());
+    if (!result) throw notFound('Umfrage nicht gefunden');
+    await this.channels.publish(
+      { id: msg.channelId, kind: msg.channelKind },
+      {
+        type: 'message.poll',
+        data: { id: msg.id.toString(), channelId: msg.channelId, poll: result },
+      },
+    );
+    return result;
+  }
+
   private async previewsOf(ids: string[]): Promise<Map<string, LinkPreviewDto>> {
     const out = new Map<string, LinkPreviewDto>();
     if (ids.length === 0) return out;
@@ -247,7 +320,7 @@ export class MessageService {
     const conditions: (SQL | undefined)[] = [
       sql`to_tsvector('simple', ${messages.content}) @@ to_tsquery('simple', ${tsquery})`,
       // Voice messages hold their transcript as text.
-      inArray(messages.kind, ['text', 'voice']),
+      inArray(messages.kind, ['text', 'voice', 'poll']),
       or(
         and(
           isNotNull(channels.guildId),
@@ -300,16 +373,19 @@ export class MessageService {
     const previewIds = rows.flatMap((r) =>
       r.message.linkPreviewId ? [r.message.linkPreviewId] : [],
     );
-    const [reactions, refs, previews] = await Promise.all([
+    const pollIds = rows.flatMap((r) => (r.message.kind === 'poll' ? [r.message.id] : []));
+    const [reactions, refs, previews, pollsById] = await Promise.all([
       this.reactionsOf(rows.map((r) => r.message.id)),
       this.refsOf([...new Set(replyIds)]),
       this.previewsOf([...new Set(previewIds)]),
+      this.pollsOf(pollIds),
     ]);
     return rows.map(({ message, author }) =>
       toMessageDto(message, author, {
         reactions: reactions.get(message.id.toString()) ?? [],
         replyTo: message.replyToId ? (refs.get(message.replyToId.toString()) ?? null) : null,
         linkPreview: message.linkPreviewId ? (previews.get(message.linkPreviewId) ?? null) : null,
+        poll: pollsById.get(message.id.toString()) ?? null,
       }),
     );
   }

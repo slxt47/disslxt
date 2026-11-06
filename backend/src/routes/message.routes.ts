@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
+  createPollSchema,
   editMessageSchema,
   listMessagesQuery,
   markReadSchema,
@@ -9,6 +10,7 @@ import {
   searchQuery,
   sendMessageSchema,
   uuidSchema,
+  voteSchema,
 } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { currentUser } from '../plugins/auth.js';
@@ -87,6 +89,19 @@ export async function messageRoutes(
   app.post<MessageParams>('/messages/:messageId/hide-preview', async (req) => ({
     message: await messages.hidePreview(currentUser(req), messageId(req.params)),
   }));
+
+  app.post<ChannelParams>('/channels/:channelId/polls', async (req, reply) => {
+    const id = channelId(req.params);
+    const input = parse(createPollSchema, req.body);
+    const message = await messages.createPoll(currentUser(req), id, input);
+    return reply.status(201).send({ message });
+  });
+
+  app.post<MessageParams>('/messages/:messageId/vote', async (req) => {
+    const id = messageId(req.params);
+    const { option } = parse(voteSchema, req.body);
+    return { poll: await messages.vote(currentUser(req).id, id, option) };
+  });
 
   app.get('/unread', async (req) => {
     const user = currentUser(req);

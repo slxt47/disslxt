@@ -19,6 +19,9 @@ import {
   PAGE_MAX,
   PASSWORD_MAX_LEN,
   PASSWORD_MIN_LEN,
+  POLL_OPTION_MAX_LEN,
+  POLL_OPTIONS_MAX,
+  POLL_QUESTION_MAX_LEN,
   ROLE_NAME_MAX_LEN,
   ROLES_PER_GUILD_MAX,
   USERNAME_MAX_LEN,
@@ -374,6 +377,32 @@ export const reactionSchema = z.object({
   emoji: z
     .string()
     .refine((s) => textLength(s) <= 16 && EMOJI_RE.test(s), 'Nur Emoji sind als Reaktion möglich'),
+});
+
+const pollText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} fehlt`)
+    .refine((s) => textLength(s) <= max, `${label}: höchstens ${max} Zeichen`)
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), `${label} enthält unzulässige Steuerzeichen`);
+
+export const createPollSchema = z.object({
+  question: pollText(POLL_QUESTION_MAX_LEN, 'Frage'),
+  options: z
+    .array(pollText(POLL_OPTION_MAX_LEN, 'Antwort'))
+    .min(2, 'Mindestens zwei Antworten')
+    .max(POLL_OPTIONS_MAX, `Höchstens ${POLL_OPTIONS_MAX} Antworten`),
+  multiple: z.boolean().default(false),
+});
+export type CreatePollInput = z.infer<typeof createPollSchema>;
+
+export const voteSchema = z.object({
+  option: z
+    .number()
+    .int()
+    .min(0)
+    .max(POLL_OPTIONS_MAX - 1),
 });
 
 export const pinSchema = z.object({ pinned: z.boolean() });

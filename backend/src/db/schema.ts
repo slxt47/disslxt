@@ -475,7 +475,7 @@ export const messages = pgTable(
   (t) => [
     check(
       'messages_content_len_chk',
-      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '')`,
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '') or (${t.kind} = 'poll' and char_length(${t.content}) between 1 and 200)`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
     // Words, lower-cased, without stemming: German and English are mixed here.
@@ -524,6 +524,33 @@ export const channelReads = pgTable(
   (t) => [
     primaryKey({ columns: [t.userId, t.channelId] }),
     index('channel_reads_channel_idx').on(t.channelId),
+  ],
+);
+
+/** The answers of a poll; the question is the message's text. */
+export const polls = pgTable('polls', {
+  messageId: bigint('message_id', { mode: 'bigint' })
+    .primaryKey()
+    .references(() => messages.id, { onDelete: 'cascade' }),
+  options: varchar('options', { length: 80 }).array().notNull(),
+  /** Several answers per person. */
+  multiple: boolean('multiple').notNull().default(false),
+});
+
+export const pollVotes = pgTable(
+  'poll_votes',
+  {
+    messageId: bigint('message_id', { mode: 'bigint' })
+      .notNull()
+      .references(() => polls.messageId, { onDelete: 'cascade' }),
+    option: integer('option').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.messageId, t.option, t.userId] }),
+    index('poll_votes_user_idx').on(t.userId),
   ],
 );
 

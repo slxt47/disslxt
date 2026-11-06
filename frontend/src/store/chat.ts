@@ -8,6 +8,7 @@ import type {
   GuildRolesDto,
   MemberDto,
   MessageDto,
+  PollDto,
   PublicUserDto,
   ReactionDto,
   UnreadDto,
@@ -121,6 +122,7 @@ export interface ChatState {
   upsertMessage: (message: MessageDto) => void;
   removeMessage: (channelId: string, messageId: string) => void;
   setReactions: (channelId: string, messageId: string, reactions: ReactionDto[]) => void;
+  setPoll: (channelId: string, messageId: string, poll: PollDto) => void;
   setMembers: (guildId: string, members: MemberDto[]) => void;
   setFriends: (friends: FriendDto[]) => void;
   upsertFriend: (friend: FriendDto) => void;
@@ -280,6 +282,18 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       };
     }),
 
+  setPoll: (channelId, messageId, poll) =>
+    set((s) => {
+      const list = s.messagesByChannel[channelId];
+      if (!list) return {};
+      return {
+        messagesByChannel: {
+          ...s.messagesByChannel,
+          [channelId]: list.map((m) => (m.id === messageId ? { ...m, poll } : m)),
+        },
+      };
+    }),
+
   setReactions: (channelId, messageId, reactions) =>
     set((s) => {
       const list = s.messagesByChannel[channelId];
@@ -380,6 +394,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         return;
       case 'message.reactions':
         s.setReactions(event.data.channelId, event.data.id, event.data.reactions);
+        return;
+      case 'message.poll':
+        s.setPoll(event.data.channelId, event.data.id, event.data.poll);
         return;
       case 'channel.read':
         s.clearUnread(event.data.channelId, event.data.lastReadId);

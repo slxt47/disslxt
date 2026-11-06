@@ -6,6 +6,7 @@ import { ALL_EMOJI, emojiForCode, replaceShortcodes, searchEmoji } from '../lib/
 import { mentionsUser, renderMarkdown } from '../lib/markdown';
 import { groupChannels, moveChannel } from '../components/ChannelOrganizer';
 import { activeToken, Composer } from '../components/Composer';
+import { rankTargets } from '../components/QuickSwitcher';
 import { MessageItem } from '../components/MessageItem';
 import { inviteStatus } from '../components/InviteSettings';
 import { layoutMessages } from '../components/MessageList';
@@ -581,5 +582,38 @@ describe('voice transcript', () => {
       />,
     );
     expect(screen.queryByTestId('voice-transcript')).toBeNull();
+  });
+});
+
+describe('quick switcher ranking', () => {
+  const list = [
+    { label: 'off-topic', hint: 'Spiele' },
+    { label: 'topic', hint: 'Spiele' },
+    { label: 'stopper', hint: 'Sonst' },
+    { label: 'anders', hint: 'Topics' },
+    { label: 'nix', hint: 'nix' },
+  ];
+  it('start of name, word, anywhere, then the server', () => {
+    expect(rankTargets(list, 'top').map((t) => t.label)).toEqual([
+      'topic',
+      'off-topic',
+      'stopper',
+      'anders',
+    ]);
+  });
+  it('without a query everything stays in order', () => {
+    expect(rankTargets(list, ' ')).toHaveLength(5);
+  });
+});
+
+describe('poll command', () => {
+  it('splits question and answers', () => {
+    expect(runCommand('/umfrage Pizza? | Ja | Nein')).toEqual({
+      poll: { question: 'Pizza?', options: ['Ja', 'Nein'] },
+    });
+  });
+  it('needs two answers', () => {
+    expect(runCommand('/umfrage Pizza? | Ja')).toHaveProperty('error');
+    expect(runCommand('/umfrage')).toHaveProperty('error');
   });
 });

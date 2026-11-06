@@ -6,6 +6,7 @@ import type {
   GuildDto,
   MemberDto,
   MessageDto,
+  PollDto,
   PublicUserDto,
   ReactionDto,
   VoicePeerDto,
@@ -82,6 +83,7 @@ export type WsServerMessage =
       type: 'message.reactions';
       data: { id: string; channelId: string; reactions: ReactionDto[] };
     }
+  | { type: 'message.poll'; data: { id: string; channelId: string; poll: PollDto } }
   /** Someone is writing in the channel you read. */
   | { type: 'typing'; data: { channelId: string; userId: string; name: string } }
   /** To the whole server: a new message in one of its channels, for the unread counters. */

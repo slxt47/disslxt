@@ -4558,3 +4558,95 @@ img.lightbox-media.zoomed {
   font-style: italic;
   overflow-wrap: anywhere;
 }
+
+/* Quick switcher */
+.switcher-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.switcher-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.switcher-list button.active,
+.switcher-list button:hover {
+  background: var(--accent-soft-strong);
+}
+.switcher-list span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.switcher-list small {
+  color: var(--text-tertiary);
+}
+
+/* Polls */
+.poll {
+  grid-column: 2;
+  max-width: 480px;
+  margin-top: 4px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--fill);
+}
+.poll ul {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+.poll li + li {
+  margin-top: 6px;
+}
+.poll button {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.poll button.mine {
+  border-color: var(--accent);
+}
+.poll-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-soft-strong);
+  transition: width var(--dur) var(--ease-out);
+}
+.poll-text,
+.poll-count {
+  position: relative;
+}
+.poll-count {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+.poll small {
+  color: var(--text-tertiary);
+}

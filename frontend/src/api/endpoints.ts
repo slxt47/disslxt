@@ -1,5 +1,7 @@
 import type {
   CategoryDto,
+  CreatePollInput,
+  PollDto,
   ChannelDto,
   ChannelKind,
   DmChannelDto,
@@ -135,6 +137,10 @@ export const api = {
     for (const [key, value] of Object.entries(params)) q.set(key, String(value));
     return apiRequest<{ results: SearchResultDto[] }>('GET', `/search?${q.toString()}`);
   },
+  createPoll: (channelId: string, input: CreatePollInput) =>
+    apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/polls`, input),
+  vote: (messageId: string, option: number) =>
+    apiRequest<{ poll: PollDto }>('POST', `/messages/${enc(messageId)}/vote`, { option }),
   hidePreview: (messageId: string) =>
     apiRequest<{ message: MessageDto }>('POST', `/messages/${enc(messageId)}/hide-preview`),
   toggleReaction: (messageId: string, emoji: string) =>

@@ -4,6 +4,7 @@ import type {
   GuildDto,
   LinkPreviewDto,
   MessageDto,
+  PollDto,
   MessageRefDto,
   ReactionDto,
   PublicUserDto,
@@ -110,7 +111,9 @@ export const giphyGif = (id: string, width: number, height: number, title: strin
 });
 
 const toKind = (kind: string): MessageDto['kind'] =>
-  kind === 'voice' || kind === 'file' || kind === 'gif' || kind === 'join' ? kind : 'text';
+  kind === 'voice' || kind === 'file' || kind === 'gif' || kind === 'join' || kind === 'poll'
+    ? kind
+    : 'text';
 
 const EXCERPT_MAX = 120;
 
@@ -131,6 +134,7 @@ export const toMessageDto = (
     reactions?: ReactionDto[];
     replyTo?: MessageRefDto | null;
     linkPreview?: LinkPreviewDto | null;
+    poll?: PollDto | null;
   } = {},
 ): MessageDto => ({
   id: m.id.toString(),
@@ -172,6 +176,7 @@ export const toMessageDto = (
   replyTo: extras.replyTo ?? null,
   pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
   linkPreview: extras.linkPreview ?? null,
+  poll: extras.poll ?? null,
   createdAt: m.createdAt.toISOString(),
   editedAt: m.editedAt ? m.editedAt.toISOString() : null,
 });

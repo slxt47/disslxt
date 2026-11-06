@@ -180,7 +180,18 @@ export interface VoicePeerDto {
 export type MessageAuthorDto = PublicUserDto;
 
 /** 'join': someone joined the server (shown as a greeting, has no text of its own). */
-export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join';
+export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join' | 'poll';
+
+export interface PollOptionDto {
+  text: string;
+  /** Everyone can see who voted for what. */
+  userIds: string[];
+}
+
+export interface PollDto {
+  options: PollOptionDto[];
+  multiple: boolean;
+}
 
 /** One emoji under a message: how often, and from whom. */
 export interface ReactionDto {
@@ -263,6 +274,7 @@ export interface MessageDto {
   /** When it was pinned to the channel (null: not pinned). */
   pinnedAt: string | null;
   linkPreview: LinkPreviewDto | null;
+  poll: PollDto | null;
   createdAt: string;
   editedAt: string | null;
 }

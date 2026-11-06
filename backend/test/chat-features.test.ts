@@ -349,3 +349,64 @@ describe('invite links', () => {
     expect((await post(carol, `/invites/${code}/join`)).statusCode).toBe(200);
   });
 });
+
+describe('polls', () => {
+  const create = (u: TestUser, body: object) => post(u, `/channels/${channelId}/polls`, body);
+  const body = { question: 'Pizza?', options: ['Ja', 'Nein', 'Vielleicht'] };
+
+  it('one vote per person; another answer moves it, the same takes it back', async () => {
+    const res = await create(alice, body);
+    expect(res.statusCode).toBe(201);
+    const id = res.json().message.id as string;
+    expect(res.json().message).toMatchObject({ kind: 'poll', content: 'Pizza?' });
+    await post(bob, `/messages/${id}/vote`, { option: 0 });
+    const moved = await post(bob, `/messages/${id}/vote`, { option: 1 });
+    expect(moved.json().poll.options.map((o: { userIds: string[] }) => o.userIds.length)).toEqual([
+      0, 1, 0,
+    ]);
+    const back = await post(bob, `/messages/${id}/vote`, { option: 1 });
+    expect(back.json().poll.options[1].userIds).toEqual([]);
+  });
+
+  it('with several answers allowed, votes add up', async () => {
+    const id = (await create(alice, { ...body, multiple: true })).json().message.id as string;
+    await post(bob, `/messages/${id}/vote`, { option: 0 });
+    const res = await post(bob, `/messages/${id}/vote`, { option: 2 });
+    expect(res.json().poll.options[0].userIds).toEqual([bob.user.id]);
+    expect(res.json().poll.options[2].userIds).toEqual([bob.user.id]);
+  });
+
+  it('shows in the history, goes live, and only readers can vote', async () => {
+    const host = await listen(app);
+    const ws = await wsReady(host, alice.cookie);
+    sockets.push(ws);
+    await ws.subscribe(channelId);
+    const id = (await create(alice, body)).json().message.id as string;
+    await post(bob, `/messages/${id}/vote`, { option: 2 });
+    const ev = await ws.waitFor('message.poll');
+    expect(ev.data.poll.options[2]?.userIds).toEqual([bob.user.id]);
+    expect((await post(carol, `/messages/${id}/vote`, { option: 0 })).statusCode).toBe(403);
+    expect((await history(bob)).at(-1)?.kind).toBe('poll');
+  });
+
+  it('refuses bad input: an answer that does not exist, too few, not a poll', async () => {
+    expect((await create(alice, { question: 'x', options: ['a'] })).statusCode).toBe(400);
+    const id = (await create(alice, body)).json().message.id as string;
+    expect((await post(bob, `/messages/${id}/vote`, { option: 3 })).statusCode).toBe(404);
+    const m = await say(alice, channelId, 'kein Poll');
+    expect((await post(bob, `/messages/${m.id}/vote`, { option: 0 })).statusCode).toBe(404);
+  });
+
+  it('cannot be edited, deleting takes the votes along', async () => {
+    const id = (await create(alice, body)).json().message.id as string;
+    await post(bob, `/messages/${id}/vote`, { option: 0 });
+    const edit = await req(app, 'PATCH', `/api/messages/${id}`, {
+      cookie: alice.cookie,
+      payload: { content: 'x' },
+    });
+    expect(edit.statusCode).toBe(400);
+    expect(
+      (await req(app, 'DELETE', `/api/messages/${id}`, { cookie: alice.cookie })).statusCode,
+    ).toBe(204);
+  });
+});

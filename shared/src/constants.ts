@@ -46,6 +46,10 @@ export const CHANNEL_DESCRIPTION_MAX_LEN = 200;
 export const CATEGORY_NAME_MAX_LEN = 32;
 export const CATEGORIES_PER_GUILD_MAX = 30;
 
+export const POLL_QUESTION_MAX_LEN = 200;
+export const POLL_OPTION_MAX_LEN = 80;
+export const POLL_OPTIONS_MAX = 10;
+
 /** Results per page of a search. */
 export const SEARCH_PAGE_SIZE = 25;
 

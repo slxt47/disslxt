@@ -281,6 +281,14 @@ export function ChatView({
     [channelId],
   );
 
+  const onSendPoll = useCallback(
+    async (poll: { question: string; options: string[] }) => {
+      const { message } = await api.createPoll(channelId, { ...poll, multiple: false });
+      useChatStore.getState().upsertMessage(message);
+    },
+    [channelId],
+  );
+
   const onSendGif = useCallback(
     async (gif: { id: string }) => {
       const { message } = await api.sendGif(channelId, gif.id);
@@ -421,6 +429,7 @@ export function ChatView({
         onSend={onSend}
         onSendVoice={onSendVoice}
         onSendGif={onSendGif}
+        onSendPoll={onSendPoll}
         draftKey={channelId}
         people={(channel.guildId ? members : people)?.filter((p) => p.username !== username)}
         replyTo={replyTo}

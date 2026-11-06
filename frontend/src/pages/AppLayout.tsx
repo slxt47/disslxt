@@ -8,6 +8,7 @@ import { DmView } from '../components/DmView';
 import { FriendsView } from '../components/FriendsView';
 import { HomeSidebar } from '../components/HomeSidebar';
 import { IncomingCall } from '../components/IncomingCall';
+import { QuickSwitcher } from '../components/QuickSwitcher';
 import { ProfileSettings } from '../components/ProfileSettings';
 import { ProfileDialog } from '../components/ProfileDialog';
 import { useBadgeStore } from '../store/badges';
@@ -48,6 +49,7 @@ export function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const showMembers = usePrefs((s) => s.showMembers);
   const navigate = useNavigate();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const guild = guildId ? (guilds.find((g) => g.id === guildId) ?? null) : null;
   const channel = channelId ? (channels?.find((c) => c.id === channelId) ?? null) : null;
@@ -141,6 +143,18 @@ export function AppLayout() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [home, dms, channels, guildId, location.pathname, navigate]);
+
+  // Strg+K: jump by name.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSwitcherOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Picking a channel (or any navigation) closes the drawer.
   useEffect(() => {
@@ -260,6 +274,7 @@ export function AppLayout() {
       </main>
 
       {guild && showMembers && !home && <MemberList guildId={guild.id} />}
+      {switcherOpen && <QuickSwitcher onClose={() => setSwitcherOpen(false)} />}
       <IncomingCall />
       <ProfileDialog onEditOwn={() => setSettingsOpen(true)} />
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}

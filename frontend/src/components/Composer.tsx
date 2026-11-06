@@ -30,6 +30,8 @@ export interface ComposerProps {
   onAttachFiles?: (files: File[]) => void;
   /** Posts a GIF from the picker; without it (or without a GIPHY key) there is no GIF button. */
   onSendGif?: (gif: GifDto) => Promise<void>;
+  /** Sends what /umfrage typed. */
+  onSendPoll?: (poll: { question: string; options: string[] }) => Promise<void>;
   /** Keeps the unsent text of this channel when you switch away. */
   draftKey?: string;
   /** People @ can suggest. */
@@ -88,6 +90,7 @@ export function Composer({
   onSendVoice,
   onAttachFiles,
   onSendGif,
+  onSendPoll,
   draftKey,
   people,
   replyTo = null,
@@ -251,6 +254,19 @@ export function Composer({
     const command = runCommand(typed);
     if (command && 'error' in command) {
       setError(command.error);
+      return;
+    }
+    if (command && 'poll' in command) {
+      setSending(true);
+      setError(null);
+      try {
+        await onSendPoll?.(command.poll);
+        setValue('');
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setSending(false);
+      }
       return;
     }
     const content = replaceShortcodes(command ? command.text : typed);

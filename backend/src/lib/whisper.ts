@@ -43,6 +43,8 @@ export function whisperTranscriber(baseUrl: string, ffmpeg: string): Transcriber
     const form = new FormData();
     form.set('file', new Blob([await toWav(audioPath, ffmpeg)], { type: 'audio/wav' }), 'a.wav');
     form.set('response_format', 'json');
+    // Detecting the language on a few seconds goes wrong too often, and people here speak German.
+    form.set('language', 'de');
     const res = await fetch(`${baseUrl}/inference`, {
       method: 'POST',
       body: form,

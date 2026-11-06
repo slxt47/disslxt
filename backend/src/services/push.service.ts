@@ -361,6 +361,7 @@ export class PushService {
 function preview(message: MessageDto): string {
   if (message.kind === 'voice') return '🎤 Sprachnachricht';
   if (message.kind === 'gif') return '🎞️ GIF';
+  if (message.kind === 'poll') return `📊 ${message.content}`;
   if (message.kind === 'file') {
     return `${message.file?.isImage ? '🖼️ Bild' : '📎'} ${message.file?.name ?? ''}`.trim();
   }

@@ -13,6 +13,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: 'me', args: 'Text', description: 'Schreibt den Text kursiv, wie eine Handlung' },
   { name: 'würfeln', args: '[Seiten]', description: 'Würfelt, Standard sind 6 Seiten' },
   { name: 'münze', args: '', description: 'Wirft eine Münze' },
+  { name: 'umfrage', args: 'Frage | A | B', description: 'Startet eine Umfrage' },
 ];
 
 /** Uniform random number 1…max (no modulo bias). */
@@ -24,7 +25,8 @@ function randomUpTo(max: number): number {
   return ((buf[0] ?? 0) % max) + 1;
 }
 
-export type CommandResult = { text: string } | { error: string } | null;
+export type CommandResult =
+  { text: string } | { error: string } | { poll: { question: string; options: string[] } } | null;
 
 /** The text to send for a command; null when it is no command (normal message). */
 export function runCommand(input: string, random = randomUpTo): CommandResult {
@@ -52,6 +54,17 @@ export function runCommand(input: string, random = randomUpTo): CommandResult {
         return { error: 'Würfel: 2 bis 1000 Seiten, zum Beispiel /würfeln 20' };
       }
       return { text: `🎲 hat eine **${random(sides)}** gewürfelt (1–${sides})` };
+    }
+    case 'umfrage':
+    case 'poll': {
+      const [question = '', ...options] = arg
+        .split('|')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      if (!question || options.length < 2) {
+        return { error: 'So geht es: /umfrage Frage | Antwort A | Antwort B' };
+      }
+      return { poll: { question, options } };
     }
     case 'münze':
     case 'muenze':
