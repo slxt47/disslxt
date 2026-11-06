@@ -6,5 +6,6 @@ export function messagePreview(m: { kind: MessageKind; content?: string }): stri
   if (m.kind === 'gif') return '🎞️ GIF';
   if (m.kind === 'file') return '📎 Datei';
   if (m.kind === 'poll') return `📊 ${m.content ?? ''}`;
+  if (m.kind === 'event') return `📅 ${m.content ?? ''}`;
   return m.content ?? '';
 }

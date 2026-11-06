@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   CategoryDto,
   ChannelDto,
+  EventDto,
   DmChannelDto,
   FriendDto,
   GuildDto,
@@ -123,6 +124,7 @@ export interface ChatState {
   removeMessage: (channelId: string, messageId: string) => void;
   setReactions: (channelId: string, messageId: string, reactions: ReactionDto[]) => void;
   setPoll: (channelId: string, messageId: string, poll: PollDto) => void;
+  setEvent: (channelId: string, messageId: string, event: EventDto) => void;
   setMembers: (guildId: string, members: MemberDto[]) => void;
   setFriends: (friends: FriendDto[]) => void;
   upsertFriend: (friend: FriendDto) => void;
@@ -282,6 +284,18 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       };
     }),
 
+  setEvent: (channelId, messageId, event) =>
+    set((s) => {
+      const list = s.messagesByChannel[channelId];
+      if (!list) return {};
+      return {
+        messagesByChannel: {
+          ...s.messagesByChannel,
+          [channelId]: list.map((m) => (m.id === messageId ? { ...m, event } : m)),
+        },
+      };
+    }),
+
   setPoll: (channelId, messageId, poll) =>
     set((s) => {
       const list = s.messagesByChannel[channelId];
@@ -394,6 +408,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         return;
       case 'message.reactions':
         s.setReactions(event.data.channelId, event.data.id, event.data.reactions);
+        return;
+      case 'message.event':
+        s.setEvent(event.data.channelId, event.data.id, event.data.event);
+        return;
+      case 'reminder':
+        set({ error: `⏰ ${event.data.text}` });
         return;
       case 'message.poll':
         s.setPoll(event.data.channelId, event.data.id, event.data.poll);

@@ -97,6 +97,7 @@ test('GIF picker: search, pick, shown in the chat (GIPHY simulated)', async ({ p
           pinnedAt: null,
           linkPreview: null,
           poll: null,
+          event: null,
           editedAt: null,
         },
       },

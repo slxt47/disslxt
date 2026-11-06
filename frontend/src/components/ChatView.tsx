@@ -289,6 +289,21 @@ export function ChatView({
     [channelId],
   );
 
+  const onSendEvent = useCallback(
+    async (event: { title: string; startsAt: string }) => {
+      const { message } = await api.createEvent(channelId, event.title, event.startsAt);
+      useChatStore.getState().upsertMessage(message);
+    },
+    [channelId],
+  );
+
+  const onSchedule = useCallback(
+    async (item: { kind: 'send' | 'remind'; content: string; sendAt: string }) => {
+      await api.schedule(channelId, item);
+    },
+    [channelId],
+  );
+
   const onSendGif = useCallback(
     async (gif: { id: string }) => {
       const { message } = await api.sendGif(channelId, gif.id);
@@ -430,6 +445,8 @@ export function ChatView({
         onSendVoice={onSendVoice}
         onSendGif={onSendGif}
         onSendPoll={onSendPoll}
+        onSendEvent={onSendEvent}
+        onSchedule={onSchedule}
         draftKey={channelId}
         people={(channel.guildId ? members : people)?.filter((p) => p.username !== username)}
         replyTo={replyTo}

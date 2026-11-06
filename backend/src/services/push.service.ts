@@ -289,6 +289,12 @@ export class PushService {
     while (this.pending.size > 0) await Promise.allSettled([...this.pending]);
   }
 
+  /** A message for these people only (reminders). */
+  notify(userIds: string[], payload: PushPayload): void {
+    if (!this.enabled || userIds.length === 0) return;
+    this.background(() => this.sendToUsers(userIds, payload).then(() => undefined));
+  }
+
   /** Members who see the channel, without the sender. */
   private async recipients(guildId: string, exceptUserId: string, channelId: string) {
     return this.db
@@ -362,6 +368,7 @@ function preview(message: MessageDto): string {
   if (message.kind === 'voice') return '🎤 Sprachnachricht';
   if (message.kind === 'gif') return '🎞️ GIF';
   if (message.kind === 'poll') return `📊 ${message.content}`;
+  if (message.kind === 'event') return `📅 ${message.content}`;
   if (message.kind === 'file') {
     return `${message.file?.isImage ? '🖼️ Bild' : '📎'} ${message.file?.name ?? ''}`.trim();
   }

@@ -475,7 +475,7 @@ export const messages = pgTable(
   (t) => [
     check(
       'messages_content_len_chk',
-      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '') or (${t.kind} = 'poll' and char_length(${t.content}) between 1 and 200)`,
+      sql`(${t.kind} = 'text' and char_length(${t.content}) between 1 and 2000) or (${t.kind} = 'voice' and ${t.audioKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'file' and ${t.fileKey} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'gif' and ${t.gifId} is not null and char_length(${t.content}) <= 2000) or (${t.kind} = 'join' and ${t.content} = '') or (${t.kind} in ('poll', 'event') and char_length(${t.content}) between 1 and 200)`,
     ),
     index('messages_channel_id_id_idx').on(t.channelId, t.id.desc()),
     // Words, lower-cased, without stemming: German and English are mixed here.
@@ -524,6 +524,59 @@ export const channelReads = pgTable(
   (t) => [
     primaryKey({ columns: [t.userId, t.channelId] }),
     index('channel_reads_channel_idx').on(t.channelId),
+  ],
+);
+
+/** Sent later, or a reminder only for yourself. */
+export const scheduledMessages = pgTable(
+  'scheduled_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    kind: varchar('kind', { length: 8 }).notNull(),
+    content: text('content').notNull(),
+    sendAt: timestamp('send_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('scheduled_messages_send_at_idx').on(t.sendAt),
+    index('scheduled_messages_user_idx').on(t.userId),
+    check('scheduled_messages_kind_chk', sql`${t.kind} in ('send', 'remind')`),
+  ],
+);
+
+/** An event is a message whose text is the title. */
+export const messageEvents = pgTable(
+  'message_events',
+  {
+    messageId: bigint('message_id', { mode: 'bigint' })
+      .primaryKey()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    reminded: boolean('reminded').notNull().default(false),
+  },
+  (t) => [index('message_events_starts_idx').on(t.startsAt)],
+);
+
+export const eventRsvps = pgTable(
+  'event_rsvps',
+  {
+    messageId: bigint('message_id', { mode: 'bigint' })
+      .notNull()
+      .references(() => messageEvents.messageId, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    answer: varchar('answer', { length: 8 }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.messageId, t.userId] }),
+    check('event_rsvps_answer_chk', sql`${t.answer} in ('yes', 'maybe', 'no')`),
   ],
 );
 

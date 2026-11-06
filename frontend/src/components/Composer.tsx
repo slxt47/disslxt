@@ -32,6 +32,12 @@ export interface ComposerProps {
   onSendGif?: (gif: GifDto) => Promise<void>;
   /** Sends what /umfrage typed. */
   onSendPoll?: (poll: { question: string; options: string[] }) => Promise<void>;
+  onSendEvent?: (event: { title: string; startsAt: string }) => Promise<void>;
+  onSchedule?: (item: {
+    kind: 'send' | 'remind';
+    content: string;
+    sendAt: string;
+  }) => Promise<void>;
   /** Keeps the unsent text of this channel when you switch away. */
   draftKey?: string;
   /** People @ can suggest. */
@@ -75,6 +81,8 @@ export function activeToken(
   return { kind, query, start: before.length - query.length - 1 };
 }
 
+const noteFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+
 /** Counter appears this many characters before the limit. */
 const COUNTER_THRESHOLD = MESSAGE_MAX_LEN - 200;
 
@@ -91,6 +99,8 @@ export function Composer({
   onAttachFiles,
   onSendGif,
   onSendPoll,
+  onSendEvent,
+  onSchedule,
   draftKey,
   people,
   replyTo = null,
@@ -103,6 +113,7 @@ export function Composer({
   const fileInput = useRef<HTMLInputElement>(null);
   const [value, setValueRaw] = useState(() => (draftKey ? loadDraft(draftKey) : ''));
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   const [caret, setCaret] = useState(0);
   const [picked, setPicked] = useState(0);
   const [dismissed, setDismissed] = useState(false);
@@ -256,11 +267,19 @@ export function Composer({
       setError(command.error);
       return;
     }
-    if (command && 'poll' in command) {
+    if (command && !('text' in command)) {
       setSending(true);
       setError(null);
+      setNote(null);
       try {
-        await onSendPoll?.(command.poll);
+        if ('poll' in command) await onSendPoll?.(command.poll);
+        else if ('event' in command) await onSendEvent?.(command.event);
+        else {
+          await onSchedule?.(command.schedule);
+          setNote(
+            `${command.schedule.kind === 'remind' ? 'Erinnerung' : 'Nachricht'} geplant für ${noteFormat.format(new Date(command.schedule.sendAt))}.`,
+          );
+        }
         setValue('');
       } catch (err) {
         setError(errorMessage(err));
@@ -377,6 +396,11 @@ export function Composer({
             </li>
           ))}
         </ul>
+      )}
+      {note && (
+        <p className="composer-note" role="status" data-testid="composer-note">
+          {note}
+        </p>
       )}
       {replyTo && (
         <div className="composer-reply" data-testid="composer-reply">

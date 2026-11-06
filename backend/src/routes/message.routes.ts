@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
+  createEventSchema,
   createPollSchema,
   editMessageSchema,
   listMessagesQuery,
@@ -7,6 +8,8 @@ import {
   messageIdSchema,
   pinSchema,
   reactionSchema,
+  rsvpSchema,
+  scheduleSchema,
   searchQuery,
   sendMessageSchema,
   uuidSchema,
@@ -101,6 +104,37 @@ export async function messageRoutes(
     const id = messageId(req.params);
     const { option } = parse(voteSchema, req.body);
     return { poll: await messages.vote(currentUser(req).id, id, option) };
+  });
+
+  const { schedule } = opts.services;
+
+  app.post<ChannelParams>('/channels/:channelId/scheduled', async (req, reply) => {
+    const id = channelId(req.params);
+    const input = parse(scheduleSchema, req.body);
+    return reply
+      .status(201)
+      .send({ scheduled: await schedule.create(currentUser(req), id, input) });
+  });
+
+  app.get('/scheduled', async (req) => ({ scheduled: await schedule.list(currentUser(req).id) }));
+
+  app.delete<{ Params: { id: string } }>('/scheduled/:id', async (req, reply) => {
+    const id = parseParam(uuidSchema, req.params.id, () => notFound('Nicht gefunden'));
+    await schedule.cancel(currentUser(req).id, id);
+    return reply.status(204).send();
+  });
+
+  app.post<ChannelParams>('/channels/:channelId/events', async (req, reply) => {
+    const id = channelId(req.params);
+    const { title, startsAt } = parse(createEventSchema, req.body);
+    const message = await schedule.createEvent(currentUser(req), id, title, startsAt);
+    return reply.status(201).send({ message });
+  });
+
+  app.post<MessageParams>('/messages/:messageId/rsvp', async (req) => {
+    const id = messageId(req.params);
+    const { answer } = parse(rsvpSchema, req.body);
+    return { event: await schedule.rsvp(currentUser(req).id, id, answer) };
   });
 
   app.get('/unread', async (req) => {

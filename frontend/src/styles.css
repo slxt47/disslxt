@@ -4650,3 +4650,24 @@ img.lightbox-media.zoomed {
 .poll small {
   color: var(--text-tertiary);
 }
+
+/* Events */
+.event-date {
+  margin: 4px 0 8px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.event-answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.event-answers button {
+  flex: 1 1 110px;
+  justify-content: center;
+}
+.composer-note {
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}

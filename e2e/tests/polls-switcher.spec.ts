@@ -19,3 +19,19 @@ test('a poll from the composer, voted on live; Strg+K jumps to a channel', async
   await a.page.getByTestId('switcher-input').press('Enter');
   await expect(a.page.getByTestId('channel-title')).toContainText('general');
 });
+
+test('an event with answers, a message planned for later', async ({ browser }) => {
+  const { a, b } = await twoUsersInGuild(browser, 'Termine');
+  const input = a.page.getByTestId('composer-input');
+  await input.fill('/termin 24.12. 20:00 | Feier');
+  await input.press('Enter');
+  await expect(b.page.getByTestId('event')).toContainText('Feier');
+  await b.page.getByTestId('event-yes').click();
+  await expect(a.page.getByTestId('event-yes')).toContainText('(1)');
+
+  await input.fill('/später 2h nachher');
+  await input.press('Enter');
+  await expect(a.page.getByTestId('composer-note')).toContainText('geplant');
+  await a.page.getByTestId('settings-button').click();
+  await expect(a.page.getByTestId('scheduled-list')).toContainText('nachher');
+});

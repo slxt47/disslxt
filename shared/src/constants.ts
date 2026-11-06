@@ -50,6 +50,9 @@ export const POLL_QUESTION_MAX_LEN = 200;
 export const POLL_OPTION_MAX_LEN = 80;
 export const POLL_OPTIONS_MAX = 10;
 
+/** Messages for later and reminders one person can have waiting. */
+export const SCHEDULED_PER_USER_MAX = 50;
+
 /** Results per page of a search. */
 export const SEARCH_PAGE_SIZE = 25;
 

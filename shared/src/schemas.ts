@@ -405,6 +405,31 @@ export const voteSchema = z.object({
     .max(POLL_OPTIONS_MAX - 1),
 });
 
+const inFuture = z.iso
+  .datetime({ offset: true })
+  .refine(
+    (s) => new Date(s).getTime() > Date.now() - 60_000,
+    'Der Zeitpunkt liegt in der Vergangenheit',
+  )
+  .refine(
+    (s) => new Date(s).getTime() < Date.now() + 366 * 86_400_000,
+    'Höchstens ein Jahr im Voraus',
+  );
+
+export const scheduleSchema = z.object({
+  kind: z.enum(['send', 'remind']),
+  content: messageContentSchema,
+  sendAt: inFuture,
+});
+export type ScheduleInput = z.infer<typeof scheduleSchema>;
+
+export const createEventSchema = z.object({
+  title: pollText(POLL_QUESTION_MAX_LEN, 'Titel'),
+  startsAt: inFuture,
+});
+
+export const rsvpSchema = z.object({ answer: z.enum(['yes', 'maybe', 'no']).nullable() });
+
 export const pinSchema = z.object({ pinned: z.boolean() });
 
 export const markReadSchema = z.object({ messageId: messageIdSchema });

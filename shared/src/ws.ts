@@ -6,6 +6,7 @@ import type {
   GuildDto,
   MemberDto,
   MessageDto,
+  EventDto,
   PollDto,
   PublicUserDto,
   ReactionDto,
@@ -83,6 +84,9 @@ export type WsServerMessage =
       type: 'message.reactions';
       data: { id: string; channelId: string; reactions: ReactionDto[] };
     }
+  | { type: 'message.event'; data: { id: string; channelId: string; event: EventDto } }
+  /** A reminder you set for yourself. */
+  | { type: 'reminder'; data: { channelId: string; text: string } }
   | { type: 'message.poll'; data: { id: string; channelId: string; poll: PollDto } }
   /** Someone is writing in the channel you read. */
   | { type: 'typing'; data: { channelId: string; userId: string; name: string } }

@@ -180,7 +180,26 @@ export interface VoicePeerDto {
 export type MessageAuthorDto = PublicUserDto;
 
 /** 'join': someone joined the server (shown as a greeting, has no text of its own). */
-export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join' | 'poll';
+export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join' | 'poll' | 'event';
+
+export type RsvpAnswer = 'yes' | 'maybe' | 'no';
+
+/** An event in the chat: when, and who answered what. */
+export interface EventDto {
+  startsAt: string;
+  yes: string[];
+  maybe: string[];
+  no: string[];
+}
+
+/** A message for later (`send`) or a reminder for yourself (`remind`). */
+export interface ScheduledDto {
+  id: string;
+  channelId: string;
+  kind: 'send' | 'remind';
+  content: string;
+  sendAt: string;
+}
 
 export interface PollOptionDto {
   text: string;
@@ -275,6 +294,7 @@ export interface MessageDto {
   pinnedAt: string | null;
   linkPreview: LinkPreviewDto | null;
   poll: PollDto | null;
+  event: EventDto | null;
   createdAt: string;
   editedAt: string | null;
 }

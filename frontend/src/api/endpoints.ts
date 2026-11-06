@@ -1,7 +1,11 @@
 import type {
   CategoryDto,
   CreatePollInput,
+  EventDto,
   PollDto,
+  RsvpAnswer,
+  ScheduleInput,
+  ScheduledDto,
   ChannelDto,
   ChannelKind,
   DmChannelDto,
@@ -137,6 +141,17 @@ export const api = {
     for (const [key, value] of Object.entries(params)) q.set(key, String(value));
     return apiRequest<{ results: SearchResultDto[] }>('GET', `/search?${q.toString()}`);
   },
+  schedule: (channelId: string, input: ScheduleInput) =>
+    apiRequest<{ scheduled: ScheduledDto }>('POST', `/channels/${enc(channelId)}/scheduled`, input),
+  listScheduled: () => apiRequest<{ scheduled: ScheduledDto[] }>('GET', '/scheduled'),
+  cancelScheduled: (id: string) => apiRequest<void>('DELETE', `/scheduled/${enc(id)}`),
+  createEvent: (channelId: string, title: string, startsAt: string) =>
+    apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/events`, {
+      title,
+      startsAt,
+    }),
+  rsvp: (messageId: string, answer: RsvpAnswer | null) =>
+    apiRequest<{ event: EventDto }>('POST', `/messages/${enc(messageId)}/rsvp`, { answer }),
   createPoll: (channelId: string, input: CreatePollInput) =>
     apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/polls`, input),
   vote: (messageId: string, option: number) =>

@@ -20,6 +20,7 @@ import { isSubmitKey } from './Composer';
 import { EmojiPanel } from './EmojiPanel';
 import { FileAttachment } from './FileAttachment';
 import { GifView } from './Gif';
+import { EventView } from './EventView';
 import { PollView } from './PollView';
 import { ProfileLink, UserBadges } from './Social';
 import { VoicePlayer } from './VoicePlayer';
@@ -336,6 +337,14 @@ function MessageItemImpl({
           channelId={message.channelId}
           question={message.content}
           poll={message.poll}
+          selfId={selfId}
+        />
+      ) : message.kind === 'event' && message.event ? (
+        <EventView
+          messageId={message.id}
+          channelId={message.channelId}
+          title={message.content}
+          event={message.event}
           selfId={selfId}
         />
       ) : message.kind === 'file' && message.file ? (

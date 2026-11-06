@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { runCommand } from '../lib/commands';
+import { parseWhen, runCommand } from '../lib/commands';
 import { clearDrafts, loadDraft, saveDraft } from '../lib/drafts';
 import { ALL_EMOJI, emojiForCode, replaceShortcodes, searchEmoji } from '../lib/emoji';
 import { mentionsUser, renderMarkdown } from '../lib/markdown';
@@ -615,5 +615,41 @@ describe('poll command', () => {
   it('needs two answers', () => {
     expect(runCommand('/umfrage Pizza? | Ja')).toHaveProperty('error');
     expect(runCommand('/umfrage')).toHaveProperty('error');
+  });
+});
+
+describe('times in commands', () => {
+  const now = new Date(2026, 10, 6, 14, 0);
+  const at = (text: string) => parseWhen(text, now)?.at.getTime();
+
+  it('understands spans', () => {
+    expect(at('30m x')).toBe(now.getTime() + 30 * 60_000);
+    expect(at('2h x')).toBe(now.getTime() + 2 * 3_600_000);
+    expect(at('3d x')).toBe(now.getTime() + 3 * 86_400_000);
+    expect(parseWhen('30m hallo welt', now)?.rest).toBe('hallo welt');
+  });
+  it('a time means today, or tomorrow if it has passed', () => {
+    expect(at('20:00 x')).toBe(new Date(2026, 10, 6, 20, 0).getTime());
+    expect(at('09:30 x')).toBe(new Date(2026, 10, 7, 9, 30).getTime());
+  });
+  it('dates, with and without year; a past one means next year', () => {
+    expect(at('8.11. 20:00')).toBe(new Date(2026, 10, 8, 20, 0).getTime());
+    expect(at('8.11.')).toBe(new Date(2026, 10, 8, 9, 0).getTime());
+    expect(at('1.1. 10:00')).toBe(new Date(2027, 0, 1, 10, 0).getTime());
+    expect(at('31.2. 10:00')).toBeUndefined();
+  });
+  it('nonsense is no time', () => {
+    expect(parseWhen('morgen früh', now)).toBeNull();
+    expect(parseWhen('25:00 x', now)).toBeNull();
+  });
+  it('commands say how they work', () => {
+    expect(runCommand('/später Text')).toHaveProperty('error');
+    expect(runCommand('/termin 8.11. 20:00 |')).toHaveProperty('error');
+    expect(runCommand('/erinnern 1h Tee')).toMatchObject({
+      schedule: { kind: 'remind', content: 'Tee' },
+    });
+    expect(runCommand('/termin 8.11. 20:00 | Spieleabend')).toMatchObject({
+      event: { title: 'Spieleabend' },
+    });
   });
 });

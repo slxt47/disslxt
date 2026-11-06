@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PINS_PER_CHANNEL_MAX } from '@disslxt/shared';
 import { guilds, messages } from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -408,5 +408,106 @@ describe('polls', () => {
     expect(
       (await req(app, 'DELETE', `/api/messages/${id}`, { cookie: alice.cookie })).statusCode,
     ).toBe(204);
+  });
+});
+
+describe('for later', () => {
+  const inMinutes = (n: number) => new Date(Date.now() + n * 60_000).toISOString();
+  const plan = (u: TestUser, body: object) => post(u, `/channels/${channelId}/scheduled`, body);
+
+  it('sends when due, not before, and only once', async () => {
+    const res = await plan(alice, { kind: 'send', content: 'später', sendAt: inMinutes(5) });
+    expect(res.statusCode).toBe(201);
+    await app.services.schedule.tick();
+    expect((await history(bob)).some((m) => m.content === 'später')).toBe(false);
+    const later = new Date(Date.now() + 6 * 60_000);
+    await app.services.schedule.tick(later);
+    await app.services.schedule.tick(later);
+    expect((await history(bob)).filter((m) => m.content === 'später')).toHaveLength(1);
+  });
+
+  it('a reminder stays private and arrives live', async () => {
+    const host = await listen(app);
+    const ws = await wsReady(host, alice.cookie);
+    sockets.push(ws);
+    await plan(alice, { kind: 'remind', content: 'Tee', sendAt: inMinutes(1) });
+    await app.services.schedule.tick(new Date(Date.now() + 2 * 60_000));
+    const ev = await ws.waitFor('reminder');
+    expect(ev.data.text).toBe('Tee');
+    expect((await history(alice)).some((m) => m.content === 'Tee')).toBe(false);
+  });
+
+  it('own list, cancel, no access to others', async () => {
+    await plan(alice, { kind: 'send', content: 'x', sendAt: inMinutes(5) });
+    const list = (await req(app, 'GET', '/api/scheduled', { cookie: alice.cookie })).json()
+      .scheduled;
+    expect(list).toHaveLength(1);
+    expect(
+      (await req(app, 'GET', '/api/scheduled', { cookie: bob.cookie })).json().scheduled,
+    ).toEqual([]);
+    const id = list[0].id as string;
+    expect(
+      (await req(app, 'DELETE', `/api/scheduled/${id}`, { cookie: bob.cookie })).statusCode,
+    ).toBe(404);
+    expect(
+      (await req(app, 'DELETE', `/api/scheduled/${id}`, { cookie: alice.cookie })).statusCode,
+    ).toBe(204);
+  });
+
+  it('refuses the past and foreign channels; lost access means nothing is sent', async () => {
+    const past = new Date(Date.now() - 3_600_000).toISOString();
+    expect((await plan(alice, { kind: 'send', content: 'x', sendAt: past })).statusCode).toBe(400);
+    expect(
+      (await plan(carol, { kind: 'send', content: 'x', sendAt: inMinutes(5) })).statusCode,
+    ).toBe(403);
+    await plan(bob, { kind: 'send', content: 'nach Austritt', sendAt: inMinutes(1) });
+    await post(bob, `/guilds/${guildId}/leave`);
+    await app.services.schedule.tick(new Date(Date.now() + 2 * 60_000));
+    expect((await history(alice)).some((m) => m.content === 'nach Austritt')).toBe(false);
+  });
+});
+
+describe('events', () => {
+  const inHours = (n: number) => new Date(Date.now() + n * 3_600_000).toISOString();
+  const create = (u = alice) =>
+    post(u, `/channels/${channelId}/events`, { title: 'Spieleabend', startsAt: inHours(1) });
+
+  it('answers count per person, change, and can be taken back', async () => {
+    const res = await create();
+    expect(res.json().message).toMatchObject({ kind: 'event', content: 'Spieleabend' });
+    const id = res.json().message.id as string;
+    await post(bob, `/messages/${id}/rsvp`, { answer: 'yes' });
+    const moved = await post(bob, `/messages/${id}/rsvp`, { answer: 'maybe' });
+    expect(moved.json().event).toMatchObject({ yes: [], maybe: [bob.user.id] });
+    const back = await post(bob, `/messages/${id}/rsvp`, { answer: null });
+    expect(back.json().event.maybe).toEqual([]);
+  });
+
+  it('only readers answer; past dates are refused; not on other messages', async () => {
+    const id = (await create()).json().message.id as string;
+    expect((await post(carol, `/messages/${id}/rsvp`, { answer: 'yes' })).statusCode).toBe(403);
+    const past = await post(alice, `/channels/${channelId}/events`, {
+      title: 'x',
+      startsAt: inHours(-2),
+    });
+    expect(past.statusCode).toBe(400);
+    const m = await say(alice, channelId, 'hallo');
+    expect((await post(bob, `/messages/${m.id}/rsvp`, { answer: 'yes' })).statusCode).toBe(404);
+  });
+
+  it('goes live and reminds only once', async () => {
+    const host = await listen(app);
+    const ws = await wsReady(host, alice.cookie);
+    sockets.push(ws);
+    await ws.subscribe(channelId);
+    const id = (await create()).json().message.id as string;
+    await post(bob, `/messages/${id}/rsvp`, { answer: 'yes' });
+    expect((await ws.waitFor('message.event')).data.event.yes).toEqual([bob.user.id]);
+    const notify = vi.spyOn(app.services.push, 'notify');
+    const soon = new Date(Date.now() + 50 * 60_000);
+    await app.services.schedule.tick(soon);
+    await app.services.schedule.tick(soon);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]?.[0]).toEqual([bob.user.id]);
   });
 });

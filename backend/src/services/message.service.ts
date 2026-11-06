@@ -22,6 +22,7 @@ import {
   type GifDto,
   type GuildDto,
   type CreatePollInput,
+  type EventDto,
   type LinkPreviewDto,
   type ListMessagesQuery,
   type MessageDto,
@@ -29,6 +30,7 @@ import {
   type PollDto,
   type PublicUserDto,
   type ReactionDto,
+  type RsvpAnswer,
   type SearchQuery,
   type SearchResultDto,
   type UnreadDto,
@@ -38,8 +40,10 @@ import type { Database } from '../db/client.js';
 import {
   channelReads,
   channels,
+  eventRsvps,
   guilds,
   linkPreviews,
+  messageEvents,
   messageReactions,
   messages,
   pollVotes,
@@ -200,6 +204,72 @@ export class MessageService {
     return out;
   }
 
+  private async eventsOf(ids: bigint[]): Promise<Map<string, EventDto>> {
+    const out = new Map<string, EventDto>();
+    if (ids.length === 0) return out;
+    const [rows, answers] = await Promise.all([
+      this.db.select().from(messageEvents).where(inArray(messageEvents.messageId, ids)),
+      this.db.select().from(eventRsvps).where(inArray(eventRsvps.messageId, ids)),
+    ]);
+    for (const row of rows) {
+      const own = answers.filter((a) => a.messageId === row.messageId);
+      const who = (answer: string) => own.filter((a) => a.answer === answer).map((a) => a.userId);
+      out.set(row.messageId.toString(), {
+        startsAt: row.startsAt.toISOString(),
+        yes: who('yes'),
+        maybe: who('maybe'),
+        no: who('no'),
+      });
+    }
+    return out;
+  }
+
+  /** An event is a message whose text is the title; everyone in the channel can answer. */
+  async createEvent(
+    user: PublicUserDto,
+    channelId: string,
+    title: string,
+    startsAt: Date,
+  ): Promise<MessageDto> {
+    const channel = await this.channels.assertTextChannel(user.id, channelId);
+    const row = await this.db.transaction(async (tx) => {
+      const [message] = await tx
+        .insert(messages)
+        .values({ channelId, authorId: user.id, kind: 'event', content: title })
+        .returning();
+      if (!message) throw new Error('insert returned no row');
+      await tx.insert(messageEvents).values({ messageId: message.id, startsAt });
+      return message;
+    });
+    return this.published(channel, await this.toDto(row, user));
+  }
+
+  /** Answers an event; null takes the answer back. */
+  async rsvp(userId: string, messageId: string, answer: RsvpAnswer | null): Promise<EventDto> {
+    const msg = await this.assertReadable(userId, messageId);
+    if (msg.kind !== 'event') throw notFound('Termin nicht gefunden');
+    if (answer) {
+      await this.db
+        .insert(eventRsvps)
+        .values({ messageId: msg.id, userId, answer })
+        .onConflictDoUpdate({
+          target: [eventRsvps.messageId, eventRsvps.userId],
+          set: { answer },
+        });
+    } else {
+      await this.db
+        .delete(eventRsvps)
+        .where(and(eq(eventRsvps.messageId, msg.id), eq(eventRsvps.userId, userId)));
+    }
+    const event = (await this.eventsOf([msg.id])).get(msg.id.toString());
+    if (!event) throw notFound('Termin nicht gefunden');
+    await this.channels.publish(
+      { id: msg.channelId, kind: msg.channelKind },
+      { type: 'message.event', data: { id: msg.id.toString(), channelId: msg.channelId, event } },
+    );
+    return event;
+  }
+
   /** A poll is a message whose text is the question. */
   async createPoll(
     user: PublicUserDto,
@@ -320,7 +390,7 @@ export class MessageService {
     const conditions: (SQL | undefined)[] = [
       sql`to_tsvector('simple', ${messages.content}) @@ to_tsquery('simple', ${tsquery})`,
       // Voice messages hold their transcript as text.
-      inArray(messages.kind, ['text', 'voice', 'poll']),
+      inArray(messages.kind, ['text', 'voice', 'poll', 'event']),
       or(
         and(
           isNotNull(channels.guildId),
@@ -374,11 +444,13 @@ export class MessageService {
       r.message.linkPreviewId ? [r.message.linkPreviewId] : [],
     );
     const pollIds = rows.flatMap((r) => (r.message.kind === 'poll' ? [r.message.id] : []));
-    const [reactions, refs, previews, pollsById] = await Promise.all([
+    const eventIds = rows.flatMap((r) => (r.message.kind === 'event' ? [r.message.id] : []));
+    const [reactions, refs, previews, pollsById, eventsById] = await Promise.all([
       this.reactionsOf(rows.map((r) => r.message.id)),
       this.refsOf([...new Set(replyIds)]),
       this.previewsOf([...new Set(previewIds)]),
       this.pollsOf(pollIds),
+      this.eventsOf(eventIds),
     ]);
     return rows.map(({ message, author }) =>
       toMessageDto(message, author, {
@@ -386,6 +458,7 @@ export class MessageService {
         replyTo: message.replyToId ? (refs.get(message.replyToId.toString()) ?? null) : null,
         linkPreview: message.linkPreviewId ? (previews.get(message.linkPreviewId) ?? null) : null,
         poll: pollsById.get(message.id.toString()) ?? null,
+        event: eventsById.get(message.id.toString()) ?? null,
       }),
     );
   }

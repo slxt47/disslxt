@@ -110,6 +110,14 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   app.decorate('hub', hub);
   app.decorate('services', services);
   app.decorate('mailer', mailer);
+  // Messages for later, reminders, event reminders. Tests call tick themselves.
+  if (config.nodeEnv !== 'test') {
+    const timer = setInterval(() => {
+      services.schedule.tick().catch((err: unknown) => app.log.error({ err }, 'schedule tick'));
+    }, 15_000);
+    timer.unref();
+    app.addHook('onClose', async () => clearInterval(timer));
+  }
   app.addHook('onClose', async () => {
     mailer.close();
     await services.push.idle();

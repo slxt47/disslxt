@@ -24,6 +24,7 @@ export function spokenText(
   },
 ) {
   if (message.kind === 'join') return `${message.author.username} ist dem Server beigetreten.`;
+  if (message.kind === 'event') return `${message.author.username} lädt ein: ${message.content}`;
   if (message.kind === 'poll') return `${message.author.username} fragt: ${message.content}`;
   if (message.kind === 'voice')
     return `${message.author.username} hat eine Sprachnachricht geschickt.`;
