@@ -270,7 +270,6 @@
 }
 .bild img {
   display: block;
-  width: auto;
   max-width: 100%;
   height: auto;
   border: 1px solid var(--line);
