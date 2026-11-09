@@ -263,3 +263,21 @@
     padding: 22px 20px;
   }
 }
+
+/* Bilder in den Themen: je eins für hell und dunkel, passend zum Modus */
+.bild {
+  margin: 16px 0 4px;
+}
+.bild img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+:root[data-modus='dunkel'] .bild .nur-hell,
+:root:not([data-modus='dunkel']) .bild .nur-dunkel {
+  display: none;
+}

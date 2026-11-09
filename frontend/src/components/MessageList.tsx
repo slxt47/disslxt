@@ -45,6 +45,8 @@ export function layoutMessages(
       !!prev &&
       !newDay &&
       prev.author.id === m.author.id &&
+      // A webhook posts under its creator's id: a bot never joins that person's messages.
+      (prev.botName ?? null) === (m.botName ?? null) &&
       prev.kind !== 'join' &&
       m.kind !== 'join' &&
       !m.replyTo &&

@@ -22,6 +22,20 @@ describe('layoutMessages', () => {
     expect(layout.map((l) => l.grouped)).toEqual([false, true, false, false, true]);
   });
 
+  it('never groups a bot message with its creator or with another bot', () => {
+    const layout = layoutMessages(
+      [
+        msg(1, { createdAt: at('2026-10-27T14:00:00') }),
+        msg(2, { createdAt: at('2026-10-27T14:01:00'), kind: 'bot', botName: 'Wetter' }),
+        msg(3, { createdAt: at('2026-10-27T14:02:00'), kind: 'bot', botName: 'Wetter' }),
+        msg(4, { createdAt: at('2026-10-27T14:03:00'), kind: 'bot', botName: 'Backup' }),
+        msg(5, { createdAt: at('2026-10-27T14:04:00') }),
+      ],
+      NOW,
+    );
+    expect(layout.map((l) => l.grouped)).toEqual([false, false, true, false, false]);
+  });
+
   it('starts every day with a divider and never groups across days', () => {
     const layout = layoutMessages(
       [
@@ -73,6 +87,24 @@ describe('MessageItem in a group', () => {
     );
     expect(screen.getByTestId('message-edited').textContent).toBe('(bearbeitet)');
     expect(screen.getByTestId('message-content').textContent).toBe('Nachricht 1');
+  });
+
+  it('gives a bot its own initials, not the picture of the webhook creator', () => {
+    const { container } = render(
+      <ul>
+        <MessageItem
+          {...props}
+          message={msg(1, {
+            author: { ...OTHER, avatarUrl: '/uploads/bob.png' },
+            kind: 'bot',
+            botName: 'Wetter',
+          })}
+        />
+      </ul>,
+    );
+    expect(container.querySelector('img.avatar')).toBeNull();
+    expect(container.querySelector('.avatar')?.textContent).toBe('WE');
+    expect(container.querySelector('.bot-pill')?.textContent).toBe('BOT');
   });
 
   it('renders the day divider inside the message row', () => {

@@ -266,7 +266,11 @@ function MessageItemImpl({
           {timeFormat.format(created)}
         </time>
       ) : (
-        <Avatar name={nameOf(message.author)} url={message.author.avatarUrl} />
+        // A bot shows its own initials, not the picture of the person who created the webhook.
+        <Avatar
+          name={message.botName ?? nameOf(message.author)}
+          url={message.botName ? null : message.author.avatarUrl}
+        />
       )}
       {/* In a group the header is only for screen readers (who wrote it, when). */}
       <div className={`message-meta${grouped ? ' sr-only' : ''}`}>
