@@ -4,6 +4,12 @@
 
 Offene Räume zum Reden.
 
+## Ansicht
+
+![Sprachkanäle, dunkel](../../sites/hilfe/bilder/sprachkanal-dunkel.webp)
+
+Hell: [sprachkanal-hell.webp](../../sites/hilfe/bilder/sprachkanal-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Sprachkanal öffnen, Beitreten, Geräte wählen.

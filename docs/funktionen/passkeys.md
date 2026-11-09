@@ -4,6 +4,12 @@
 
 Anmelden mit Fingerabdruck, Gesicht oder Geräte-PIN.
 
+## Ansicht
+
+![Passkeys, dunkel](../../sites/hilfe/bilder/sicherheit-dunkel.webp)
+
+Hell: [sicherheit-hell.webp](../../sites/hilfe/bilder/sicherheit-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Einstellungen → Sicherheit → Passkey hinzufügen: Name, Passwort, Gerät bestätigen.

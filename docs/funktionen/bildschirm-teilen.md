@@ -4,6 +4,12 @@
 
 Bildschirm, Fenster oder Tab in Sprachkanal und Anruf zeigen.
 
+## Ansicht
+
+![Bildschirm teilen, dunkel](../../sites/hilfe/bilder/bildschirm-dunkel.webp)
+
+Hell: [bildschirm-hell.webp](../../sites/hilfe/bilder/bildschirm-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Bildschirm-Knopf im Anruf, Auswahl im Browser.

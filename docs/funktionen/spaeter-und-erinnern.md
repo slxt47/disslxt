@@ -4,6 +4,12 @@
 
 Nachrichten planen und sich selbst erinnern lassen.
 
+## Ansicht
+
+![Später senden und Erinnern, dunkel](../../sites/hilfe/bilder/planen-dunkel.webp)
+
+Hell: [planen-hell.webp](../../sites/hilfe/bilder/planen-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - `/später 30m Text` sendet später, `/erinnern 1h Text` erinnert nur dich.

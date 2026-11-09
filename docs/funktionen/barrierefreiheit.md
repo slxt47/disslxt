@@ -20,6 +20,7 @@ disslxt soll mit Tastatur, Screenreader und schlechten Augen benutzbar sein.
 - Kontraste berechnet in `frontend/src/__tests__/contrast.test.ts`
 - axe prüft in `e2e/tests/a11y.spec.ts`, `a11y-views.spec.ts` und `sites-a11y.spec.ts` gegen WCAG 2.0 bis 2.2 AA
 - Klickflächen mindestens 24 × 24 px (WCAG 2.5.8), z. B. der Antwort-Hinweis über Nachrichten
+- Links im Fließtext der Webseiten sind unterstrichen, nicht nur farbig (WCAG 1.4.1)
 - `@media (prefers-reduced-transparency)`, `(prefers-contrast: more)`, `(forced-colors: active)` in `styles.css`
 
 ## Tests

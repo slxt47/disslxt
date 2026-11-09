@@ -4,6 +4,12 @@
 
 Treffen mit Zusagen im Chat.
 
+## Ansicht
+
+![Termine, dunkel](../../sites/hilfe/bilder/termine-dunkel.webp)
+
+Hell: [termine-hell.webp](../../sites/hilfe/bilder/termine-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - `/termin 8.11. 20:00 | Spieleabend`.

@@ -4,6 +4,12 @@
 
 Farben, Dichte und Schriftgröße im slxt-Design, Standard dunkel.
 
+## Ansicht
+
+![Darstellung, dunkel](../../sites/hilfe/bilder/darstellung-dunkel.webp)
+
+Hell: [darstellung-hell.webp](../../sites/hilfe/bilder/darstellung-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Sonne oder Mond unten neben den Einstellungen wechselt zwischen hell und dunkel.

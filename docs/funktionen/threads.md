@@ -4,6 +4,12 @@
 
 Antwort-Stränge zu einer Nachricht, neben dem Kanal.
 
+## Ansicht
+
+![Threads, dunkel](../../sites/hilfe/bilder/threads-dunkel.webp)
+
+Hell: [threads-hell.webp](../../sites/hilfe/bilder/threads-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - An der Nachricht auf Thread tippen, rechts öffnet sich die Leiste.

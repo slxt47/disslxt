@@ -4,6 +4,12 @@
 
 Eine Nachricht bezieht sich sichtbar auf eine andere.
 
+## Ansicht
+
+![Antworten mit Zitat, dunkel](../../sites/hilfe/bilder/reaktionen-dunkel.webp)
+
+Hell: [reaktionen-hell.webp](../../sites/hilfe/bilder/reaktionen-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - An der Nachricht auf Antworten tippen, über dem Eingabefeld steht dann das Zitat.

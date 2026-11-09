@@ -4,6 +4,12 @@
 
 Zweiter Code aus einer Authenticator-App.
 
+## Ansicht
+
+![Zwei-Faktor-Anmeldung, dunkel](../../sites/hilfe/bilder/sicherheit-dunkel.webp)
+
+Hell: [sicherheit-hell.webp](../../sites/hilfe/bilder/sicherheit-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Einstellungen → Sicherheit → Einrichten, Passwort, QR-Code scannen, Code eingeben, Ersatzcodes sichern.

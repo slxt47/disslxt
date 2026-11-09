@@ -4,6 +4,12 @@
 
 Abstimmen direkt im Chat.
 
+## Ansicht
+
+![Umfragen, dunkel](../../sites/hilfe/bilder/umfragen-dunkel.webp)
+
+Hell: [umfragen-hell.webp](../../sites/hilfe/bilder/umfragen-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - `/umfrage Frage | Antwort A | Antwort B` senden.

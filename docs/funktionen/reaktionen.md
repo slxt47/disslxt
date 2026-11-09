@@ -4,6 +4,12 @@
 
 Emoji unter Nachrichten, sichtbar für alle im Kanal.
 
+## Ansicht
+
+![Reaktionen, dunkel](../../sites/hilfe/bilder/reaktionen-dunkel.webp)
+
+Hell: [reaktionen-hell.webp](../../sites/hilfe/bilder/reaktionen-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Smiley an der Nachricht, sechs Emoji direkt oder alle über die Suche.

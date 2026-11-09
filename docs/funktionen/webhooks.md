@@ -4,6 +4,12 @@
 
 Programme schreiben als Bot in einen Textkanal.
 
+## Ansicht
+
+![Webhooks und Bot-Nachrichten, dunkel](../../sites/hilfe/bilder/webhooks-dunkel.webp)
+
+Hell: [webhooks-hell.webp](../../sites/hilfe/bilder/webhooks-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Kanal bearbeiten → Webhooks: Name eingeben, Anlegen. Adresse und Schlüssel erscheinen einmal.
@@ -17,6 +23,7 @@ Programme schreiben als Bot in einen Textkanal.
 - Der Schlüssel steht in einer Kopfzeile, damit er nicht in Zugriffslogs landet. Gespeichert wird nur sein Hash.
 - Falsche ID und falscher Schlüssel antworten gleich (404).
 - Geschützte Kanäle bleiben geschützt, ein Webhook öffnet sie nicht.
+- Bot-Nachrichten stehen immer für sich: nie in einer Gruppe mit Nachrichten des Erstellers oder eines anderen Bots, mit eigenen Initialen statt dem Bild des Erstellers.
 
 ## Technik
 

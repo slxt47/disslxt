@@ -4,6 +4,12 @@
 
 Kanäle anlegen, ordnen, umbenennen und löschen.
 
+## Ansicht
+
+![Kanäle und Kategorien, dunkel](../../sites/hilfe/bilder/kanaele-dunkel.webp)
+
+Hell: [kanaele-hell.webp](../../sites/hilfe/bilder/kanaele-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Plus neben „Kanäle“ legt einen an, Text oder Sprache.

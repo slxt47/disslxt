@@ -4,6 +4,12 @@
 
 Pro Server festlegen, wer was darf und wer welchen Kanal sieht.
 
+## Ansicht
+
+![Rollen und Rechte, dunkel](../../sites/hilfe/bilder/rollen-dunkel.webp)
+
+Hell: [rollen-hell.webp](../../sites/hilfe/bilder/rollen-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Rollen & Mitglieder → Rollen: Name, Farbe, Rechte, Reihenfolge.

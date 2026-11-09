@@ -4,6 +4,12 @@
 
 `/dienste` zeigt Admins, welche eigenen Dienste antworten.
 
+## Ansicht
+
+![Dienste-Übersicht, dunkel](../../sites/hilfe/bilder/dienste-dunkel.webp)
+
+Hell: [dienste-hell.webp](../../sites/hilfe/bilder/dienste-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - `/dienste` ins Eingabefeld tippen, die Liste aktualisiert sich alle 30 Sekunden.

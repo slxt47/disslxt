@@ -4,6 +4,12 @@
 
 Nachrichten finden, in allem, was man lesen darf.
 
+## Ansicht
+
+![Suche, dunkel](../../sites/hilfe/bilder/suche-dunkel.webp)
+
+Hell: [suche-hell.webp](../../sites/hilfe/bilder/suche-hell.webp). Die Bilder macht `e2e/tests/hilfe-bilder.spec.ts`.
+
 ## Bedienung
 
 - Lupe oben im Chat oder `Strg+Shift+F`.
