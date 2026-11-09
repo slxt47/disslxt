@@ -4791,3 +4791,16 @@ img.lightbox-media.zoomed {
     margin-left: auto;
   }
 }
+
+/* Zustimmung bei der Registrierung (Nutzungsbedingungen, Datenschutz) */
+.form-hint {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.form-hint a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

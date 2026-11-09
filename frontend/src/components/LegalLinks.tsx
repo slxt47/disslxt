@@ -4,9 +4,10 @@ export const SITE_URLS = {
   about: 'https://disslxt-info.slxt.org/',
   imprint: 'https://disslxt-info.slxt.org/impressum.html',
   privacy: 'https://disslxt-info.slxt.org/datenschutz.html',
+  terms: 'https://disslxt-info.slxt.org/nutzungsbedingungen.html',
 } as const;
 
-/** Small footer on the sign-in pages and in the settings: help, imprint, privacy policy. */
+/** Small footer on the sign-in pages and in the settings: help, imprint, privacy policy, terms of use. */
 export function LegalLinks({ className = 'legal-links' }: { className?: string }) {
   return (
     <nav className={className} aria-label="Hilfe und Rechtliches" data-testid="legal-links">
@@ -18,6 +19,9 @@ export function LegalLinks({ className = 'legal-links' }: { className?: string }
       </a>
       <a href={SITE_URLS.privacy} target="_blank" rel="noreferrer">
         Datenschutz
+      </a>
+      <a href={SITE_URLS.terms} target="_blank" rel="noreferrer">
+        Nutzungsbedingungen
       </a>
     </nav>
   );
