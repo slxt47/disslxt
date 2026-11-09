@@ -6,3 +6,6 @@ backend/drizzle/meta
 playwright-report
 test-results
 docs
+# Kopien fremder Quellen: modus.js nur über ~/bin/modus/quelle.js + verteilen.py, himmel.js von slxt.dev
+sites/shared/modus.js
+sites/shared/himmel.js

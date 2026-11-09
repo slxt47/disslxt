@@ -8,6 +8,17 @@ Zwei statische Seiten ohne Build-Schritt, je ein gehärteter nginx-Container:
 | `hilfe/`  | Hilfe für neue Nutzer (Suche, alle Funktionen)         | `http://127.0.0.1:8093` | `https://disslxt-hilfe.slxt.org` |
 | `shared/` | gemeinsames Stylesheet, Skript und Icons (unter `/_/`) |                         |                                  |
 
+Alle Seiten (Produktseite, Impressum, Datenschutz, Hilfe, 404) nutzen das slxt-Design: `shared/slxt.css`,
+`shared/himmel.js` (Sternenhimmel) und `shared/modus.js` (Hell/Dunkel, Standard dunkel; nur über
+`~/bin/modus/quelle.js` + `verteilen.py` ändern). Nach Änderungen an `slxt.css` die `?v=`-Nummer in allen
+HTML-Dateien erhöhen.
+
+Barrierefreiheit prüfen (axe, hell und dunkel, alle Seiten):
+
+```sh
+SITES_WEB_URL=http://127.0.0.1:8092 SITES_HILFE_URL=http://127.0.0.1:8093 pnpm e2e tests/sites-a11y.spec.ts
+```
+
 Starten / nach Änderungen an `deploy/nginx.conf` neu laden:
 
 ```sh

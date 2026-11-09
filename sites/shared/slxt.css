@@ -350,7 +350,8 @@ kbd {
   color: var(--text);
 }
 @media (max-width: 560px) {
-  .hide-sm {
+  .hide-sm,
+  .top nav a.hide-sm {
     display: none;
   }
 }
@@ -485,4 +486,28 @@ body > :is(header, main, footer, div:not(.himmel)) {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Zweitknopf (404, Produktseite) und Knopfzeile der 404-Seite */
+.btn.ghost {
+  border: 1px solid var(--line);
+  background: var(--glass);
+  color: var(--text);
+}
+.notfound .wege {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .legal {
+    background: var(--card);
+  }
+}
+/* Links im Fließtext: unterstrichen, nicht nur farbig (WCAG 1.4.1) */
+:is(p, td, .legal li) a:not(.btn) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
