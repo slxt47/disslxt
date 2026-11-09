@@ -2,7 +2,12 @@ import type {
   ChannelDto,
   GifDto,
   GuildDto,
+  LinkPreviewDto,
   MessageDto,
+  EventDto,
+  PollDto,
+  MessageRefDto,
+  ReactionDto,
   PublicUserDto,
   UserDto,
   UserRole,
@@ -75,14 +80,24 @@ export const toGuildDto = (g: Guild): GuildDto => ({
   iconUrl: guildIconUrl(g.id, g.iconKey),
   tag: g.tag,
   tagEmoji: g.tagEmoji,
+  inviteExpiresAt: g.inviteExpiresAt ? g.inviteExpiresAt.toISOString() : null,
+  inviteMaxUses: g.inviteMaxUses,
+  inviteUses: g.inviteUses,
   createdAt: g.createdAt.toISOString(),
 });
+
+export const toChannelKind = (kind: string): ChannelDto['kind'] =>
+  kind === 'voice' || kind === 'dm' || kind === 'group' ? kind : 'text';
 
 export const toChannelDto = (c: Channel): ChannelDto => ({
   id: c.id,
   guildId: c.guildId,
   name: c.name,
-  kind: c.kind === 'voice' || c.kind === 'dm' || c.kind === 'group' ? c.kind : 'text',
+  kind: toChannelKind(c.kind),
+  restricted: c.restricted,
+  description: c.description,
+  categoryId: c.categoryId,
+  position: c.position,
   createdAt: c.createdAt.toISOString(),
 });
 
@@ -96,7 +111,41 @@ export const giphyGif = (id: string, width: number, height: number, title: strin
   title,
 });
 
-export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => ({
+const toKind = (kind: string): MessageDto['kind'] =>
+  kind === 'voice' ||
+  kind === 'file' ||
+  kind === 'gif' ||
+  kind === 'join' ||
+  kind === 'poll' ||
+  kind === 'event' ||
+  kind === 'bot'
+    ? kind
+    : 'text';
+
+const EXCERPT_MAX = 120;
+
+export const toMessageRef = (
+  m: Pick<Message, 'id' | 'kind' | 'content'>,
+  author: Pick<PublicUserDto, 'id' | 'username' | 'displayName'>,
+): MessageRefDto => ({
+  id: m.id.toString(),
+  author: { id: author.id, username: author.username, displayName: author.displayName },
+  kind: toKind(m.kind),
+  excerpt: m.kind === 'text' ? [...m.content].slice(0, EXCERPT_MAX).join('') : '',
+});
+
+export const toMessageDto = (
+  m: Message,
+  author: PublicUserDto,
+  extras: {
+    reactions?: ReactionDto[];
+    replyTo?: MessageRefDto | null;
+    linkPreview?: LinkPreviewDto | null;
+    poll?: PollDto | null;
+    event?: EventDto | null;
+    threadCount?: number;
+  } = {},
+): MessageDto => ({
   id: m.id.toString(),
   channelId: m.channelId,
   author: {
@@ -109,7 +158,7 @@ export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => (
     tag: author.tag ?? null,
     status: author.status ?? null,
   },
-  kind: m.kind === 'voice' || m.kind === 'file' || m.kind === 'gif' ? m.kind : 'text',
+  kind: toKind(m.kind),
   content: m.content,
   audio:
     m.kind === 'voice' && m.audioKey
@@ -132,6 +181,15 @@ export const toMessageDto = (m: Message, author: PublicUserDto): MessageDto => (
     m.kind === 'gif' && m.gifId
       ? giphyGif(m.gifId, m.gifWidth ?? 200, m.gifHeight ?? 200, m.content)
       : null,
+  reactions: extras.reactions ?? [],
+  replyTo: extras.replyTo ?? null,
+  pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
+  linkPreview: extras.linkPreview ?? null,
+  poll: extras.poll ?? null,
+  event: extras.event ?? null,
+  botName: m.botName,
+  threadRootId: m.threadRootId ? m.threadRootId.toString() : null,
+  threadCount: extras.threadCount ?? 0,
   createdAt: m.createdAt.toISOString(),
   editedAt: m.editedAt ? m.editedAt.toISOString() : null,
 });

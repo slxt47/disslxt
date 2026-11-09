@@ -1,7 +1,12 @@
+import type { RegistrationResponseJSON } from '@simplewebauthn/server';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   AVATAR_MAX_BYTES,
+  confirmTwoFactorSchema,
   deleteAccountSchema,
+  enableTwoFactorSchema,
+  passkeyAddSchema,
+  passwordConfirmSchema,
   setBadgesSchema,
   setRoleSchema,
   updateProfileSchema,
@@ -11,7 +16,7 @@ import type { Config } from '../config.js';
 import { notFound } from '../lib/errors.js';
 import { acceptImageUploads, sendImage } from '../lib/imageReply.js';
 import { parse, parseParam } from '../lib/validate.js';
-import { currentUser } from '../plugins/auth.js';
+import { currentUser, SESSION_COOKIE } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 
 /** Profile settings and profile pictures (all routes require auth). */
@@ -56,6 +61,113 @@ export async function userRoutes(
     },
   );
 
+  // --- Second factor, devices, data export ------------------------------------------------------
+  const { security } = opts.services;
+  // Password and code checks are guesses as well, so they are limited like the login.
+  const guessLimit = {
+    config: {
+      rateLimit: {
+        max: opts.config.rateLimit.loginMax,
+        timeWindow: opts.config.rateLimit.loginWindowMs,
+      },
+    },
+  };
+
+  app.get('/account/two-factor', async (req) => security.status(currentUser(req).id));
+
+  app.post('/account/two-factor/setup', guessLimit, async (req) => {
+    const { password } = parse(passwordConfirmSchema, req.body);
+    return security.startSetup(currentUser(req).id, password);
+  });
+
+  app.post('/account/two-factor/enable', guessLimit, async (req) => {
+    const { code } = parse(enableTwoFactorSchema, req.body);
+    return { recoveryCodes: await security.enable(currentUser(req).id, code) };
+  });
+
+  app.post('/account/two-factor/disable', guessLimit, async (req, reply) => {
+    const { password, code } = parse(confirmTwoFactorSchema, req.body);
+    await security.disable(currentUser(req).id, password, code);
+    return reply.status(204).send();
+  });
+
+  app.post('/account/two-factor/recovery-codes', guessLimit, async (req) => {
+    const { password, code } = parse(confirmTwoFactorSchema, req.body);
+    return { recoveryCodes: await security.newRecoveryCodes(currentUser(req).id, password, code) };
+  });
+
+  const sessionToken = (req: FastifyRequest): string => req.cookies[SESSION_COOKIE] ?? '';
+
+  const { passkeys } = opts.services;
+
+  app.get('/account/passkeys', async (req) => ({
+    passkeys: await passkeys.list(currentUser(req).id),
+  }));
+
+  app.post('/account/passkeys/options', guessLimit, async (req) => {
+    const { password } = parse(passwordConfirmSchema, req.body);
+    return passkeys.registrationOptions(currentUser(req).id, password);
+  });
+
+  app.post('/account/passkeys', guessLimit, async (req, reply) => {
+    const { challengeId, response, name } = parse(passkeyAddSchema, req.body);
+    return reply.status(201).send({
+      passkey: await passkeys.register(
+        currentUser(req).id,
+        challengeId,
+        response as unknown as RegistrationResponseJSON,
+        name,
+      ),
+    });
+  });
+
+  app.delete<{ Params: { id: string } }>('/account/passkeys/:id', async (req, reply) => {
+    const id = parseParam(uuidSchema, req.params.id, () => notFound('Passkey nicht gefunden'));
+    await passkeys.remove(currentUser(req).id, id);
+    return reply.status(204).send();
+  });
+
+  app.get('/account/sessions', async (req) => ({
+    sessions: await security.sessions(currentUser(req).id, sessionToken(req)),
+  }));
+
+  app.delete<{ Params: { sessionId: string } }>(
+    '/account/sessions/:sessionId',
+    async (req, reply) => {
+      const id = parseParam(uuidSchema, req.params.sessionId, () =>
+        notFound('Sitzung nicht gefunden'),
+      );
+      await security.endSession(currentUser(req).id, id);
+      return reply.status(204).send();
+    },
+  );
+
+  app.post('/account/sessions/end-others', async (req) => ({
+    ended: await security.endOtherSessions(currentUser(req).id, sessionToken(req)),
+  }));
+
+  // One file with everything; limited per person, because it reads all of their messages.
+  app.get(
+    '/account/export',
+    {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: 60 * 60 * 1000,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req, reply) => {
+      const data = await security.exportData(currentUser(req).id);
+      return reply
+        .header('Content-Disposition', 'attachment; filename="disslxt-export.json"')
+        .header('Cache-Control', 'no-store')
+        .send(data);
+    },
+  );
+
   app.put(
     '/users/me/avatar',
     // Auth before the body is read, like the file upload.
@@ -82,6 +194,12 @@ export async function userRoutes(
   });
 
   // --- Admin area: admins and the owner (checked per request against the stored role) ---------
+
+  /** The operator's services: their names are nobody else's business. */
+  app.get('/admin/status', async (req) => {
+    opts.services.admin.assertModerator(currentUser(req).role ?? 'user');
+    return { entries: await opts.services.status.board() };
+  });
 
   /** Storage use against the cap. */
   app.get('/admin/storage', async (req) => {

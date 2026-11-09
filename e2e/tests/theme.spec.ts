@@ -4,27 +4,23 @@ import { registerViaUi, uniqueUser } from '../helpers';
 const background = (page: import('@playwright/test').Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
-test('dark mode in the settings overrides the system and survives a reload', async ({ page }) => {
+const DARK = 'rgb(9, 10, 28)';
+const LIGHT = 'rgb(238, 236, 248)';
+
+test('starts dark whatever the system says, light survives a reload', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await registerViaUi(page, uniqueUser('theme'));
-  expect(await background(page)).toBe('rgb(245, 245, 250)');
+  expect(await background(page)).toBe(DARK);
 
-  await page.getByTestId('settings-button').click();
-  await page.getByTestId('theme-dark').click();
-  expect(await background(page)).toBe('rgb(14, 14, 21)');
-
-  // Applied before React starts, so a reload shows dark right away.
-  await page.reload();
-  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
-  expect(await background(page)).toBe('rgb(14, 14, 21)');
-
-  // "Hell" wins over a dark system, "Automatisch" follows it again.
-  await page.emulateMedia({ colorScheme: 'dark' });
   await page.getByTestId('settings-button').click();
   await page.getByTestId('theme-light').click();
-  expect(await background(page)).toBe('rgb(245, 245, 250)');
-  await page.getByTestId('theme-system').click();
-  expect(await background(page)).toBe('rgb(14, 14, 21)');
+  expect(await background(page)).toBe(LIGHT);
+
+  // Applied before React starts, so a reload shows it right away.
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+  expect(await background(page)).toBe(LIGHT);
 });
 
 test('colour themes: a preset and a self-made one, both kept after a reload', async ({ page }) => {
@@ -35,7 +31,7 @@ test('colour themes: a preset and a self-made one, both kept after a reload', as
   await page.getByTestId('theme-ocean').click();
   expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
   const ocean = await background(page);
-  expect(ocean).not.toBe('rgb(14, 14, 21)');
+  expect(ocean).not.toBe(DARK);
 
   await page.getByTestId('theme-create').click();
   await page.getByTestId('theme-name').fill('Lila Nacht');
@@ -47,9 +43,11 @@ test('colour themes: a preset and a self-made one, both kept after a reload', as
   );
   const accent = () =>
     page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent'));
-  expect((await accent()).trim()).toBe('#c026d3');
+  // Nudged a little if needed, so text on it stays readable.
+  const chosen = (await accent()).trim();
+  expect(chosen).toMatch(/^#[c-d][0-9a-f]/);
 
   await page.reload();
-  expect((await accent()).trim()).toBe('#c026d3');
+  expect((await accent()).trim()).toBe(chosen);
   expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
 });

@@ -1,24 +1,44 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, asc, count, eq, isNotNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   DEFAULT_CHANNEL_NAME,
   GUILDS_PER_USER_MAX,
   type ChannelDto,
   type GuildDto,
   type InvitePreviewDto,
+  type InviteSettingsInput,
   type MemberDto,
+  type PublicUserDto,
   type UserDto,
 } from '@disslxt/shared';
 import type { Database } from '../db/client.js';
-import { channels, guildMembers, guilds, messages, users, type Guild } from '../db/schema.js';
+import {
+  channels,
+  guildBans,
+  guildMembers,
+  guilds,
+  messages,
+  users,
+  type Guild,
+} from '../db/schema.js';
 import { AppError, conflict, forbidden, notFound } from '../lib/errors.js';
 import type { ImageStore } from '../lib/images.js';
 import { isUniqueViolation } from '../lib/pgErrors.js';
 import { inviteCode } from '../lib/tokens.js';
 import type { Hub } from '../realtime/hub.js';
 import { profileColumns, toChannelDto, toGuildDto, toPublicUser } from './dto.js';
+import type { PermissionService } from './permission.service.js';
 import type { PushService } from './push.service.js';
+
+const banned = () => forbidden('Du bist von diesem Server gesperrt', 'BANNED');
+
+const inviteGone = () => notFound('Einladung ungültig oder abgelaufen', 'INVITE_NOT_FOUND');
+
+/** Still valid: not expired and not used up. */
+const inviteUsable = (g: Guild): boolean =>
+  (!g.inviteExpiresAt || g.inviteExpiresAt > new Date()) &&
+  (g.inviteMaxUses === null || g.inviteUses < g.inviteMaxUses);
 
 export class GuildService {
   constructor(
@@ -29,6 +49,7 @@ export class GuildService {
     private readonly uploads: { voiceDir: string; fileDir: string },
     /** Server pictures. */
     private readonly images: ImageStore,
+    private readonly perms: PermissionService,
   ) {}
 
   /** Owner only: renames the server. */
@@ -36,6 +57,9 @@ export class GuildService {
    * Owner only: name and/or tag. A changed tag is updated on everyone wearing it; a removed tag
    * disappears from them.
    */
+  /** Set by the composition root: greets someone new in the server's first channel. */
+  memberJoined: (user: PublicUserDto, guild: GuildDto) => Promise<void> = async () => undefined;
+
   async update(
     userId: string,
     guildId: string,
@@ -91,6 +115,16 @@ export class GuildService {
     if (!row) throw notFound('Server nicht gefunden');
     await this.images.remove(old.iconKey);
     return this.publishUpdate(row);
+  }
+
+  async ownerOf(guildId: string): Promise<string> {
+    const [row] = await this.db
+      .select({ ownerId: guilds.ownerId })
+      .from(guilds)
+      .where(eq(guilds.id, guildId))
+      .limit(1);
+    if (!row) throw notFound('Server nicht gefunden');
+    return row.ownerId;
   }
 
   /** Members only. */
@@ -263,10 +297,20 @@ export class GuildService {
       .innerJoin(users, eq(users.id, guildMembers.userId))
       .where(eq(guildMembers.guildId, guildId))
       .orderBy(asc(users.username));
+    const roles = await this.perms.memberRoleIds(
+      guildId,
+      rows.map((r) => r.id),
+    );
     return rows.map((r) => {
       const { id, ...profile } = toPublicUser(r);
       const presence = this.hub.presence(id);
-      return { userId: id, ...profile, online: presence !== 'offline', presence };
+      return {
+        userId: id,
+        ...profile,
+        online: presence !== 'offline',
+        presence,
+        roleIds: roles.get(id) ?? [],
+      };
     });
   }
 
@@ -276,12 +320,46 @@ export class GuildService {
     return guild;
   }
 
+  /** Owner: sets the limits of the invite link, optionally replacing it with a new one. */
+  async updateInvite(
+    userId: string,
+    guildId: string,
+    settings: InviteSettingsInput,
+  ): Promise<GuildDto> {
+    const guild = await this.assertMember(userId, guildId);
+    await this.perms.assert(userId, guild, 'manage_invites', 'Dafür fehlt dir das Recht');
+    const { expiresInHours, maxUses, regenerate } = settings;
+    const patch = {
+      inviteExpiresAt: expiresInHours ? new Date(Date.now() + expiresInHours * 3_600_000) : null,
+      inviteMaxUses: maxUses,
+      inviteUses: 0,
+    };
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        const [row] = await this.db
+          .update(guilds)
+          .set(regenerate ? { ...patch, inviteCode: inviteCode() } : patch)
+          .where(eq(guilds.id, guildId))
+          .returning();
+        if (!row) throw notFound('Server nicht gefunden');
+        const dto = toGuildDto(row);
+        this.hub.publishToGuild(guildId, { type: 'guild.updated', data: { guild: dto } });
+        return dto;
+      } catch (err) {
+        if (attempt < 3 && isUniqueViolation(err, 'guilds_invite_code_uq')) continue;
+        throw err;
+      }
+    }
+  }
+
   async invitePreview(userId: string, code: string): Promise<InvitePreviewDto> {
     const guild = await this.findByInvite(code);
     const [[countRow], alreadyMember] = await Promise.all([
       this.db.select({ n: count() }).from(guildMembers).where(eq(guildMembers.guildId, guild.id)),
       this.isMember(userId, guild.id),
     ]);
+    if (!alreadyMember && !inviteUsable(guild)) throw inviteGone();
+    if (await this.perms.isBanned(userId, guild.id)) throw banned();
     return {
       guild: { id: guild.id, name: guild.name, memberCount: countRow?.n ?? 0 },
       alreadyMember,
@@ -297,11 +375,28 @@ export class GuildService {
     code: string,
   ): Promise<GuildDto> {
     const guild = await this.findByInvite(code);
-    const inserted = await this.db
-      .insert(guildMembers)
-      .values({ guildId: guild.id, userId: user.id })
-      .onConflictDoNothing()
-      .returning({ userId: guildMembers.userId });
+    if (await this.isMember(user.id, guild.id)) return toGuildDto(guild);
+    if (await this.perms.isBanned(user.id, guild.id)) throw banned();
+    // Counting and joining together, so a limited link cannot be used more often than allowed.
+    const inserted = await this.db.transaction(async (tx) => {
+      const counted = await tx
+        .update(guilds)
+        .set({ inviteUses: sql`${guilds.inviteUses} + 1` })
+        .where(
+          and(
+            eq(guilds.id, guild.id),
+            or(isNull(guilds.inviteExpiresAt), gt(guilds.inviteExpiresAt, new Date())),
+            or(isNull(guilds.inviteMaxUses), lt(guilds.inviteUses, guilds.inviteMaxUses)),
+          ),
+        )
+        .returning({ id: guilds.id });
+      if (counted.length === 0) throw inviteGone();
+      return tx
+        .insert(guildMembers)
+        .values({ guildId: guild.id, userId: user.id })
+        .onConflictDoNothing()
+        .returning({ userId: guildMembers.userId });
+    });
     if (inserted.length > 0) {
       const online = this.hub.isOnline(user.id);
       this.hub.addUserToGuild(user.id, guild.id);
@@ -320,6 +415,7 @@ export class GuildService {
             status: user.status ?? null,
             online,
             presence: this.hub.presence(user.id),
+            roleIds: [],
           },
         },
       });
@@ -330,6 +426,7 @@ export class GuildService {
         });
       }
       this.push.memberJoined(guild.id, user);
+      await this.memberJoined(user, toGuildDto(guild));
     }
     return toGuildDto(guild);
   }
@@ -339,13 +436,55 @@ export class GuildService {
     if (guild.ownerId === userId) {
       throw conflict('OWNER_CANNOT_LEAVE', 'Der Besitzer kann den Server nicht verlassen');
     }
+    await this.removeMember(guildId, userId);
+  }
+
+  private async removeMember(
+    guildId: string,
+    userId: string,
+    reason?: 'kicked' | 'banned',
+  ): Promise<void> {
     await this.db
       .delete(guildMembers)
       .where(and(eq(guildMembers.guildId, guildId), eq(guildMembers.userId, userId)));
     // Publish first so the leaving user's other tabs learn about it too, then drop their rooms.
-    this.hub.publishToGuild(guildId, { type: 'member.left', data: { guildId, userId } });
+    this.hub.publishToGuild(guildId, {
+      type: 'member.left',
+      data: { guildId, userId, ...(reason ? { reason } : {}) },
+    });
     this.hub.removeUserFromGuild(userId, guildId);
     const wore = await this.clearTag(guildId, userId);
     if (wore.length > 0) await this.profilesChanged([userId]);
+  }
+
+  /** Needs kick_members and a higher rank; they can come back with an invite. */
+  async kick(userId: string, guildId: string, targetId: string): Promise<void> {
+    const guild = await this.assertMember(userId, guildId);
+    await this.perms.assert(userId, guild, 'kick_members', 'Dafür fehlt dir das Recht');
+    if (!(await this.isMember(targetId, guildId))) throw notFound('Mitglied nicht gefunden');
+    await this.perms.assertOutranks(userId, targetId, guild);
+    await this.removeMember(guildId, targetId, 'kicked');
+  }
+
+  /** Needs ban_members and a higher rank; also possible for someone who already left. */
+  async ban(userId: string, guildId: string, targetId: string): Promise<void> {
+    const guild = await this.assertMember(userId, guildId);
+    await this.perms.assert(userId, guild, 'ban_members', 'Dafür fehlt dir das Recht');
+    await this.perms.assertOutranks(userId, targetId, guild);
+    await this.db
+      .insert(guildBans)
+      .values({ guildId, userId: targetId, bannedBy: userId })
+      .onConflictDoNothing();
+    if (await this.isMember(targetId, guildId)) {
+      await this.removeMember(guildId, targetId, 'banned');
+    }
+  }
+
+  async unban(userId: string, guildId: string, targetId: string): Promise<void> {
+    const guild = await this.assertMember(userId, guildId);
+    await this.perms.assert(userId, guild, 'ban_members', 'Dafür fehlt dir das Recht');
+    await this.db
+      .delete(guildBans)
+      .where(and(eq(guildBans.guildId, guildId), eq(guildBans.userId, targetId)));
   }
 }

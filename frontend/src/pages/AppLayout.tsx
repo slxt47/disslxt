@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useLocation, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { api } from '../api/endpoints';
 import { ChannelSidebar } from '../components/ChannelSidebar';
@@ -8,6 +8,7 @@ import { DmView } from '../components/DmView';
 import { FriendsView } from '../components/FriendsView';
 import { HomeSidebar } from '../components/HomeSidebar';
 import { IncomingCall } from '../components/IncomingCall';
+import { QuickSwitcher } from '../components/QuickSwitcher';
 import { ProfileSettings } from '../components/ProfileSettings';
 import { ProfileDialog } from '../components/ProfileDialog';
 import { useBadgeStore } from '../store/badges';
@@ -16,6 +17,8 @@ import { ConnectionBanner } from '../components/ConnectionBanner';
 import { CreateGuildDialog } from '../components/CreateGuildDialog';
 import { ErrorToast } from '../components/ErrorToast';
 import { InstallBanner } from '../components/InstallBanner';
+import { ScheduledSettings } from '../components/ScheduledSettings';
+import { SecuritySettings } from '../components/SecuritySettings';
 import { SettingsDialog } from '../components/SettingsDialog';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { SpeechSettings } from '../components/SpeechSettings';
@@ -24,8 +27,9 @@ import { VoiceChannelView } from '../components/VoiceChannelView';
 import { loadVoiceState } from '../voice/voiceState';
 import { Icon } from '../components/Icon';
 import { MemberList } from '../components/MemberList';
+import { MessageSkeleton } from '../components/Skeleton';
 import { ServerList } from '../components/ServerList';
-import { activeView } from '../realtime/RealtimeProvider';
+import { activeView, loadGuildRoles } from '../realtime/RealtimeProvider';
 import { useChatStore } from '../store/chat';
 import { usePrefs } from '../store/prefs';
 
@@ -45,6 +49,8 @@ export function AppLayout() {
   const [creatingGuild, setCreatingGuild] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const showMembers = usePrefs((s) => s.showMembers);
+  const navigate = useNavigate();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const guild = guildId ? (guilds.find((g) => g.id === guildId) ?? null) : null;
   const channel = channelId ? (channels?.find((c) => c.id === channelId) ?? null) : null;
@@ -95,6 +101,11 @@ export function AppLayout() {
       (r) => useChatStore.getState().setMembers(guildId, r.members),
       (err: unknown) => chat.setError(errorMessage(err)),
     );
+    void loadGuildRoles(guildId);
+    api.listCategories(guildId).then(
+      (r) => useChatStore.getState().setCategories(guildId, r.categories),
+      () => undefined,
+    );
   }, [guildId, guildKnown]);
 
   // Who is in the guild's voice channels (kept current by voice.state events afterwards).
@@ -115,6 +126,36 @@ export function AppLayout() {
       activeView.channelId = null;
     };
   }, [guild, guildId, channel, dm, channelId]);
+
+  // Alt+↑/↓: previous or next channel or conversation.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      const paths = home
+        ? dms.map((d) => `/me/${d.channel.id}`)
+        : (channels ?? []).map((c) => `/guilds/${guildId}/channels/${c.id}`);
+      if (paths.length === 0) return;
+      e.preventDefault();
+      const at = paths.indexOf(location.pathname);
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      const next = paths[at === -1 ? 0 : (at + step + paths.length) % paths.length];
+      if (next) navigate(next);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [home, dms, channels, guildId, location.pathname, navigate]);
+
+  // Strg+K: jump by name.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSwitcherOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Picking a channel (or any navigation) closes the drawer.
   useEffect(() => {
@@ -185,7 +226,7 @@ export function AppLayout() {
           dm ? (
             <DmView key={dm.channel.id} dm={dm} onOpenMenu={() => setDrawerOpen(true)} />
           ) : channelId ? (
-            <div className="empty-state muted">Lädt…</div>
+            <MessageSkeleton />
           ) : (
             <FriendsView onOpenMenu={() => setDrawerOpen(true)} />
           )
@@ -227,13 +268,14 @@ export function AppLayout() {
                 </button>
               </div>
             ) : (
-              <div className="empty-state muted">Lädt…</div>
+              <MessageSkeleton />
             )}
           </section>
         )}
       </main>
 
       {guild && showMembers && !home && <MemberList guildId={guild.id} />}
+      {switcherOpen && <QuickSwitcher onClose={() => setSwitcherOpen(false)} />}
       <IncomingCall />
       <ProfileDialog onEditOwn={() => setSettingsOpen(true)} />
       {creatingGuild && <CreateGuildDialog onClose={() => setCreatingGuild(false)} />}
@@ -244,6 +286,8 @@ export function AppLayout() {
             <>
               <ProfileSettings />
               <AdminSettings />
+              <ScheduledSettings />
+              <SecuritySettings />
               <AppearanceSettings />
               <SpeechSettings />
               <VoiceSettings />

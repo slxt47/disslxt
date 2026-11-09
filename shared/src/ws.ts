@@ -6,7 +6,10 @@ import type {
   GuildDto,
   MemberDto,
   MessageDto,
+  EventDto,
+  PollDto,
   PublicUserDto,
+  ReactionDto,
   VoicePeerDto,
 } from './types.js';
 
@@ -32,14 +35,23 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ping'), data: z.unknown().optional() }),
   // Whether the tab is in the foreground; a visible tab on a channel gets no push for it.
   z.object({ type: z.literal('visibility'), data: z.object({ visible: z.boolean() }) }),
+  // Writing in the open channel; the server passes it on to the others reading along.
+  z.object({ type: z.literal('typing'), data: z.object({ channelId: z.guid() }) }),
   // `video`: start with the camera on (in a private conversation this also rings as a video call).
   z.object({
     type: z.literal('voice.join'),
-    data: z.object({ channelId: z.guid(), video: z.boolean().optional() }),
+    data: z.object({
+      channelId: z.guid(),
+      video: z.boolean().optional(),
+      screen: z.boolean().optional(),
+    }),
   }),
   z.object({ type: z.literal('voice.leave'), data: z.unknown().optional() }),
   z.object({ type: z.literal('voice.mute'), data: z.object({ muted: z.boolean() }) }),
-  z.object({ type: z.literal('voice.video'), data: z.object({ video: z.boolean() }) }),
+  z.object({
+    type: z.literal('voice.video'),
+    data: z.object({ video: z.boolean(), screen: z.boolean().optional() }),
+  }),
   // Turn down an incoming call in a private conversation (the caller is told).
   z.object({ type: z.literal('call.decline'), data: z.object({ channelId: z.guid() }) }),
   z.object({
@@ -69,12 +81,44 @@ export type WsServerMessage =
   | { type: 'message.updated'; data: { message: MessageDto } }
   | { type: 'message.deleted'; data: { id: string; channelId: string } }
   | {
+      type: 'message.reactions';
+      data: { id: string; channelId: string; reactions: ReactionDto[] };
+    }
+  | { type: 'message.event'; data: { id: string; channelId: string; event: EventDto } }
+  /** A reminder you set for yourself. */
+  | { type: 'reminder'; data: { channelId: string; text: string } }
+  | { type: 'message.poll'; data: { id: string; channelId: string; poll: PollDto } }
+  /** Someone is writing in the channel you read. */
+  | { type: 'typing'; data: { channelId: string; userId: string; name: string } }
+  /** To the whole server: a new message in one of its channels, for the unread counters. */
+  | {
+      type: 'channel.activity';
+      data: {
+        channelId: string;
+        guildId: string;
+        messageId: string;
+        authorId: string;
+        /** Lower-case usernames this message mentions or answers. */
+        mentions: string[];
+      };
+    }
+  /** You read a channel on another device. */
+  | { type: 'channel.read'; data: { channelId: string; lastReadId: string } }
+  | {
       type: 'presence.update';
       data: { guildId: string; userId: string; status: PresenceStatus };
     }
   | { type: 'member.joined'; data: { guildId: string; member: MemberDto } }
-  | { type: 'member.left'; data: { guildId: string; userId: string } }
+  /** `reason`: they did not leave themselves. */
+  | {
+      type: 'member.left';
+      data: { guildId: string; userId: string; reason?: 'kicked' | 'banned' };
+    }
+  /** Roles, a member's roles or who sees which channel changed: load them again. */
+  | { type: 'guild.roles-changed'; data: { guildId: string } }
   | { type: 'channel.created'; data: { channel: ChannelDto } }
+  /** Channels or categories were renamed, moved or deleted: load them again. */
+  | { type: 'guild.channels-changed'; data: { guildId: string } }
   /** The owner deleted the guild; it is gone for every member. */
   | { type: 'guild.deleted'; data: { guildId: string } }
   /** To the joining socket: its peer id and who is already there (it sends the offers). */
@@ -84,7 +128,10 @@ export type WsServerMessage =
   | { type: 'voice.peer-joined'; data: { channelId: string; peer: VoicePeerDto } }
   | { type: 'voice.peer-left'; data: { channelId: string; peerId: string } }
   | { type: 'voice.peer-muted'; data: { channelId: string; peerId: string; muted: boolean } }
-  | { type: 'voice.peer-video'; data: { channelId: string; peerId: string; video: boolean } }
+  | {
+      type: 'voice.peer-video';
+      data: { channelId: string; peerId: string; video: boolean; screen: boolean };
+    }
   | { type: 'voice.signal'; data: { from: string; signal: VoiceSignal } }
   /** To the whole guild: who is in which voice channel (for the channel list). */
   | {

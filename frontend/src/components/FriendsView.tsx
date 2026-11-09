@@ -6,6 +6,7 @@ import { api } from '../api/endpoints';
 import { nameOf } from '../profile';
 import { useChatStore } from '../store/chat';
 import { voiceSupported } from '../voice/VoiceProvider';
+import { LineSkeleton } from './Skeleton';
 import { ConnectionBanner } from './ConnectionBanner';
 import { useStartCall } from './DmView';
 import { Avatar, Icon } from './Icon';
@@ -123,7 +124,6 @@ export function FriendsView({ onOpenMenu }: { onOpenMenu: () => void }) {
               type="button"
               role="tab"
               aria-selected={tab === value}
-              aria-checked={tab === value}
               data-testid={`friends-tab-${value}`}
               onClick={() => setTab(value)}
             >
@@ -133,7 +133,7 @@ export function FriendsView({ onOpenMenu }: { onOpenMenu: () => void }) {
         </div>
 
         {!loaded ? (
-          <p className="muted">Lädt…</p>
+          <LineSkeleton />
         ) : shown.length === 0 ? (
           <div className="empty-state" data-testid="friends-empty">
             <h2>

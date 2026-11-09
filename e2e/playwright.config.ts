@@ -80,6 +80,8 @@ export default defineConfig({
             VAPID_PUBLIC_KEY: vapid.publicKey,
             VAPID_PRIVATE_KEY: vapid.privateKey,
             PUSH_TRANSPORT: 'memory',
+            TWO_FACTOR_KEY: Buffer.alloc(32, 7).toString('base64'),
+            LINK_PREVIEWS: 'false',
             // Voice uploads of the run; stored as recorded (the Playwright image has no ffmpeg).
             UPLOAD_DIR: `${tmpdir()}/disslxt-e2e-uploads`,
             VOICE_TRANSCODE: 'off',

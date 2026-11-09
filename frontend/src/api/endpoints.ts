@@ -1,4 +1,18 @@
 import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser';
+import type {
+  CategoryDto,
+  CreatePollInput,
+  EventDto,
+  PollDto,
+  RsvpAnswer,
+  ScheduleInput,
+  PasskeyDto,
+  ScheduledDto,
+  StatusEntryDto,
+  WebhookDto,
   ChannelDto,
   ChannelKind,
   DmChannelDto,
@@ -10,17 +24,41 @@ import type {
   ProfileDto,
   UserRole,
   VoicePeerDto,
+  GuildBanDto,
   GuildDto,
+  GuildRolesDto,
   InvitePreviewDto,
+  InviteSettingsInput,
+  LoginResultDto,
   MemberDto,
   MessageDto,
   PushConfigDto,
+  ReactionDto,
+  RoleDto,
+  RoleInput,
+  SearchResultDto,
+  SessionDto,
   TurnUsageDto,
+  TwoFactorSetupDto,
+  TwoFactorStatusDto,
+  UnreadDto,
+  UpdateChannelInput,
   UserDto,
 } from '@disslxt/shared';
 import { apiRequest, apiUpload, apiUploadWithProgress } from './client';
 
 const enc = encodeURIComponent;
+
+export interface SearchParams {
+  q: string;
+  guildId?: string;
+  channelId?: string;
+  privateOnly?: boolean;
+  authorId?: string;
+  after?: string;
+  until?: string;
+  beforeId?: string;
+}
 
 export const api = {
   register: (input: { email: string; username: string; password: string; next?: string }) =>
@@ -30,12 +68,53 @@ export const api = {
   resendVerification: (email: string) =>
     apiRequest<{ status: 'verification_sent' }>('POST', '/auth/resend-verification', { email }),
   login: (input: { email: string; password: string }) =>
-    apiRequest<{ user: UserDto }>('POST', '/auth/login', input),
+    apiRequest<LoginResultDto>('POST', '/auth/login', input),
+  loginTwoFactor: (ticket: string, code: string) =>
+    apiRequest<{ user: UserDto }>('POST', '/auth/login/two-factor', { ticket, code }),
+  passkeyLoginOptions: () =>
+    apiRequest<{ challengeId: string; options: PublicKeyCredentialRequestOptionsJSON }>(
+      'POST',
+      '/auth/passkey/options',
+    ),
+  loginPasskey: (challengeId: string, response: unknown) =>
+    apiRequest<{ user: UserDto }>('POST', '/auth/passkey', { challengeId, response }),
+  passkeys: () => apiRequest<{ passkeys: PasskeyDto[] }>('GET', '/account/passkeys'),
+  passkeyOptions: (password: string) =>
+    apiRequest<{ challengeId: string; options: PublicKeyCredentialCreationOptionsJSON }>(
+      'POST',
+      '/account/passkeys/options',
+      { password },
+    ),
+  addPasskey: (challengeId: string, response: unknown, name: string) =>
+    apiRequest<{ passkey: PasskeyDto }>('POST', '/account/passkeys', {
+      challengeId,
+      response,
+      name,
+    }),
+  deletePasskey: (id: string) => apiRequest<void>('DELETE', `/account/passkeys/${enc(id)}`),
+  twoFactorStatus: () => apiRequest<TwoFactorStatusDto>('GET', '/account/two-factor'),
+  twoFactorSetup: (password: string) =>
+    apiRequest<TwoFactorSetupDto>('POST', '/account/two-factor/setup', { password }),
+  twoFactorEnable: (code: string) =>
+    apiRequest<{ recoveryCodes: string[] }>('POST', '/account/two-factor/enable', { code }),
+  twoFactorDisable: (password: string, code: string) =>
+    apiRequest<void>('POST', '/account/two-factor/disable', { password, code }),
+  twoFactorRecoveryCodes: (password: string, code: string) =>
+    apiRequest<{ recoveryCodes: string[] }>('POST', '/account/two-factor/recovery-codes', {
+      password,
+      code,
+    }),
+  listSessions: () => apiRequest<{ sessions: SessionDto[] }>('GET', '/account/sessions'),
+  endSession: (id: string) => apiRequest<void>('DELETE', `/account/sessions/${enc(id)}`),
+  endOtherSessions: () => apiRequest<{ ended: number }>('POST', '/account/sessions/end-others'),
   logout: () => apiRequest<void>('POST', '/auth/logout'),
   forgotPassword: (email: string) =>
     apiRequest<{ status: 'reset_sent' }>('POST', '/auth/forgot-password', { email }),
   resetPassword: (token: string, password: string) =>
-    apiRequest<{ user: UserDto }>('POST', '/auth/reset-password', { token, password }),
+    apiRequest<{ user: UserDto } | { signIn: true }>('POST', '/auth/reset-password', {
+      token,
+      password,
+    }),
   adminStorage: () =>
     apiRequest<{ usedBytes: number; limitBytes: number }>('GET', '/admin/storage'),
   me: () => apiRequest<{ user: UserDto }>('GET', '/auth/me'),
@@ -80,10 +159,99 @@ export const api = {
       `/channels/${enc(channelId)}/messages${qs ? `?${qs}` : ''}`,
     );
   },
-  sendMessage: (channelId: string, content: string) =>
+  listThread: (messageId: string) =>
+    apiRequest<{ replies: MessageDto[] }>('GET', `/messages/${enc(messageId)}/thread`),
+  sendMessage: (channelId: string, content: string, replyToId?: string, threadRootId?: string) =>
     apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/messages`, {
       content,
+      ...(replyToId ? { replyToId } : {}),
+      ...(threadRootId ? { threadRootId } : {}),
     }),
+  search: (params: SearchParams) => {
+    const q = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) q.set(key, String(value));
+    return apiRequest<{ results: SearchResultDto[] }>('GET', `/search?${q.toString()}`);
+  },
+  listWebhooks: (channelId: string) =>
+    apiRequest<{ webhooks: WebhookDto[] }>('GET', `/channels/${enc(channelId)}/webhooks`),
+  createWebhook: (channelId: string, name: string) =>
+    apiRequest<{ webhook: WebhookDto; token: string }>(
+      'POST',
+      `/channels/${enc(channelId)}/webhooks`,
+      {
+        name,
+      },
+    ),
+  deleteWebhook: (channelId: string, id: string) =>
+    apiRequest<void>('DELETE', `/channels/${enc(channelId)}/webhooks/${enc(id)}`),
+  statusBoard: () => apiRequest<{ entries: StatusEntryDto[] }>('GET', '/admin/status'),
+  schedule: (channelId: string, input: ScheduleInput) =>
+    apiRequest<{ scheduled: ScheduledDto }>('POST', `/channels/${enc(channelId)}/scheduled`, input),
+  listScheduled: () => apiRequest<{ scheduled: ScheduledDto[] }>('GET', '/scheduled'),
+  cancelScheduled: (id: string) => apiRequest<void>('DELETE', `/scheduled/${enc(id)}`),
+  createEvent: (channelId: string, title: string, startsAt: string) =>
+    apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/events`, {
+      title,
+      startsAt,
+    }),
+  rsvp: (messageId: string, answer: RsvpAnswer | null) =>
+    apiRequest<{ event: EventDto }>('POST', `/messages/${enc(messageId)}/rsvp`, { answer }),
+  createPoll: (channelId: string, input: CreatePollInput) =>
+    apiRequest<{ message: MessageDto }>('POST', `/channels/${enc(channelId)}/polls`, input),
+  vote: (messageId: string, option: number) =>
+    apiRequest<{ poll: PollDto }>('POST', `/messages/${enc(messageId)}/vote`, { option }),
+  hidePreview: (messageId: string) =>
+    apiRequest<{ message: MessageDto }>('POST', `/messages/${enc(messageId)}/hide-preview`),
+  toggleReaction: (messageId: string, emoji: string) =>
+    apiRequest<{ reactions: ReactionDto[] }>('POST', `/messages/${enc(messageId)}/reactions`, {
+      emoji,
+    }),
+  setPinned: (messageId: string, pinned: boolean) =>
+    apiRequest<{ message: MessageDto }>('POST', `/messages/${enc(messageId)}/pin`, { pinned }),
+  listPins: (channelId: string) =>
+    apiRequest<{ messages: MessageDto[] }>('GET', `/channels/${enc(channelId)}/pins`),
+  unread: () => apiRequest<{ unread: UnreadDto[] }>('GET', '/unread'),
+  markRead: (channelId: string, messageId: string) =>
+    apiRequest<void>('POST', `/channels/${enc(channelId)}/read`, { messageId }),
+  listRoles: (guildId: string) => apiRequest<GuildRolesDto>('GET', `/guilds/${enc(guildId)}/roles`),
+  createRole: (guildId: string, input: RoleInput) =>
+    apiRequest<{ role: RoleDto }>('POST', `/guilds/${enc(guildId)}/roles`, input),
+  updateRole: (guildId: string, roleId: string, patch: Partial<RoleInput>) =>
+    apiRequest<{ role: RoleDto }>('PATCH', `/guilds/${enc(guildId)}/roles/${enc(roleId)}`, patch),
+  deleteRole: (guildId: string, roleId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/roles/${enc(roleId)}`),
+  orderRoles: (guildId: string, roleIds: string[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/roles/order`, { roleIds }),
+  setMemberRoles: (guildId: string, userId: string, roleIds: string[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/members/${enc(userId)}/roles`, { roleIds }),
+  kickMember: (guildId: string, userId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/members/${enc(userId)}`),
+  banMember: (guildId: string, userId: string) =>
+    apiRequest<void>('POST', `/guilds/${enc(guildId)}/bans`, { userId }),
+  unbanMember: (guildId: string, userId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/bans/${enc(userId)}`),
+  listBans: (guildId: string) =>
+    apiRequest<{ bans: GuildBanDto[] }>('GET', `/guilds/${enc(guildId)}/bans`),
+  updateChannel: (channelId: string, patch: UpdateChannelInput) =>
+    apiRequest<{ channel: ChannelDto }>('PATCH', `/channels/${enc(channelId)}`, patch),
+  deleteChannel: (channelId: string, name: string) =>
+    apiRequest<void>('DELETE', `/channels/${enc(channelId)}`, { name }),
+  orderChannels: (guildId: string, channels: { id: string; categoryId: string | null }[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/channels/order`, { channels }),
+  listCategories: (guildId: string) =>
+    apiRequest<{ categories: CategoryDto[] }>('GET', `/guilds/${enc(guildId)}/categories`),
+  createCategory: (guildId: string, name: string) =>
+    apiRequest<{ category: CategoryDto }>('POST', `/guilds/${enc(guildId)}/categories`, { name }),
+  deleteCategory: (guildId: string, categoryId: string) =>
+    apiRequest<void>('DELETE', `/guilds/${enc(guildId)}/categories/${enc(categoryId)}`),
+  orderCategories: (guildId: string, categoryIds: string[]) =>
+    apiRequest<void>('PUT', `/guilds/${enc(guildId)}/categories/order`, { categoryIds }),
+  channelAccess: (channelId: string) =>
+    apiRequest<{ roleIds: string[] }>('GET', `/channels/${enc(channelId)}/access`),
+  setChannelAccess: (channelId: string, restricted: boolean, roleIds: string[]) =>
+    apiRequest<void>('PUT', `/channels/${enc(channelId)}/access`, { restricted, roleIds }),
+  updateInvite: (guildId: string, settings: InviteSettingsInput) =>
+    apiRequest<{ guild: GuildDto }>('POST', `/guilds/${enc(guildId)}/invite`, settings),
   editMessage: (messageId: string, content: string) =>
     apiRequest<{ message: MessageDto }>('PATCH', `/messages/${enc(messageId)}`, { content }),
   deleteMessage: (messageId: string) => apiRequest<void>('DELETE', `/messages/${enc(messageId)}`),

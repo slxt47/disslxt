@@ -1,11 +1,23 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { MESSAGE_MAX_LEN, textLength, VOICE_MAX_SECONDS } from '@disslxt/shared';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  MESSAGE_MAX_LEN,
+  textLength,
+  TYPING_REPEAT_MS,
+  VOICE_MAX_SECONDS,
+  type MessageDto,
+} from '@disslxt/shared';
 import { ApiRequestError, errorMessage } from '../api/client';
 import { useDictation } from '../speech/useDictation';
 import { formatDuration, useVoiceRecorder } from '../speech/useVoiceRecorder';
 import type { GifDto } from '@disslxt/shared';
+import { runCommand, SLASH_COMMANDS } from '../lib/commands';
+import { loadDraft, saveDraft } from '../lib/drafts';
+import { messagePreview } from '../lib/preview';
+import { emojiForCode, replaceShortcodes, searchEmoji } from '../lib/emoji';
+import { nameOf } from '../profile';
+import { EmojiPanel } from './EmojiPanel';
 import { GifPicker, useGifsEnabled } from './Gif';
-import { Icon } from './Icon';
+import { Avatar, Icon } from './Icon';
 
 export interface ComposerProps {
   channelName: string;
@@ -18,7 +30,59 @@ export interface ComposerProps {
   onAttachFiles?: (files: File[]) => void;
   /** Posts a GIF from the picker; without it (or without a GIPHY key) there is no GIF button. */
   onSendGif?: (gif: GifDto) => Promise<void>;
+  /** Sends what /umfrage typed. */
+  onSendPoll?: (poll: { question: string; options: string[] }) => Promise<void>;
+  onOpenStatus?: () => void;
+  onSendEvent?: (event: { title: string; startsAt: string }) => Promise<void>;
+  onSchedule?: (item: {
+    kind: 'send' | 'remind';
+    content: string;
+    sendAt: string;
+  }) => Promise<void>;
+  /** Keeps the unsent text of this channel when you switch away. */
+  draftKey?: string;
+  /** People @ can suggest. */
+  people?: Person[];
+  /** The message being answered; shown above the field. */
+  replyTo?: MessageDto | null;
+  onCancelReply?: () => void;
+  /** ↑ in the empty field: edit your last message. */
+  onEditLast?: () => void;
+  /** Called while writing, every few seconds at most. */
+  onTyping?: () => void;
 }
+
+export interface Person {
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+interface Suggestion {
+  key: string;
+  /** Replaces what was typed. */
+  insert: string;
+  label: ReactNode;
+  hint?: string;
+}
+
+/** What is being typed right before the cursor: `@na`, `:smi` or `/wü`. */
+export function activeToken(
+  value: string,
+  caret: number,
+): { kind: '@' | ':' | '/'; query: string; start: number } | null {
+  const before = value.slice(0, caret);
+  const slash = /^\/([^\s/]*)$/.exec(before);
+  if (slash) return { kind: '/', query: slash[1] ?? '', start: 0 };
+  const match = /(?:^|\s)([@:])([^\s@:]*)$/.exec(before);
+  if (!match) return null;
+  const query = match[2] ?? '';
+  const kind = match[1] as '@' | ':';
+  if (kind === ':' && query.length < 2) return null;
+  return { kind, query, start: before.length - query.length - 1 };
+}
+
+const noteFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** Counter appears this many characters before the limit. */
 const COUNTER_THRESHOLD = MESSAGE_MAX_LEN - 200;
@@ -35,11 +99,31 @@ export function Composer({
   onSendVoice,
   onAttachFiles,
   onSendGif,
+  onSendPoll,
+  onSendEvent,
+  onOpenStatus,
+  onSchedule,
+  draftKey,
+  people,
+  replyTo = null,
+  onCancelReply,
+  onEditLast,
+  onTyping,
 }: ComposerProps) {
   const gifsEnabled = useGifsEnabled();
   const [gifOpen, setGifOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [value, setValue] = useState('');
+  const [value, setValueRaw] = useState(() => (draftKey ? loadDraft(draftKey) : ''));
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [caret, setCaret] = useState(0);
+  const [picked, setPicked] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  const lastTyping = useRef(0);
+  function setValue(next: string) {
+    setValueRaw(next);
+    if (draftKey) saveDraft(draftKey, next);
+  }
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -66,6 +150,98 @@ export function Composer({
   });
   const recording = recorder.state !== 'idle';
 
+  const token = dismissed ? null : activeToken(value, caret);
+  const suggestions: Suggestion[] = !token
+    ? []
+    : token.kind === '@'
+      ? (people ?? [])
+          .filter((p) =>
+            `${p.username} ${p.displayName ?? ''}`
+              .toLowerCase()
+              .includes(token.query.toLowerCase()),
+          )
+          .slice(0, 8)
+          .map((p) => ({
+            key: p.username,
+            insert: `@${p.username} `,
+            label: (
+              <>
+                <Avatar name={nameOf({ ...p })} url={p.avatarUrl} size="sm" />
+                {nameOf({ ...p })}
+              </>
+            ),
+            hint: `@${p.username}`,
+          }))
+      : token.kind === ':'
+        ? searchEmoji(token.query).map((e) => ({
+            key: e.code,
+            insert: `${e.emoji} `,
+            label: <span className="suggest-emoji">{e.emoji}</span>,
+            hint: `:${e.code}:`,
+          }))
+        : SLASH_COMMANDS.filter((c) => c.name.startsWith(token.query.toLowerCase())).map((c) => ({
+            key: c.name,
+            insert: `/${c.name} `,
+            label: (
+              <>
+                <strong>/{c.name}</strong> {c.args}
+              </>
+            ),
+            hint: c.description,
+          }));
+  const selected = Math.min(picked, Math.max(0, suggestions.length - 1));
+
+  function accept(s: Suggestion) {
+    if (!token) return;
+    const next = value.slice(0, token.start) + s.insert + value.slice(caret);
+    const at = token.start + s.insert.length;
+    setValue(next);
+    setPicked(0);
+    setCaret(at);
+    requestAnimationFrame(() => {
+      ref.current?.focus();
+      ref.current?.setSelectionRange(at, at);
+    });
+  }
+
+  function insertAtCaret(text: string) {
+    const el = ref.current;
+    const at = el?.selectionStart ?? value.length;
+    const next = value.slice(0, at) + text + value.slice(el?.selectionEnd ?? at);
+    setValue(next);
+    const end = at + text.length;
+    setCaret(end);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(end, end);
+    });
+  }
+
+  function changed(next: string, cursor: number) {
+    // A complete :kürzel: turns into its emoji right away.
+    const before = next.slice(0, cursor);
+    const code = /(?:^|\s):([a-z0-9_+-]{2,32}):$/i.exec(before);
+    const emoji = code ? emojiForCode(code[1] ?? '') : null;
+    if (code && emoji) {
+      const start = before.length - (code[1] ?? '').length - 2;
+      const replaced = next.slice(0, start) + emoji + next.slice(cursor);
+      const at = start + emoji.length;
+      setValue(replaced);
+      setCaret(at);
+      requestAnimationFrame(() => ref.current?.setSelectionRange(at, at));
+    } else {
+      setValue(next);
+      setCaret(cursor);
+    }
+    setPicked(0);
+    setDismissed(false);
+    const now = Date.now();
+    if (next.trim() && !next.startsWith('/') && now - lastTyping.current >= TYPING_REPEAT_MS) {
+      lastTyping.current = now;
+      onTyping?.();
+    }
+  }
+
   function toggleDictation() {
     if (dictation.listening) {
       dictation.stop();
@@ -86,14 +262,49 @@ export function Composer({
   }, [sending]);
 
   async function submit() {
-    const content = value.trim();
-    if (!content || textLength(content) > MESSAGE_MAX_LEN || sending) return;
+    const typed = value.trim();
+    if (!typed || sending) return;
+    const command = runCommand(typed);
+    if (command && 'error' in command) {
+      setError(command.error);
+      return;
+    }
+    if (command && 'open' in command) {
+      onOpenStatus?.();
+      setValue('');
+      return;
+    }
+    if (command && !('text' in command)) {
+      setSending(true);
+      setError(null);
+      setNote(null);
+      try {
+        if ('poll' in command) await onSendPoll?.(command.poll);
+        else if ('event' in command) await onSendEvent?.(command.event);
+        else {
+          await onSchedule?.(command.schedule);
+          setNote(
+            `${command.schedule.kind === 'remind' ? 'Erinnerung' : 'Nachricht'} geplant für ${noteFormat.format(new Date(command.schedule.sendAt))}.`,
+          );
+        }
+        setValue('');
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+    const content = replaceShortcodes(command ? command.text : typed);
+    if (textLength(content) > MESSAGE_MAX_LEN) return;
     if (dictation.listening) dictation.stop();
     setSending(true);
     setError(null);
     try {
       await onSend(content);
       setValue('');
+      // The others saw "schreibt" end with this message; the next word starts it again.
+      lastTyping.current = 0;
     } catch (err) {
       setError(
         err instanceof ApiRequestError && err.status === 429
@@ -106,6 +317,39 @@ export function Composer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (suggestions.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.key === 'ArrowDown' ? 1 : suggestions.length - 1;
+        setPicked((selected + step) % suggestions.length);
+        return;
+      }
+      if (e.key === 'Tab' || isSubmitKey(e)) {
+        const pick = suggestions[selected];
+        // Fully typed already (a name, a command): Enter sends instead of completing it again.
+        const typed = token ? value.slice(token.start, caret).toLowerCase() : '';
+        if (pick && !(isSubmitKey(e) && typed === pick.insert.trim().toLowerCase())) {
+          e.preventDefault();
+          accept(pick);
+          return;
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setDismissed(true);
+        return;
+      }
+    }
+    if (e.key === 'Escape' && replyTo) {
+      e.preventDefault();
+      onCancelReply?.();
+      return;
+    }
+    if (e.key === 'ArrowUp' && !value && !e.altKey && onEditLast) {
+      e.preventDefault();
+      onEditLast();
+      return;
+    }
     if (isSubmitKey(e)) {
       e.preventDefault();
       void submit();
@@ -129,6 +373,59 @@ export function Composer({
             onSendGif(gif).catch((err: unknown) => setError(errorMessage(err)));
           }}
         />
+      )}
+      {emojiOpen && (
+        <div className="composer-emoji">
+          <EmojiPanel
+            label="Emoji einfügen"
+            onClose={() => setEmojiOpen(false)}
+            onPick={(emoji) => {
+              setEmojiOpen(false);
+              insertAtCaret(emoji);
+            }}
+          />
+        </div>
+      )}
+      {suggestions.length > 0 && (
+        <ul className="suggestions" role="listbox" data-testid="suggestions">
+          {suggestions.map((s, i) => (
+            <li key={s.key} role="option" aria-selected={i === selected}>
+              <button
+                type="button"
+                className={i === selected ? 'active' : ''}
+                data-testid={`suggestion-${s.key}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => accept(s)}
+              >
+                <span className="suggest-label">{s.label}</span>
+                {s.hint && <span className="suggest-hint">{s.hint}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {note && (
+        <p className="composer-note" role="status" data-testid="composer-note">
+          {note}
+        </p>
+      )}
+      {replyTo && (
+        <div className="composer-reply" data-testid="composer-reply">
+          <Icon name="reply" size={16} />
+          <span>
+            Antwort an <strong>{nameOf(replyTo.author)}</strong>
+            <em>{messagePreview(replyTo)}</em>
+          </span>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Antwort abbrechen"
+            data-testid="composer-reply-cancel"
+            onClick={onCancelReply}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
       )}
       {(error ?? dictation.error ?? recorder.error) && (
         <p className="composer-error" role="alert" data-testid="composer-error">
@@ -218,7 +515,8 @@ export function Composer({
             aria-label={`Nachricht an ${target}`}
             value={value}
             disabled={sending}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => changed(e.target.value, e.target.selectionStart)}
+            onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
             onKeyDown={onKeyDown}
             onPaste={(e) => {
               // Pasting a screenshot shares it as a file.
@@ -229,6 +527,18 @@ export function Composer({
               }
             }}
           />
+          <button
+            type="button"
+            className={`icon-btn composer-tool${emojiOpen ? ' active' : ''}`}
+            data-testid="emoji-button"
+            aria-label="Emoji einfügen"
+            aria-expanded={emojiOpen}
+            title="Emoji einfügen"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setEmojiOpen((o) => !o)}
+          >
+            <Icon name="smile" size={20} />
+          </button>
           {dictation.supported && (
             <button
               type="button"

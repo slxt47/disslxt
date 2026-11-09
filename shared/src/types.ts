@@ -1,3 +1,5 @@
+import type { GUILD_PERMISSIONS } from './constants.js';
+
 /** A short server tag (e.g. "GAME" + 🎮) someone wears next to their name. */
 export interface UserTagDto {
   guildId: string;
@@ -79,6 +81,10 @@ export interface GuildDto {
   /** Server tag members can wear (2–4 letters/digits) and its emoji. */
   tag: string | null;
   tagEmoji: string | null;
+  /** Limits of the invite link (null: none) and how often it was used since they were set. */
+  inviteExpiresAt: string | null;
+  inviteMaxUses: number | null;
+  inviteUses: number;
   createdAt: string;
 }
 
@@ -91,6 +97,68 @@ export interface ChannelDto {
   guildId: string | null;
   name: string;
   kind: ChannelKind;
+  /** Only certain roles see it. */
+  restricted: boolean;
+  description: string | null;
+  categoryId: string | null;
+  position: number;
+  createdAt: string;
+}
+
+/** A group of channels in the sidebar. */
+export interface CategoryDto {
+  id: string;
+  name: string;
+  position: number;
+}
+
+export type GuildPermission = (typeof GUILD_PERMISSIONS)[number];
+
+/** A role of a server. `position`: lower ranks higher. */
+export interface RoleDto {
+  id: string;
+  name: string;
+  color: string | null;
+  permissions: GuildPermission[];
+  position: number;
+}
+
+/** Roles of a server and what they allow the person asking. */
+export interface GuildRolesDto {
+  roles: RoleDto[];
+  /** The owner has all of them. */
+  myPermissions: GuildPermission[];
+}
+
+/** Answer of a login: signed in, or the second factor is still missing. */
+export type LoginResultDto = { user: UserDto } | { twoFactor: true; ticket: string };
+
+export interface TwoFactorStatusDto {
+  enabled: boolean;
+  /** Unused recovery codes. */
+  recoveryCodesLeft: number;
+  /** The server has a key for it (otherwise setup is not possible). */
+  available: boolean;
+}
+
+export interface TwoFactorSetupDto {
+  /** For typing in by hand. */
+  secret: string;
+  /** otpauth:// link, shown as a QR code. */
+  uri: string;
+}
+
+/** A signed-in device. */
+export interface SessionDto {
+  id: string;
+  device: string | null;
+  createdAt: string;
+  lastSeenAt: string | null;
+  current: boolean;
+}
+
+export interface GuildBanDto {
+  user: PublicUserDto;
   createdAt: string;
 }
 
@@ -103,13 +171,95 @@ export interface VoicePeerDto {
   displayName: string | null;
   avatarUrl: string | null;
   muted: boolean;
-  /** Camera is on. */
+  /** Sends a picture: camera or screen. */
   video: boolean;
+  /** The picture is a shared screen. */
+  screen?: boolean;
 }
 
 export type MessageAuthorDto = PublicUserDto;
 
-export type MessageKind = 'text' | 'voice' | 'file' | 'gif';
+/** 'join': someone joined the server (shown as a greeting, has no text of its own). */
+export type MessageKind = 'text' | 'voice' | 'file' | 'gif' | 'join' | 'poll' | 'event' | 'bot';
+
+export interface PasskeyDto {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface WebhookDto {
+  id: string;
+  channelId: string;
+  name: string;
+  createdAt: string;
+}
+
+/** One line of the service overview. */
+export interface StatusEntryDto {
+  name: string;
+  up: boolean;
+  ms: number | null;
+}
+
+export type RsvpAnswer = 'yes' | 'maybe' | 'no';
+
+/** An event in the chat: when, and who answered what. */
+export interface EventDto {
+  startsAt: string;
+  yes: string[];
+  maybe: string[];
+  no: string[];
+}
+
+/** A message for later (`send`) or a reminder for yourself (`remind`). */
+export interface ScheduledDto {
+  id: string;
+  channelId: string;
+  kind: 'send' | 'remind';
+  content: string;
+  sendAt: string;
+}
+
+export interface PollOptionDto {
+  text: string;
+  /** Everyone can see who voted for what. */
+  userIds: string[];
+}
+
+export interface PollDto {
+  options: PollOptionDto[];
+  multiple: boolean;
+}
+
+/** One emoji under a message: how often, and from whom. */
+export interface ReactionDto {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+
+/** The message an answer refers to, enough to show one line of it. */
+export interface MessageRefDto {
+  id: string;
+  author: Pick<PublicUserDto, 'id' | 'username' | 'displayName'>;
+  kind: MessageKind;
+  /** Start of the text; empty for voice messages, files and GIFs. */
+  excerpt: string;
+}
+
+/** Unread messages of a channel or private conversation (only channels with any are listed). */
+export interface UnreadDto {
+  channelId: string;
+  /** Null for private conversations. */
+  guildId: string | null;
+  count: number;
+  /** Of these, how many mention you or answer you. */
+  mentions: number;
+  /** Everything up to here counts as read ("0": nothing yet). */
+  lastReadId: string;
+}
 
 export interface FileAttachmentDto {
   /** Same-origin URL, only readable by members of the guild. */
@@ -138,6 +288,16 @@ export interface VoiceAudioDto {
   mime: string;
 }
 
+/** What a linked page says about itself. */
+export interface LinkPreviewDto {
+  url: string;
+  title: string;
+  description: string | null;
+  siteName: string | null;
+  /** Same-origin copy of the page's picture. */
+  imageUrl: string | null;
+}
+
 export interface MessageDto {
   /** bigint as decimal string */
   id: string;
@@ -149,8 +309,31 @@ export interface MessageDto {
   audio: VoiceAudioDto | null;
   file: FileAttachmentDto | null;
   gif: GifDto | null;
+  reactions: ReactionDto[];
+  replyTo: MessageRefDto | null;
+  /** When it was pinned to the channel (null: not pinned). */
+  pinnedAt: string | null;
+  linkPreview: LinkPreviewDto | null;
+  poll: PollDto | null;
+  event: EventDto | null;
+  /** Posted by a webhook of this name. */
+  botName: string | null;
+  /** Reply inside a thread: its first message. */
+  threadRootId: string | null;
+  /** Replies, if a thread hangs off this message. */
+  threadCount: number;
   createdAt: string;
   editedAt: string | null;
+}
+
+/** A hit of the message search, with where it was written. */
+export interface SearchResultDto {
+  message: MessageDto;
+  channelName: string;
+  channelKind: ChannelKind;
+  /** Null for private conversations. */
+  guildId: string | null;
+  guildName: string | null;
 }
 
 export interface MemberDto {
@@ -164,6 +347,8 @@ export interface MemberDto {
   badges?: string[];
   tag?: UserTagDto | null;
   status?: UserStatusDto | null;
+  /** Roles on this server. */
+  roleIds?: string[];
 }
 
 /** 'friend' once accepted; otherwise a request sent to me ('incoming') or by me ('outgoing'). */
@@ -241,6 +426,9 @@ export type ErrorCode =
   | 'VERIFICATION_INVALID'
   | 'FORBIDDEN'
   | 'OWNER_PROTECTED'
+  | 'BANNED'
+  | 'TWO_FACTOR_INVALID'
+  | 'TWO_FACTOR_LOCKED'
   | 'BAD_ORIGIN'
   | 'NOT_AUTHOR'
   | 'NOT_FOUND'

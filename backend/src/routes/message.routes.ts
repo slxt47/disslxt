@@ -1,16 +1,26 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
+  createEventSchema,
+  createPollSchema,
   editMessageSchema,
   listMessagesQuery,
+  markReadSchema,
   messageIdSchema,
+  pinSchema,
+  reactionSchema,
+  rsvpSchema,
+  scheduleSchema,
+  searchQuery,
   sendMessageSchema,
   uuidSchema,
+  voteSchema,
 } from '@disslxt/shared';
 import type { Config } from '../config.js';
 import { currentUser } from '../plugins/auth.js';
 import type { Services } from '../services/index.js';
 import { parse, parseParam } from '../lib/validate.js';
 import { notFound } from '../lib/errors.js';
+import { sendImage } from '../lib/imageReply.js';
 
 type ChannelParams = { Params: { channelId: string } };
 type MessageParams = { Params: { messageId: string } };
@@ -46,8 +56,8 @@ export async function messageRoutes(
     },
     async (req, reply) => {
       const id = channelId(req.params);
-      const { content } = parse(sendMessageSchema, req.body);
-      const message = await messages.create(currentUser(req), id, content);
+      const { content, replyToId, threadRootId } = parse(sendMessageSchema, req.body);
+      const message = await messages.create(currentUser(req), id, content, replyToId, threadRootId);
       return reply.status(201).send({ message });
     },
   );
@@ -56,6 +66,120 @@ export async function messageRoutes(
     const id = messageId(req.params);
     const { content } = parse(editMessageSchema, req.body);
     return { message: await messages.edit(currentUser(req), id, content) };
+  });
+
+  app.get(
+    '/search',
+    {
+      config: {
+        rateLimit: {
+          max: opts.config.rateLimit.messageMax * 3,
+          timeWindow: opts.config.rateLimit.messageWindowMs,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req) => ({
+      results: await messages.search(currentUser(req), parse(searchQuery, req.query)),
+    }),
+  );
+
+  app.get<{ Params: { key: string } }>('/link-images/:key', async (req, reply) =>
+    sendImage(reply, await opts.services.linkPreviews.image(req.params.key)),
+  );
+
+  app.post<MessageParams>('/messages/:messageId/hide-preview', async (req) => ({
+    message: await messages.hidePreview(currentUser(req), messageId(req.params)),
+  }));
+
+  app.post<ChannelParams>('/channels/:channelId/polls', async (req, reply) => {
+    const id = channelId(req.params);
+    const input = parse(createPollSchema, req.body);
+    const message = await messages.createPoll(currentUser(req), id, input);
+    return reply.status(201).send({ message });
+  });
+
+  app.post<MessageParams>('/messages/:messageId/vote', async (req) => {
+    const id = messageId(req.params);
+    const { option } = parse(voteSchema, req.body);
+    return { poll: await messages.vote(currentUser(req).id, id, option) };
+  });
+
+  const { schedule } = opts.services;
+
+  app.post<ChannelParams>('/channels/:channelId/scheduled', async (req, reply) => {
+    const id = channelId(req.params);
+    const input = parse(scheduleSchema, req.body);
+    return reply
+      .status(201)
+      .send({ scheduled: await schedule.create(currentUser(req), id, input) });
+  });
+
+  app.get('/scheduled', async (req) => ({ scheduled: await schedule.list(currentUser(req).id) }));
+
+  app.delete<{ Params: { id: string } }>('/scheduled/:id', async (req, reply) => {
+    const id = parseParam(uuidSchema, req.params.id, () => notFound('Nicht gefunden'));
+    await schedule.cancel(currentUser(req).id, id);
+    return reply.status(204).send();
+  });
+
+  app.post<ChannelParams>('/channels/:channelId/events', async (req, reply) => {
+    const id = channelId(req.params);
+    const { title, startsAt } = parse(createEventSchema, req.body);
+    const message = await schedule.createEvent(currentUser(req), id, title, startsAt);
+    return reply.status(201).send({ message });
+  });
+
+  app.post<MessageParams>('/messages/:messageId/rsvp', async (req) => {
+    const id = messageId(req.params);
+    const { answer } = parse(rsvpSchema, req.body);
+    return { event: await schedule.rsvp(currentUser(req).id, id, answer) };
+  });
+
+  app.get<MessageParams>('/messages/:messageId/thread', async (req) => ({
+    replies: await messages.thread(currentUser(req).id, messageId(req.params)),
+  }));
+
+  app.get('/unread', async (req) => {
+    const user = currentUser(req);
+    return { unread: await messages.unread(user.id, user.username) };
+  });
+
+  app.post<ChannelParams>('/channels/:channelId/read', async (req, reply) => {
+    const id = channelId(req.params);
+    const { messageId } = parse(markReadSchema, req.body);
+    await messages.markRead(currentUser(req).id, id, messageId);
+    return reply.status(204).send();
+  });
+
+  app.get<ChannelParams>('/channels/:channelId/pins', async (req) => ({
+    messages: await messages.pins(currentUser(req).id, channelId(req.params)),
+  }));
+
+  app.post<MessageParams>(
+    '/messages/:messageId/reactions',
+    {
+      config: {
+        rateLimit: {
+          max: opts.config.rateLimit.messageMax * 3,
+          timeWindow: opts.config.rateLimit.messageWindowMs,
+          hook: 'preHandler',
+          keyGenerator: (req: FastifyRequest) => req.user?.id ?? req.ip,
+        },
+      },
+    },
+    async (req) => {
+      const id = messageId(req.params);
+      const { emoji } = parse(reactionSchema, req.body);
+      return { reactions: await messages.toggleReaction(currentUser(req).id, id, emoji) };
+    },
+  );
+
+  app.post<MessageParams>('/messages/:messageId/pin', async (req) => {
+    const id = messageId(req.params);
+    const { pinned } = parse(pinSchema, req.body);
+    return { message: await messages.setPinned(currentUser(req).id, id, pinned) };
   });
 
   app.delete<MessageParams>('/messages/:messageId', async (req, reply) => {

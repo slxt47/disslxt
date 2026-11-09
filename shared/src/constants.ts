@@ -28,6 +28,51 @@ export const VOICE_CHANNEL_MAX_PARTICIPANTS = 6;
 export const FILE_MAX_BYTES = 25 * 1024 * 1024;
 export const FILE_NAME_MAX_LEN = 200;
 
+/** Different emoji under one message (a brake against filling it with reactions). */
+export const REACTIONS_PER_MESSAGE_MAX = 20;
+
+/** Pinned messages per channel. */
+export const PINS_PER_CHANNEL_MAX = 50;
+
+/** Largest "max. uses" of an invite link, and its longest validity. */
+export const INVITE_MAX_USES_LIMIT = 1000;
+export const INVITE_MAX_HOURS = 24 * 30;
+
+/** While typing, the client repeats this every few seconds; others show it a little longer. */
+export const TYPING_REPEAT_MS = 3000;
+export const TYPING_SHOW_MS = 5000;
+
+export const CHANNEL_DESCRIPTION_MAX_LEN = 200;
+export const CATEGORY_NAME_MAX_LEN = 32;
+export const CATEGORIES_PER_GUILD_MAX = 30;
+
+export const POLL_QUESTION_MAX_LEN = 200;
+export const POLL_OPTION_MAX_LEN = 80;
+export const POLL_OPTIONS_MAX = 10;
+
+/** Messages for later and reminders one person can have waiting. */
+export const SCHEDULED_PER_USER_MAX = 50;
+
+/** Results per page of a search. */
+export const SEARCH_PAGE_SIZE = 25;
+
+/** What a server role can allow. Roles themselves are managed by the owner only. */
+export const GUILD_PERMISSIONS = [
+  'manage_channels',
+  'manage_messages',
+  'manage_invites',
+  'kick_members',
+  'ban_members',
+] as const;
+export const ROLES_PER_GUILD_MAX = 20;
+export const ROLE_NAME_MAX_LEN = 32;
+
+/** Second factor: time to enter the code, and the brake on wrong ones (per account). */
+export const LOGIN_CHALLENGE_TTL_MINUTES = 5;
+export const TWO_FACTOR_MAX_FAILURES = 10;
+export const TWO_FACTOR_LOCK_MINUTES = 15;
+export const RECOVERY_CODE_COUNT = 10;
+
 /** How many badges one person can show next to their name. */
 export const BADGES_SHOWN_MAX = 3;
 
@@ -61,3 +106,6 @@ export const WS_CLOSE = {
   /** Origin not allowed. */
   BAD_ORIGIN: 4403,
 } as const;
+
+export const MAX_PASSKEYS = 10;
+export const PASSKEY_CHALLENGE_TTL_MINUTES = 5;

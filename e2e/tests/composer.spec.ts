@@ -52,7 +52,8 @@ test('Enter sends, Shift+Enter adds a newline; own edit/delete; XSS is inert', a
   await expect(foreign).toBeVisible();
   await foreign.hover();
   await expect(foreign.getByTestId('message-edit')).toHaveCount(0);
-  await expect(foreign.getByTestId('message-delete')).toHaveCount(0);
+  // A is the owner of the server: moderating, not rewriting.
+  await expect(foreign.getByTestId('message-delete')).toHaveCount(1);
 
   // XSS payload is rendered as literal text.
   const payload = '<b>x</b><img src=x onerror="window.__xss=1">';

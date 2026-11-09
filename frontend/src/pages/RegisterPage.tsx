@@ -6,7 +6,7 @@ import { errorMessage } from '../api/client';
 import { CheckInbox } from '../components/CheckInbox';
 import { PasswordChecklist } from '../components/PasswordChecklist';
 import { useAuthStore } from '../store/auth';
-import { LegalLinks } from '../components/LegalLinks';
+import { LegalLinks, SITE_URLS } from '../components/LegalLinks';
 
 export function RegisterPage() {
   const register = useAuthStore((s) => s.register);
@@ -115,6 +115,18 @@ export function RegisterPage() {
             {error}
           </p>
         )}
+        <p className="form-hint" data-testid="register-consent">
+          Mit der Registrierung akzeptierst du die{' '}
+          <a href={SITE_URLS.terms} target="_blank" rel="noreferrer">
+            Nutzungsbedingungen
+          </a>{' '}
+          und bestätigst, mindestens 14 Jahre alt zu sein. Wie deine Daten verarbeitet werden, steht
+          in der{' '}
+          <a href={SITE_URLS.privacy} target="_blank" rel="noreferrer">
+            Datenschutzerklärung
+          </a>
+          .
+        </p>
         <button className="btn primary" type="submit" data-testid="register-submit" disabled={busy}>
           {busy ? 'Registrieren…' : 'Registrieren'}
         </button>

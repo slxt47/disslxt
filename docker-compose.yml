@@ -7,7 +7,7 @@ name: disslxt-repo
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     restart: unless-stopped
     # Logs (can contain IP addresses) roll over at a fixed size – see the privacy policy.
     logging: { driver: json-file, options: { max-size: 10m, max-file: '3' } }
@@ -77,6 +77,10 @@ services:
       # TURN stops for the rest of the month at this much relayed traffic (Cloudflare: 1000 GB free).
       TURN_MONTHLY_LIMIT_GB: ${TURN_MONTHLY_LIMIT_GB:-900}
       # GIF picker (official GIPHY API, https://developers.giphy.com); empty = no GIF button.
+      TWO_FACTOR_KEY: ${TWO_FACTOR_KEY:-}
+      LINK_PREVIEWS: ${LINK_PREVIEWS:-true}
+      WHISPER_URL: ${WHISPER_URL:-}
+      STATUS_TARGETS: ${STATUS_TARGETS:-}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       # Cap for everything posted (uploads + message text); beyond it new posts get 507.
       STORAGE_LIMIT_GB: ${STORAGE_LIMIT_GB:-40}
@@ -84,6 +88,7 @@ services:
       - uploads:/data/uploads
     # Hardening: runs as `node` on port 3000 and writes only to the uploads volume and /tmp
     # (ffmpeg), so it needs no capabilities and a read-only root filesystem is enough.
+    networks: [default, speech]
     read_only: true
     tmpfs:
       - /tmp
@@ -105,6 +110,28 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+
+  # Writes voice messages down. Off unless started with the profile (see .env.example). Sits only
+  # on the internal network: recordings cannot leave the server from here.
+  whisper:
+    profiles: [whisper]
+    build:
+      context: deploy
+      dockerfile: whisper.Dockerfile
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1500m
+    cpus: 4
+    networks: [speech]
+    healthcheck:
+      test: ['CMD', 'bash', '-c', '</dev/tcp/127.0.0.1/8080']
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   caddy:
     build:
@@ -136,6 +163,10 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+networks:
+  speech:
+    internal: true
 
 volumes:
   db_data:

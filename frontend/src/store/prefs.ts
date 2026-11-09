@@ -7,8 +7,8 @@ import { findTheme, PRESET_THEMES, themeVars, type ThemeDef } from '../theme/the
  */
 const KEY = 'disslxt:prefs';
 
-/** 'system' / 'light' / 'dark', or the id of a preset or custom colour theme. */
-export type Theme = 'system' | 'light' | 'dark' | (string & {});
+/** 'light', 'dark' or the id of a preset or custom colour theme. */
+export type Theme = 'light' | 'dark' | (string & {});
 
 export interface Prefs {
   /** Appearance; 'system' follows the device's light/dark setting. */
@@ -26,10 +26,24 @@ export interface Prefs {
   showMembers: boolean;
   /** Colour themes made in the settings (this device). */
   customThemes: ThemeDef[];
+  /** Tighter message list. */
+  compact: boolean;
+  /** Size of chat text in px. */
+  fontSize: number;
+  /** Voice: the microphone is only open while the key (or the button) is held. */
+  pushToTalk: boolean;
+  /** KeyboardEvent.code of the push-to-talk key. */
+  pushToTalkKey: string;
+  /** The browser filters background noise from the microphone. */
+  noiseSuppression: boolean;
+  /** Categories folded away in the sidebar. */
+  collapsedCategories: string[];
 }
 
+export const FONT_SIZES = [14, 15, 16, 17, 18, 20] as const;
+
 const defaults: Prefs = {
-  theme: 'system',
+  theme: 'dark',
   autoRead: false,
   speechRate: 1,
   installHintDismissed: false,
@@ -37,18 +51,27 @@ const defaults: Prefs = {
   audioOutputId: '',
   showMembers: true,
   customThemes: [],
+  compact: false,
+  fontSize: 15,
+  pushToTalk: false,
+  pushToTalkKey: 'KeyV',
+  noiseSuppression: true,
+  collapsedCategories: [],
 };
 
 function load(): Prefs {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...defaults, ...(JSON.parse(raw) as Partial<Prefs>) } : defaults;
+    if (!raw) return defaults;
+    const stored = { ...defaults, ...(JSON.parse(raw) as Partial<Prefs>) };
+    // 'system' existed until November 2026; slxt pages start dark.
+    return stored.theme === 'system' ? { ...stored, theme: 'dark' } : stored;
   } catch {
     return defaults;
   }
 }
 
-const THEME_COLORS = { light: '#eaeaf3', dark: '#09090e' } as const;
+const THEME_COLORS = { light: '#dfe5ff', dark: '#04050d' } as const;
 /** Derived tokens of the active colour theme, read by /theme-init.js before the first paint. */
 export const THEME_VARS_KEY = 'disslxt:theme-vars';
 /** Every token a colour theme sets (the same for all of them), cleared before applying another. */
@@ -59,19 +82,17 @@ const THEME_VAR_NAMES = Object.keys(themeVars(PRESET_THEMES[0]!));
  * also sets its derived tokens as inline custom properties on top of its light/dark base.
  */
 export function applyTheme(theme: Theme, custom: ThemeDef[] = usePrefs.getState().customThemes) {
-  if (theme === 'light' || theme === 'dark' || theme === 'system') {
-    applyThemeDef(theme as 'light' | 'dark' | 'system');
-  } else applyThemeDef(findTheme(theme, custom) ?? 'system');
+  if (theme === 'light' || theme === 'dark') applyThemeDef(theme as 'light' | 'dark');
+  else applyThemeDef(findTheme(theme, custom) ?? 'dark');
 }
 
 /** Applies a theme (also a not-yet-saved one, for the live preview in the editor). */
-export function applyThemeDef(theme: 'system' | 'light' | 'dark' | ThemeDef): void {
+export function applyThemeDef(theme: 'light' | 'dark' | ThemeDef): void {
   const root = document.documentElement;
   for (const name of THEME_VAR_NAMES) root.style.removeProperty(name);
   const def = typeof theme === 'string' ? null : theme;
-  const base = def ? def.base : (theme as 'system' | 'light' | 'dark');
-  if (base === 'system') delete root.dataset.theme;
-  else root.dataset.theme = base;
+  const base = def ? def.base : (theme as 'light' | 'dark');
+  root.dataset.theme = base;
   let vars: Record<string, string> | null = null;
   if (def) {
     vars = themeVars(def);
@@ -84,9 +105,16 @@ export function applyThemeDef(theme: 'system' | 'light' | 'dark' | ThemeDef): vo
     // Not stored: the first paint after a reload uses the base colours for a moment.
   }
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
-    const scheme = meta.media.includes('dark') ? 'dark' : 'light';
-    meta.content = vars?.['--bg-tertiary'] ?? THEME_COLORS[base === 'system' ? scheme : base];
+    meta.content = vars?.['--bg-tertiary'] ?? THEME_COLORS[base];
   }
+}
+
+/** Density and text size of the chat, read by the CSS. */
+export function applyDisplay(compact: boolean, fontSize: number): void {
+  const root = document.documentElement;
+  if (compact) root.dataset.density = 'compact';
+  else delete root.dataset.density;
+  root.style.setProperty('--chat-font-size', `${fontSize}px`);
 }
 
 interface PrefsState extends Prefs {
@@ -105,11 +133,18 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
       audioInputId,
       audioOutputId,
       customThemes,
+      compact,
+      fontSize,
+      pushToTalk,
+      pushToTalkKey,
+      noiseSuppression,
+      collapsedCategories,
     } = {
       ...get(),
       ...patch,
     };
     if (patch.theme || patch.customThemes) applyTheme(theme, customThemes);
+    if (patch.compact !== undefined || patch.fontSize) applyDisplay(compact, fontSize);
     try {
       localStorage.setItem(
         KEY,
@@ -121,6 +156,12 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
           audioInputId,
           audioOutputId,
           customThemes,
+          compact,
+          fontSize,
+          pushToTalk,
+          pushToTalkKey,
+          noiseSuppression,
+          collapsedCategories,
         }),
       );
     } catch {
@@ -128,3 +169,6 @@ export const usePrefs = create<PrefsState>()((set, get) => ({
     }
   },
 }));
+
+const { compact, fontSize } = usePrefs.getState();
+applyDisplay(compact, fontSize);

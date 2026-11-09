@@ -33,8 +33,11 @@ export interface Client {
     peerId: string;
     muted: boolean;
     video: boolean;
+    screen: boolean;
   } | null;
   isAlive: boolean;
+  /** Last "is typing" passed on (a brake, the client repeats it every few seconds). */
+  lastTypingAt?: number;
 }
 
 export type VoiceJoinResult = { ok: true; first: boolean } | { ok: false; code: 'VOICE_FULL' };
@@ -54,6 +57,8 @@ export class Hub {
   private readonly lastPresence = new Map<string, PresenceStatus>();
   /** Private conversations: who hears about the call (both friends), per channel with a call. */
   private readonly callAudience = new Map<string, string[]>();
+  /** Restricted voice channels of servers: only these users hear who is in them. */
+  private readonly voiceVisibleTo = new Map<string, Set<string>>();
 
   get clientCount(): number {
     let n = 0;
@@ -122,6 +127,13 @@ export class Hub {
 
   publishToChannel(channelId: string, msg: WsServerMessage): void {
     sendAll(this.channelRooms.get(channelId), msg);
+  }
+
+  /** Everyone reading the channel except this socket. */
+  publishToChannelExcept(channelId: string, except: Client, msg: WsServerMessage): void {
+    const room = this.channelRooms.get(channelId);
+    if (!room) return;
+    sendAll(new Set([...room].filter((c) => c !== except)), msg);
   }
 
   publishToGuild(guildId: string, msg: WsServerMessage): void {
@@ -201,6 +213,39 @@ export class Hub {
   }
 
   /** Participants of every voice channel of a guild that is not empty. */
+  /**
+   * Who may see which restricted channel changed: sockets lose what is no longer theirs at once,
+   * instead of reading on until they reload.
+   */
+  applyChannelAccess(guildId: string, restricted: Map<string, Set<string>>): void {
+    for (const client of [...(this.guildRooms.get(guildId) ?? [])]) {
+      const reading = client.channel?.id;
+      if (reading && restricted.get(reading)?.has(client.userId) === false) {
+        this.unsubscribe(client);
+        sendTo(client, { type: 'unsubscribed', data: { channelId: reading } });
+      }
+      const voice = client.voice?.channelId;
+      if (voice && restricted.get(voice)?.has(client.userId) === false) {
+        this.leaveVoice(client, 'left');
+      }
+    }
+    for (const [channelId, room] of this.voiceRooms) {
+      const first = room.values().next().value;
+      if (first?.voice?.guildId !== guildId) continue;
+      const visibleTo = restricted.get(channelId);
+      if (visibleTo) this.voiceVisibleTo.set(channelId, visibleTo);
+      else this.voiceVisibleTo.delete(channelId);
+      this.broadcastVoiceState(guildId, channelId);
+    }
+  }
+
+  /** The channel is gone: readers and everyone in its call lose it. */
+  closeChannel(guildId: string, channelId: string): void {
+    this.applyChannelAccess(guildId, new Map([[channelId, new Set<string>()]]));
+    this.voiceVisibleTo.delete(channelId);
+    this.callAudience.delete(channelId);
+  }
+
   voiceStateForGuild(guildId: string): Record<string, VoicePeerDto[]> {
     const out: Record<string, VoicePeerDto[]> = {};
     for (const [channelId, room] of this.voiceRooms) {
@@ -218,8 +263,17 @@ export class Hub {
   joinVoice(
     client: Client,
     channel: { id: string; guildId: string | null },
-    /** `audience`: private call (who hears about it); `group`: it is a group chat. */
-    opts: { video?: boolean; audience?: string[]; group?: boolean } = {},
+    /**
+     * `audience`: private call (who hears about it); `group`: it is a group chat; `visibleTo`: a
+     * restricted server channel.
+     */
+    opts: {
+      video?: boolean;
+      screen?: boolean;
+      audience?: string[];
+      group?: boolean;
+      visibleTo?: string[];
+    } = {},
   ): VoiceJoinResult {
     if (client.voice) this.leaveVoice(client, 'left');
     for (const other of this.socketsByUser.get(client.userId) ?? []) {
@@ -240,9 +294,12 @@ export class Hub {
       peerId,
       muted: false,
       video: !!opts.video,
+      screen: !!opts.screen,
     };
     room.set(peerId, client);
     if (opts.audience) this.callAudience.set(channel.id, opts.audience);
+    if (opts.visibleTo) this.voiceVisibleTo.set(channel.id, new Set(opts.visibleTo));
+    else this.voiceVisibleTo.delete(channel.id);
 
     sendTo(client, {
       type: 'voice.joined',
@@ -311,13 +368,14 @@ export class Hub {
       );
   }
 
-  setVoiceVideo(client: Client, video: boolean): void {
+  setVoiceVideo(client: Client, video: boolean, screen = false): void {
     const voice = client.voice;
-    if (!voice || voice.video === video) return;
+    if (!voice || (voice.video === video && voice.screen === screen)) return;
     voice.video = video;
+    voice.screen = screen;
     const msg: WsServerMessage = {
       type: 'voice.peer-video',
-      data: { channelId: voice.channelId, peerId: voice.peerId, video },
+      data: { channelId: voice.channelId, peerId: voice.peerId, video, screen },
     };
     for (const peer of this.voiceRooms.get(voice.channelId)?.values() ?? []) {
       if (peer !== client) sendTo(peer, msg);
@@ -363,7 +421,9 @@ export class Hub {
       type: 'voice.state',
       data: { guildId, channelId, peers: this.voicePeers(channelId) },
     };
-    if (guildId) this.publishToGuild(guildId, msg);
+    const visibleTo = this.voiceVisibleTo.get(channelId);
+    if (guildId && visibleTo) this.publishToUsers(visibleTo, msg);
+    else if (guildId) this.publishToGuild(guildId, msg);
     else this.publishToUsers(audience, msg);
   }
 
@@ -415,6 +475,7 @@ function peerDto(client: Client): VoicePeerDto {
     avatarUrl: client.avatarUrl,
     muted: client.voice?.muted ?? false,
     video: client.voice?.video ?? false,
+    screen: client.voice?.screen ?? false,
   };
 }
 

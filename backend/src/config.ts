@@ -76,6 +76,14 @@ const envSchema = z.object({
   TURN_MONTHLY_LIMIT_GB: z.coerce.number().positive().default(900),
   // GIF search: official GIPHY API key (https://developers.giphy.com). Empty = no GIF button.
   GIPHY_API_KEY: z.string().default(''),
+  /** Local whisper container, e.g. http://whisper:8080. Empty: voice messages stay without text. */
+  WHISPER_URL: z.string().default(''),
+  /** Services shown by /dienste: "Name=https://…,Name=https://…". */
+  STATUS_TARGETS: z.string().default(''),
+  /** false: the server never fetches linked pages. */
+  LINK_PREVIEWS: z.enum(['true', 'false']).default('true'),
+  /** 32 bytes as base64: encrypts authenticator secrets. Without it 2FA cannot be set up. */
+  TWO_FACTOR_KEY: z.string().default(''),
   // Cap for everything posted (uploads + message text), in GB.
   STORAGE_LIMIT_GB: z.coerce.number().positive().default(40),
 });
@@ -118,6 +126,13 @@ export interface Config {
   mail: MailConfig;
   /** null = push disabled (no VAPID keys). */
   push: PushConfig | null;
+  statusTargets: string;
+  /** Local speech recognition for voice messages; null = off. */
+  whisperUrl: string | null;
+  /** The server fetches linked pages for previews. */
+  linkPreviews: { enabled: boolean; dir: string };
+  /** Encrypts authenticator secrets; null = two-factor sign-in cannot be set up. */
+  twoFactorKey: Buffer | null;
   /** GIPHY API key for the GIF picker; null = GIFs switched off. */
   giphyApiKey: string | null;
   storage: { root: string; limitBytes: number };
@@ -151,6 +166,13 @@ const list = (s: string) =>
     .filter(Boolean);
 
 /** Parses configuration from environment variables. Throws on invalid input. */
+function parseTwoFactorKey(raw: string): Buffer | null {
+  if (!raw.trim()) return null;
+  const key = Buffer.from(raw.trim(), 'base64');
+  if (key.length !== 32) throw new Error('Invalid configuration: TWO_FACTOR_KEY must be 32 bytes');
+  return key;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = envSchema.safeParse(env);
   if (!parsed.success) {
@@ -218,6 +240,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       monthlyLimitBytes: Math.round(e.TURN_MONTHLY_LIMIT_GB * 1e9),
     },
     giphyApiKey: e.GIPHY_API_KEY.trim() || null,
+    twoFactorKey: parseTwoFactorKey(e.TWO_FACTOR_KEY),
+    statusTargets: e.STATUS_TARGETS,
+    whisperUrl: e.WHISPER_URL.trim().replace(/\/$/, '') || null,
+    linkPreviews: { enabled: e.LINK_PREVIEWS === 'true', dir: resolve(e.UPLOAD_DIR, 'previews') },
     storage: { root: resolve(e.UPLOAD_DIR), limitBytes: Math.round(e.STORAGE_LIMIT_GB * 1e9) },
     files: { dir: resolve(e.UPLOAD_DIR, 'files') },
     avatars: { dir: resolve(e.UPLOAD_DIR, 'avatars') },

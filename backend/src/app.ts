@@ -17,7 +17,10 @@ import { authRoutes } from './routes/auth.routes.js';
 import { channelRoutes } from './routes/channel.routes.js';
 import { guildRoutes } from './routes/guild.routes.js';
 import { healthRoutes } from './routes/health.js';
+import { webhookRoutes } from './routes/webhook.routes.js';
 import { inviteRoutes } from './routes/invite.routes.js';
+import type { Fetcher } from './services/linkPreview.service.js';
+import type { Transcriber } from './lib/whisper.js';
 import { messageRoutes } from './routes/message.routes.js';
 import { pushRoutes } from './routes/push.routes.js';
 import { fileRoutes } from './routes/file.routes.js';
@@ -49,6 +52,10 @@ export interface BuildAppOptions {
   transcoder?: Transcoder;
   /** fetch for the GIPHY API (tests pass a fake). */
   giphyFetch?: typeof fetch;
+  /** Fetches linked pages (tests pass a fake). */
+  linkFetcher?: Fetcher;
+  /** Speech recognition (tests pass a fake). */
+  transcriber?: Transcriber;
   /** Hook to register extra routes before the app is ready (used by tests). */
   extraRoutes?: (app: FastifyInstance) => void | Promise<void>;
 }
@@ -98,10 +105,20 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         : null;
   const services = createServices(db, hub, config, mailer, app.log, pushSender, {
     fetchFn: opts.giphyFetch,
+    linkFetcher: opts.linkFetcher,
+    transcriber: opts.transcriber,
   });
   app.decorate('hub', hub);
   app.decorate('services', services);
   app.decorate('mailer', mailer);
+  // Messages for later, reminders, event reminders. Tests call tick themselves.
+  if (config.nodeEnv !== 'test') {
+    const timer = setInterval(() => {
+      services.schedule.tick().catch((err: unknown) => app.log.error({ err }, 'schedule tick'));
+    }, 15_000);
+    timer.unref();
+    app.addHook('onClose', async () => clearInterval(timer));
+  }
   app.addHook('onClose', async () => {
     mailer.close();
     await services.push.idle();
@@ -141,6 +158,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     async (api) => {
       await api.register(healthRoutes, { db });
       await api.register(authRoutes, { services, config, hub });
+      await api.register(webhookRoutes, { services, config });
       // Local development / E2E only: read captured mails instead of a real inbox. Never
       // registered in production, where the in-memory transport is rejected anyway.
       if (config.nodeEnv !== 'production' && mailer instanceof MemoryMailer) {

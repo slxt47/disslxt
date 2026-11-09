@@ -1,0 +1,3 @@
+ALTER TABLE "messages" ADD COLUMN "thread_root_id" bigint;--> statement-breakpoint
+ALTER TABLE "messages" ADD CONSTRAINT "messages_thread_root_id_messages_id_fk" FOREIGN KEY ("thread_root_id") REFERENCES "public"."messages"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "messages_thread_root_idx" ON "messages" USING btree ("thread_root_id") WHERE "messages"."thread_root_id" is not null;

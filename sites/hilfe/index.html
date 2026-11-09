@@ -8,23 +8,29 @@
       name="description"
       content="Die Hilfe zu disslxt: Konto anlegen, Server und Kanäle, Freunde und Gruppen, Anrufe, Bilder und GIFs, Status und Mitteilungen – Schritt für Schritt erklärt."
     />
-    <meta name="theme-color" content="#6d4aff" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b0e2a" />
+    <script src="/_/modus.js?v=4"></script>
     <link rel="icon" href="/_/hilfe-icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/_/hilfe-favicon-32.png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/_/hilfe-apple-touch-icon.png" />
-    <link rel="stylesheet" href="/_/site.css" />
-    <link rel="stylesheet" href="/hilfe.css" />
+    <link rel="stylesheet" href="/_/slxt.css?v=5" />
+    <link rel="stylesheet" href="/hilfe.css?v=5" />
+    <script src="/_/himmel.js?v=1" defer></script>
     <script src="/_/site.js" defer></script>
   </head>
   <body>
     <a class="skip" href="#themen">Zu den Themen springen</a>
     <header class="top">
       <div class="wrap">
-        <a class="brand" href="/"><img src="/_/hilfe-icon.svg" alt="" />disslxt <small>Hilfe</small></a>
+        <a class="brand" href="/"
+          ><img src="/_/hilfe-icon.svg" alt="" />disslxt <small>Hilfe</small></a
+        >
         <nav aria-label="Hauptmenü">
           <a class="hide-sm" href="https://disslxt-info.slxt.org/">Über disslxt</a>
         </nav>
         <a class="btn primary small" href="https://disslxt.slxt.org/login">disslxt öffnen</a>
+        <button type="button" class="modus-knopf" data-modus-schalter></button>
       </div>
     </header>
 
@@ -77,15 +83,35 @@
           <li><a href="#server-erstellen">Server erstellen</a></li>
           <li><a href="#einladen">Leute einladen</a></li>
           <li><a href="#kanaele">Kanäle</a></li>
+          <li><a href="#kanaele-verwalten">Kanäle verwalten</a></li>
+          <li><a href="#rollen">Rollen &amp; Rechte</a></li>
+          <li><a href="#moderation">Entfernen &amp; Sperren</a></li>
           <li><a href="#server-einstellungen">Name, Bild &amp; Tag</a></li>
           <li><a href="#verlassen">Verlassen &amp; löschen</a></li>
         </ul>
         <h2>Schreiben</h2>
         <ul>
           <li><a href="#nachrichten">Nachrichten</a></li>
+          <li><a href="#formatieren">Text formatieren</a></li>
+          <li><a href="#suche">Suche</a></li>
+          <li><a href="#link-vorschau">Link-Vorschau</a></li>
+          <li><a href="#reaktionen">Reaktionen &amp; Antworten</a></li>
+          <li><a href="#threads">Threads</a></li>
+          <li><a href="#umfragen">Umfragen</a></li>
+          <li><a href="#termine">Termine</a></li>
+          <li><a href="#planen">Später senden &amp; Erinnern</a></li>
+          <li><a href="#springen">Schnell springen</a></li>
+          <li><a href="#webhooks">Bots &amp; Webhooks</a></li>
+          <li><a href="#dienste">Dienste prüfen</a></li>
+          <li><a href="#erwaehnen">Erwähnen &amp; Emoji</a></li>
+          <li><a href="#befehle">Befehle</a></li>
+          <li><a href="#ungelesen">Ungelesen &amp; Entwürfe</a></li>
+          <li><a href="#anpinnen">Anpinnen</a></li>
+          <li><a href="#tastenkuerzel">Tastenkürzel</a></li>
           <li><a href="#bilder">Bilder &amp; Dateien</a></li>
           <li><a href="#gifs">GIFs</a></li>
           <li><a href="#sprachnachrichten">Sprachnachrichten</a></li>
+          <li><a href="#abschrift">Abschrift</a></li>
           <li><a href="#diktieren">Diktieren &amp; Vorlesen</a></li>
         </ul>
         <h2>Freunde</h2>
@@ -98,6 +124,7 @@
         <ul>
           <li><a href="#sprachkanaele">Sprachkanäle</a></li>
           <li><a href="#anrufe">Anrufe &amp; Video</a></li>
+          <li><a href="#bildschirm">Bildschirm teilen</a></li>
         </ul>
         <h2>Du</h2>
         <ul>
@@ -109,6 +136,9 @@
         </ul>
         <h2>Konto &amp; Sicherheit</h2>
         <ul>
+          <li><a href="#passkeys">Passkeys</a></li>
+          <li><a href="#zwei-faktor">Zwei-Faktor-Anmeldung</a></li>
+          <li><a href="#geraete">Angemeldete Geräte</a></li>
           <li><a href="#passwort">Passwort vergessen</a></li>
           <li><a href="#grenzen">Grenzen</a></li>
           <li><a href="#daten">Deine Daten</a></li>
@@ -182,6 +212,26 @@
               </li>
             </ul>
             <p>Auf dem Handy öffnest du Server und Kanäle mit dem Menü-Symbol (☰) oben links.</p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/ueberblick-dunkel.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Der disslxt-Bildschirm: links Server und Kanäle, in der Mitte das Gespräch mit Umfrage und Termin, rechts die Mitglieder"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/ueberblick-hell.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Der disslxt-Bildschirm: links Server und Kanäle, in der Mitte das Gespräch mit Umfrage und Termin, rechts die Mitglieder"
+              />
+            </figure>
           </article>
         </section>
 
@@ -221,6 +271,110 @@
             <p class="tip">
               Gib den Link nur Leuten, die du dabeihaben willst – jeder mit dem Link kann beitreten.
             </p>
+            <p>
+              Als Besitzer:in stellst du unter <span class="ui">Server-Einstellungen</span> ein, wie
+              lange und wie oft der Link gilt. <span class="ui">Neuen Link erzeugen</span> macht den
+              alten sofort ungültig. Wer neu dazukommt, wird im ersten Kanal begrüßt.
+            </p>
+          </article>
+          <article class="topic" id="rollen">
+            <h3><span class="ico" aria-hidden="true">🎭</span>Rollen &amp; Rechte</h3>
+            <p>
+              Tippe auf den <strong>Servernamen</strong> und dann auf
+              <span class="ui">Rollen &amp; Mitglieder</span>. Rollen legst nur du als Besitzer:in
+              an und vergibst sie unter <span class="ui">Mitglieder</span>.
+            </p>
+            <ul>
+              <li>
+                Jede Rolle hat einen Namen, eine Farbe und Rechte: Kanäle verwalten, Nachrichten
+                moderieren, Einladungslink ändern, Mitglieder entfernen, Mitglieder sperren.
+              </li>
+              <li>
+                Die Reihenfolge zählt: Wer moderiert, kommt nur an Mitglieder unter der eigenen
+                Rolle heran.
+              </li>
+              <li>
+                Unter <span class="ui">Kanäle</span> machst du einen Kanal zum geschützten Kanal:
+                Nur gewählte Rollen und du sehen ihn dann, zu erkennen am Schloss.
+              </li>
+            </ul>
+            <p class="tip">Wer die Rolle verliert, ist sofort draußen, auch mitten im Anruf.</p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/rollen-dunkel.webp?v=2"
+                width="464"
+                height="655"
+                loading="lazy"
+                decoding="async"
+                alt="Die Server-Verwaltung, Reiter Rollen, mit Name, Farbe und Rechten einer neuen Rolle"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/rollen-hell.webp?v=2"
+                width="464"
+                height="655"
+                loading="lazy"
+                decoding="async"
+                alt="Die Server-Verwaltung, Reiter Rollen, mit Name, Farbe und Rechten einer neuen Rolle"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="moderation">
+            <h3><span class="ico" aria-hidden="true">🛑</span>Entfernen &amp; Sperren</h3>
+            <ul>
+              <li>
+                <strong>Entfernen:</strong> Die Person ist vom Server, kann aber mit einem
+                Einladungslink zurückkommen.
+              </li>
+              <li>
+                <strong>Sperren:</strong> Sie kommt auch mit Link nicht zurück, bis du sie im Reiter
+                <span class="ui">Sperren</span> wieder freigibst.
+              </li>
+              <li>
+                Nachrichten anderer löschen darf, wer das Recht dazu hat. Ändern kann fremde
+                Nachrichten niemand.
+              </li>
+            </ul>
+          </article>
+          <article class="topic" id="kanaele-verwalten">
+            <h3><span class="ico" aria-hidden="true">🗂️</span>Kanäle verwalten</h3>
+            <p>
+              Wer das Recht dazu hat, sieht am Kanal ein <span class="ui">Zahnrad</span>. Dort
+              änderst du Name, Beschreibung und Kategorie oder löschst den Kanal. Löschen nimmt alle
+              Nachrichten und Dateien mit und lässt sich nicht rückgängig machen, deshalb tippst du
+              den Namen zur Bestätigung ein.
+            </p>
+            <ul>
+              <li>
+                Sortieren und Kategorien findest du im Server-Menü unter
+                <span class="ui">Rollen &amp; Mitglieder</span> im Reiter
+                <span class="ui">Kanäle</span>: ziehen, am Handy die Pfeile.
+              </li>
+              <li>Der oberste Textkanal ist der Einstieg, neue Mitglieder werden dort begrüßt.</li>
+              <li>Ein offener Textkanal bleibt immer bestehen.</li>
+              <li>Tippe auf eine Kategorie, um sie zuzuklappen. Das gilt pro Gerät.</li>
+            </ul>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/kanaele-dunkel.webp?v=2"
+                width="464"
+                height="818"
+                loading="lazy"
+                decoding="async"
+                alt="Die Einstellungen eines Kanals: Name, Beschreibung, Kategorie, Webhooks und Löschen"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/kanaele-hell.webp?v=2"
+                width="464"
+                height="818"
+                loading="lazy"
+                decoding="async"
+                alt="Die Einstellungen eines Kanals: Name, Beschreibung, Kategorie, Webhooks und Löschen"
+              />
+            </figure>
           </article>
           <article class="topic" id="kanaele">
             <h3><span class="ico" aria-hidden="true">#️⃣</span>Kanäle</h3>
@@ -274,6 +428,395 @@
               <li>Beim Bearbeiten speichert <kbd>Enter</kbd>, <kbd>Esc</kbd> bricht ab.</li>
             </ul>
           </article>
+          <article class="topic" id="formatieren">
+            <h3><span class="ico" aria-hidden="true">✍️</span>Text formatieren</h3>
+            <ul>
+              <li><code>**fett**</code> wird <strong>fett</strong>.</li>
+              <li><code>*kursiv*</code> oder <code>_kursiv_</code> wird <em>kursiv</em>.</li>
+              <li><code>~~durchgestrichen~~</code> wird <s>durchgestrichen</s>.</li>
+              <li>
+                Einfache Backticks zeigen <code>Code</code>, drei Backticks vor und nach dem Text
+                einen Codeblock.
+              </li>
+              <li>Links mit <code>https://</code> werden von selbst anklickbar.</li>
+            </ul>
+            <p class="tip">Ein <code>\</code> davor zeigt das Zeichen selbst: <code>\*</code></p>
+          </article>
+          <article class="topic" id="suche">
+            <h3><span class="ico" aria-hidden="true">🔍</span>Suche</h3>
+            <p>
+              Tippe oben im Chat auf die <span class="ui">Lupe</span> oder drücke <kbd>Strg</kbd> +
+              <kbd>Shift</kbd> + <kbd>F</kbd>. Der Wortanfang reicht. Du kannst nach Ort, Person und
+              Datum filtern, ein Tipp auf den Treffer springt hin.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/suche-dunkel.webp?v=2"
+                width="464"
+                height="375"
+                loading="lazy"
+                decoding="async"
+                alt="Die Suche mit dem Begriff „Hütte“, Filtern und einem Treffer"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/suche-hell.webp?v=2"
+                width="464"
+                height="375"
+                loading="lazy"
+                decoding="async"
+                alt="Die Suche mit dem Begriff „Hütte“, Filtern und einem Treffer"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="link-vorschau">
+            <h3><span class="ico" aria-hidden="true">🔗</span>Link-Vorschau</h3>
+            <p>
+              Unter Nachrichten mit Link erscheint kurz danach Titel, Text und Bild der Seite. Mit
+              dem
+              <span class="ui">X</span> entfernst du sie von deiner Nachricht. Soll gar keine
+              erscheinen, setze den Link in spitze Klammern: <code>&lt;https://…&gt;</code>
+            </p>
+          </article>
+          <article class="topic" id="reaktionen">
+            <h3><span class="ico" aria-hidden="true">😀</span>Reaktionen &amp; Antworten</h3>
+            <ul>
+              <li>
+                Fahr mit der Maus über eine Nachricht (am Handy: antippen) und tippe auf das
+                <span class="ui">Smiley</span>. Sechs Emoji stehen oben, alle anderen findest du
+                über die Suche.
+              </li>
+              <li>
+                Auf eine vorhandene Reaktion tippen macht mit, noch einmal tippen nimmt deine wieder
+                weg.
+              </li>
+              <li>
+                Mit <span class="ui">Antworten</span> zitierst du die Nachricht. Über dem
+                Eingabefeld steht dann, worauf du antwortest, <kbd>Esc</kbd> bricht ab. Ein Tipp auf
+                das Zitat springt zur Originalnachricht.
+              </li>
+              <li>Wer eine Antwort bekommt, wird benachrichtigt wie bei einer Erwähnung.</li>
+            </ul>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/reaktionen-dunkel.webp?v=2"
+                width="600"
+                height="271"
+                loading="lazy"
+                decoding="async"
+                alt="Eine Nachricht mit der Reaktion 🎉 und darunter eine Antwort, die die Nachricht zitiert"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/reaktionen-hell.webp?v=2"
+                width="600"
+                height="271"
+                loading="lazy"
+                decoding="async"
+                alt="Eine Nachricht mit der Reaktion 🎉 und darunter eine Antwort, die die Nachricht zitiert"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="threads">
+            <h3><span class="ico" aria-hidden="true">🧵</span>Threads</h3>
+            <p>
+              Tippe an einer Nachricht auf <span class="ui">Thread</span>. Die Antworten laufen
+              rechts daneben und stören den Kanal nicht. Unter der Nachricht steht, wie viele es
+              sind.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/threads-dunkel.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Rechts neben dem Kanal ist ein Thread geöffnet: die Frage „Wer fährt mit dem Auto?“ und eine Antwort"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/threads-hell.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Rechts neben dem Kanal ist ein Thread geöffnet: die Frage „Wer fährt mit dem Auto?“ und eine Antwort"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="umfragen">
+            <h3><span class="ico" aria-hidden="true">📊</span>Umfragen</h3>
+            <p>
+              Schreib <code>/umfrage Pizza? | Ja | Nein</code>. Tippe auf eine Antwort, um
+              abzustimmen; noch ein Tipp nimmt die Stimme zurück.
+            </p>
+            <ul>
+              <li>2 bis 10 Antworten.</li>
+              <li>Alle sehen, wer wofür gestimmt hat.</li>
+              <li>Eine Umfrage lässt sich nicht bearbeiten, nur löschen.</li>
+            </ul>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/umfragen-dunkel.webp?v=2"
+                width="504"
+                height="200"
+                loading="lazy"
+                decoding="async"
+                alt="Eine Umfrage „Wann fahren wir los?“ mit den Antworten Freitag und Samstag und dem Stand der Stimmen"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/umfragen-hell.webp?v=2"
+                width="504"
+                height="200"
+                loading="lazy"
+                decoding="async"
+                alt="Eine Umfrage „Wann fahren wir los?“ mit den Antworten Freitag und Samstag und dem Stand der Stimmen"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="termine">
+            <h3><span class="ico" aria-hidden="true">📅</span>Termine</h3>
+            <p>
+              Schreib <code>/termin 8.11. 20:00 | Spieleabend</code>. Alle im Kanal antworten mit
+              <span class="ui">Bin dabei</span>, <span class="ui">Vielleicht</span> oder
+              <span class="ui">Kann nicht</span>. Dieselbe Antwort noch einmal nimmt sie zurück.
+            </p>
+            <p>15 Minuten vorher bekommen alle mit Zusage oder Vielleicht eine Mitteilung.</p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/termine-dunkel.webp?v=2"
+                width="504"
+                height="145"
+                loading="lazy"
+                decoding="async"
+                alt="Ein Termin „Spieleabend“ mit Datum und den Knöpfen Bin dabei, Vielleicht und Kann nicht"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/termine-hell.webp?v=2"
+                width="504"
+                height="145"
+                loading="lazy"
+                decoding="async"
+                alt="Ein Termin „Spieleabend“ mit Datum und den Knöpfen Bin dabei, Vielleicht und Kann nicht"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="planen">
+            <h3><span class="ico" aria-hidden="true">⏰</span>Später senden &amp; Erinnern</h3>
+            <ul>
+              <li><code>/später 30m Text</code> sendet die Nachricht später.</li>
+              <li><code>/erinnern 1h Text</code> erinnert nur dich.</li>
+              <li>
+                Zeiten: <code>30m</code>, <code>2h</code>, <code>3d</code>, <code>20:00</code>,
+                <code>8.11.</code> oder <code>8.11. 20:00</code>.
+              </li>
+              <li>
+                Unter <span class="ui">Einstellungen → Geplant</span> siehst du alles und kannst es
+                abbrechen.
+              </li>
+            </ul>
+            <p class="tip">
+              Höchstens 50 geplante Dinge, bis zu ein Jahr im Voraus. Darfst du den Kanal bis dahin
+              nicht mehr sehen, wird nichts gesendet und du bekommst eine Mitteilung.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/planen-dunkel.webp?v=2"
+                width="406"
+                height="150"
+                loading="lazy"
+                decoding="async"
+                alt="Einstellungen, Abschnitt Geplant: eine Nachricht mit Sendezeit und dem Knopf Abbrechen"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/planen-hell.webp?v=2"
+                width="406"
+                height="150"
+                loading="lazy"
+                decoding="async"
+                alt="Einstellungen, Abschnitt Geplant: eine Nachricht mit Sendezeit und dem Knopf Abbrechen"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="springen">
+            <h3><span class="ico" aria-hidden="true">🧭</span>Schnell springen</h3>
+            <p>
+              Drücke <kbd>Strg</kbd> + <kbd>K</kbd>, tippe einen Namen und bestätige mit
+              <kbd>Enter</kbd>. So landest du direkt im Kanal oder in der Unterhaltung. Ohne Eingabe
+              steht Ungelesenes oben.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/springen-dunkel.webp?v=2"
+                width="464"
+                height="274"
+                loading="lazy"
+                decoding="async"
+                alt="Das Fenster Schnell springen über dem Chat, mit Suchfeld und Liste der Kanäle"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/springen-hell.webp?v=2"
+                width="464"
+                height="274"
+                loading="lazy"
+                decoding="async"
+                alt="Das Fenster Schnell springen über dem Chat, mit Suchfeld und Liste der Kanäle"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="webhooks">
+            <h3><span class="ico" aria-hidden="true">🤖</span>Bots und Webhooks</h3>
+            <p>
+              Programme können in einen Textkanal schreiben. Bearbeite den Kanal und lege unter
+              <span class="ui">Webhooks</span> einen an. Adresse und Schlüssel siehst du nur einmal.
+              Dafür brauchst du das Recht, Kanäle zu verwalten. Bot-Nachrichten tragen die Marke
+              BOT.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/webhooks-dunkel.webp?v=2"
+                width="600"
+                height="80"
+                loading="lazy"
+                decoding="async"
+                alt="Eine Nachricht des Bots „Wetter“ mit der Marke BOT"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/webhooks-hell.webp?v=2"
+                width="600"
+                height="80"
+                loading="lazy"
+                decoding="async"
+                alt="Eine Nachricht des Bots „Wetter“ mit der Marke BOT"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="dienste">
+            <h3><span class="ico" aria-hidden="true">🟢</span>Dienste prüfen (Admins)</h3>
+            <p>
+              Admins schreiben <code>/dienste</code> und sehen, welche eingetragenen Dienste gerade
+              antworten. Die Liste aktualisiert sich alle 30 Sekunden.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/dienste-dunkel.webp?v=2"
+                width="464"
+                height="354"
+                loading="lazy"
+                decoding="async"
+                alt="Die Liste der Dienste: zwei antworten, einer nicht"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/dienste-hell.webp?v=2"
+                width="464"
+                height="354"
+                loading="lazy"
+                decoding="async"
+                alt="Die Liste der Dienste: zwei antworten, einer nicht"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="erwaehnen">
+            <h3><span class="ico" aria-hidden="true">📣</span>Erwähnen &amp; Emoji</h3>
+            <ul>
+              <li>
+                Tippe <kbd>@</kbd> und den Anfang eines Namens, dann mit <kbd>↑</kbd>/<kbd>↓</kbd>
+                wählen und <kbd>Enter</kbd> oder <kbd>Tab</kbd> drücken. Wer erwähnt wird, bekommt
+                eine Mitteilung, auch wenn der Server stummgeschaltet ist.
+              </li>
+              <li>
+                Das <span class="ui">Smiley</span> im Eingabefeld öffnet die Emoji-Auswahl mit
+                Suche, auch auf Deutsch („katze“).
+              </li>
+              <li>
+                Kürzel gehen auch: <code>:thumbsup:</code> wird 👍. Schon nach zwei Buchstaben wie
+                <code>:th</code> erscheinen Vorschläge.
+              </li>
+            </ul>
+          </article>
+          <article class="topic" id="befehle">
+            <h3><span class="ico" aria-hidden="true">⌨️</span>Befehle</h3>
+            <p>Schreib <kbd>/</kbd> an den Anfang, die Liste erscheint von selbst.</p>
+            <ul>
+              <li><code>/shrug</code> hängt ¯\_(ツ)_/¯ an deine Nachricht.</li>
+              <li>
+                <code>/tableflip</code> und <code>/unflip</code> werfen den Tisch um und stellen ihn
+                wieder hin.
+              </li>
+              <li><code>/me winkt</code> schreibt den Text kursiv, wie eine Handlung.</li>
+              <li><code>/würfeln</code> würfelt, <code>/würfeln 20</code> mit 20 Seiten.</li>
+              <li><code>/münze</code> wirft eine Münze.</li>
+              <li><code>/dienste</code> zeigt Admins, welche Dienste laufen.</li>
+              <li><code>/umfrage Pizza? | Ja | Nein</code> startet eine Umfrage.</li>
+              <li>
+                <code>/termin 8.11. 20:00 | Spieleabend</code> legt einen Termin mit Zusagen an.
+              </li>
+              <li>
+                <code>/später 30m Text</code> sendet später, <code>/erinnern 1h Text</code> erinnert
+                nur dich. Zeiten: <code>30m</code>, <code>2h</code>, <code>3d</code>,
+                <code>20:00</code>, <code>8.11. 20:00</code>. Geplantes findest du in den
+                Einstellungen.
+              </li>
+            </ul>
+            <p class="tip">
+              Willst du eine Zeile mit <code>/</code> beginnen, schreib <code>//</code>.
+            </p>
+          </article>
+          <article class="topic" id="ungelesen">
+            <h3><span class="ico" aria-hidden="true">📬</span>Ungelesen &amp; Entwürfe</h3>
+            <ul>
+              <li>
+                Kanäle mit neuen Nachrichten sind fett und zeigen die Anzahl. Eine bunte Zahl heißt:
+                Du wurdest erwähnt oder hast eine Antwort. Links am Server zeigt ein Strich, dass
+                dort etwas Neues ist.
+              </li>
+              <li>
+                Der Stand gilt auf allen Geräten: Was du am Handy liest, ist auch am Computer
+                gelesen.
+              </li>
+              <li>
+                Eine Linie <span class="ui">Neue Nachrichten</span> zeigt, wo du aufgehört hast.
+              </li>
+              <li>
+                Text, den du noch nicht gesendet hast, bleibt pro Kanal stehen, auch wenn du
+                wechselst. Beim Abmelden wird er gelöscht.
+              </li>
+            </ul>
+          </article>
+          <article class="topic" id="anpinnen">
+            <h3><span class="ico" aria-hidden="true">📌</span>Anpinnen</h3>
+            <p>
+              Wichtiges bleibt mit dem <span class="ui">Pin</span> griffbereit: Das Pin-Symbol oben
+              im Chat zeigt alle angepinnten Nachrichten, ein Tipp springt hin. Auf einem Server
+              pinnt, wer Nachrichten moderieren darf, in privaten Chats und Gruppen alle. Bis zu 50
+              pro Kanal.
+            </p>
+          </article>
+          <article class="topic" id="tastenkuerzel">
+            <h3><span class="ico" aria-hidden="true">🎹</span>Tastenkürzel</h3>
+            <ul>
+              <li><kbd>Strg</kbd> + <kbd>K</kbd>: per Name zu Kanal oder Unterhaltung springen.</li>
+              <li><kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd>: vorheriger oder nächster Kanal.</li>
+              <li><kbd>↑</kbd> im leeren Eingabefeld: letzte eigene Nachricht bearbeiten.</li>
+              <li><kbd>Esc</kbd>: Antwort abbrechen, Vorschläge schließen.</li>
+              <li><kbd>Shift</kbd> + <kbd>Enter</kbd>: neue Zeile.</li>
+            </ul>
+          </article>
           <article class="topic" id="bilder">
             <h3><span class="ico" aria-hidden="true">🖼️</span>Bilder &amp; Dateien</h3>
             <ol>
@@ -314,6 +857,15 @@
               <span class="ui">Senden</span> – oder verwirf die Aufnahme. Eine Sprachnachricht darf
               bis zu 2 Minuten lang sein.
             </p>
+          </article>
+          <article class="topic" id="abschrift">
+            <h3><span class="ico" aria-hidden="true">📝</span>Abschrift von Sprachnachrichten</h3>
+            <p>
+              Unter neuen Sprachnachrichten erscheint kurz danach der Text. So lässt sich auch
+              lesen, was du gerade nicht anhören kannst, und die Suche findet es. Das läuft komplett
+              auf unserem Server, die Aufnahme geht an keinen fremden Dienst.
+            </p>
+            <p class="tip">Die Erkennung ist nicht perfekt. Im Zweifel gilt die Aufnahme.</p>
           </article>
           <article class="topic" id="diktieren">
             <h3><span class="ico" aria-hidden="true">🗣️</span>Diktieren &amp; Vorlesen</h3>
@@ -377,6 +929,70 @@
               Stummschalten und <span class="ui">Auflegen</span>. Ein- und Ausgabegerät wählst du in
               den Einstellungen unter <span class="ui">Sprachkanäle</span>.
             </p>
+            <ul>
+              <li><strong>Wer spricht</strong> leuchtet grün, im Kanal und in der Seitenleiste.</li>
+              <li>
+                <strong>Push-to-Talk:</strong> In den Einstellungen einschalten und eine Taste
+                wählen (Standard: <kbd>V</kbd>). Das Mikrofon ist nur offen, solange du sie hältst,
+                am Handy den Mikrofon-Knopf in der Leiste.
+              </li>
+              <li>
+                <strong>Rauschunterdrückung</strong> ist an und lässt sich dort abschalten, zum
+                Beispiel für Musik. Das gilt ab dem nächsten Beitritt.
+              </li>
+            </ul>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/sprachkanal-dunkel.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Ein Sprachkanal mit zwei Teilnehmern als Kacheln und den Knöpfen für Mikrofon, Bildschirm und Verlassen"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/sprachkanal-hell.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Ein Sprachkanal mit zwei Teilnehmern als Kacheln und den Knöpfen für Mikrofon, Bildschirm und Verlassen"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="bildschirm">
+            <h3><span class="ico" aria-hidden="true">🖥️</span>Bildschirm teilen</h3>
+            <p>
+              Im Sprachkanal oder Anruf tippst du am Computer auf
+              <span class="ui">Bildschirm teilen</span> und wählst Bildschirm, Fenster oder Tab. Die
+              anderen sehen ihn groß, mit <span class="ui">Vollbild</span>. Solange du teilst,
+              ersetzt der Bildschirm deine Kamera.
+            </p>
+            <p class="tip">
+              Handy-Browser können das nicht, zuschauen geht aber. Ton wird nicht geteilt.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/bildschirm-dunkel.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Ein Sprachkanal, in dem der eigene Bildschirm geteilt wird"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/bildschirm-hell.webp?v=2"
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+                alt="Ein Sprachkanal, in dem der eigene Bildschirm geteilt wird"
+              />
+            </figure>
           </article>
           <article class="topic" id="anrufe">
             <h3><span class="ico" aria-hidden="true">📞</span>Anrufe &amp; Video</h3>
@@ -443,10 +1059,32 @@
           <article class="topic" id="darstellung">
             <h3><span class="ico" aria-hidden="true">🎨</span>Darstellung</h3>
             <p>
-              In den Einstellungen unter <span class="ui">Darstellung</span>: hell, dunkel oder
-              <span class="ui">Systemstandard</span>, dazu fertige Farbthemes – oder unter
-              <span class="ui">Eigenes Theme</span> deine eigenen Farben.
+              disslxt startet dunkel. Sonne oder Mond unten links neben den Einstellungen wechselt
+              den Modus. Unter <span class="ui">Darstellung</span> findest du fertige Farbthemes
+              oder unter <span class="ui">Eigenes Theme</span> deine eigenen Farben. Unter
+              <span class="ui">Chat</span> stellst du die kompakte Ansicht und die Schriftgröße ein.
+              Das gilt pro Gerät.
             </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/darstellung-dunkel.webp?v=2"
+                width="406"
+                height="727"
+                loading="lazy"
+                decoding="async"
+                alt="Einstellungen, Abschnitt Darstellung: Hell oder dunkel, Themes, Schriftgröße und Dichte"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/darstellung-hell.webp?v=2"
+                width="406"
+                height="727"
+                loading="lazy"
+                decoding="async"
+                alt="Einstellungen, Abschnitt Darstellung: Hell oder dunkel, Themes, Schriftgröße und Dichte"
+              />
+            </figure>
           </article>
           <article class="topic" id="mitteilungen">
             <h3><span class="ico" aria-hidden="true">🔔</span>Mitteilungen</h3>
@@ -533,6 +1171,68 @@
               Chat nötig ist. Was genau, wie lange und welche Rechte du hast, steht in der
               <a href="https://disslxt-info.slxt.org/datenschutz.html">Datenschutzerklärung</a>.
             </p>
+            <p>
+              Unter <span class="ui">Sicherheit</span> lädst du mit
+              <span class="ui">Daten herunterladen</span> alles als Datei herunter: Konto, Server,
+              Freunde, Nachrichten und Reaktionen. Angehängte Dateien stehen dort mit Namen drin.
+            </p>
+          </article>
+          <article class="topic" id="passkeys">
+            <h3><span class="ico" aria-hidden="true">🔑</span>Passkeys</h3>
+            <p>
+              Melde dich mit Fingerabdruck, Gesicht oder Geräte-PIN an, ohne Passwort und Code. Lege
+              unter <span class="ui">Einstellungen → Sicherheit</span> einen Passkey an und tippe
+              beim Anmelden auf <span class="ui">Mit Passkey anmelden</span>. Dein Passwort bleibt
+              gültig.
+            </p>
+            <figure class="bild">
+              <img
+                class="nur-dunkel"
+                src="/bilder/sicherheit-dunkel.webp?v=2"
+                width="406"
+                height="716"
+                loading="lazy"
+                decoding="async"
+                alt="Einstellungen, Abschnitt Sicherheit: Zwei-Faktor-Anmeldung, Passkeys, angemeldete Geräte und Daten herunterladen"
+              />
+              <img
+                class="nur-hell"
+                src="/bilder/sicherheit-hell.webp?v=2"
+                width="406"
+                height="716"
+                loading="lazy"
+                decoding="async"
+                alt="Einstellungen, Abschnitt Sicherheit: Zwei-Faktor-Anmeldung, Passkeys, angemeldete Geräte und Daten herunterladen"
+              />
+            </figure>
+          </article>
+          <article class="topic" id="zwei-faktor">
+            <h3><span class="ico" aria-hidden="true">🔐</span>Zwei-Faktor-Anmeldung</h3>
+            <ol>
+              <li>
+                Öffne die Einstellungen und tippe unter <span class="ui">Sicherheit</span> auf
+                <span class="ui">Einrichten</span>.
+              </li>
+              <li>Gib dein Passwort ein und scanne den QR-Code mit einer Authenticator-App.</li>
+              <li>Gib den Code aus der App ein.</li>
+              <li>Sichere die 10 <strong>Ersatzcodes</strong>. Du siehst sie nur einmal.</li>
+            </ol>
+            <p>
+              Ab jetzt fragt die Anmeldung nach dem Passwort auch nach einem Code. Auch nach
+              „Passwort vergessen“ brauchst du ihn.
+            </p>
+            <p class="tip">
+              Handy weg? Melde dich mit einem Ersatzcode an, jeder gilt einmal. Danach Zwei-Faktor
+              neu einrichten.
+            </p>
+          </article>
+          <article class="topic" id="geraete">
+            <h3><span class="ico" aria-hidden="true">💻</span>Angemeldete Geräte</h3>
+            <p>
+              Unter <span class="ui">Sicherheit</span> siehst du, wo du angemeldet bist. Ein fremdes
+              Gerät meldest du einzeln ab, oder alle anderen mit
+              <span class="ui">Überall sonst abmelden</span>. Das wirkt sofort.
+            </p>
           </article>
           <article class="topic" id="konto-loeschen">
             <h3><span class="ico" aria-hidden="true">🗑️</span>Konto löschen</h3>
@@ -604,6 +1304,7 @@
           <a href="https://disslxt-info.slxt.org/">Über disslxt</a>
           <a href="https://disslxt-info.slxt.org/impressum.html">Impressum</a>
           <a href="https://disslxt-info.slxt.org/datenschutz.html">Datenschutz</a>
+          <a href="https://disslxt-info.slxt.org/nutzungsbedingungen.html">Nutzungsbedingungen</a>
         </nav>
       </div>
     </footer>

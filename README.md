@@ -9,6 +9,8 @@ Erfüllte Erfolgskriterien (jeweils per Playwright-E2E-Test abgesichert):
 2. Ein neuer Nutzer tritt über einen Invite-Link bei (`e2e/tests/invite-join.spec.ts`).
 3. Der Verlauf bleibt nach einem Reload erhalten (`e2e/tests/history-reload.spec.ts`).
 
+Jede Funktion hat eine eigene Seite: [docs/funktionen](docs/funktionen/README.md).
+
 ## Aufbau
 
 pnpm-Monorepo:
@@ -354,7 +356,7 @@ Verlauf lesbar). Neue Nachrichten zählen als ungelesen (Zahl am „d“) und ko
 **Passwort vergessen** (Link auf der Anmeldeseite): Die Adresse eingeben; gibt es ein bestätigtes Konto,
 kommt ein Link (30 Minuten gültig, nur einmal nutzbar – die Antwort ist in jedem Fall gleich, damit
 niemand ausprobieren kann, welche Adressen es gibt). Das neue Passwort muss die Passwort-Regeln erfüllen;
-danach sind **alle anderen Geräte abgemeldet** und dieser Browser angemeldet. Das Token steht nur im
+danach sind **alle anderen Geräte abgemeldet** und dieser Browser angemeldet (mit Zwei-Faktor folgt stattdessen die normale Anmeldung). Das Token steht nur im
 `#`-Teil der URL (nie in Logs) und verschwindet sofort aus der Adresszeile.
 
 **Status**: Emoji + kurzer Text (höchstens 80 Zeichen), sichtbar unter dem Namen in Mitgliederliste,
@@ -438,6 +440,107 @@ Zahlenfolgen); enthält weder Benutzernamen noch den Namensteil der E-Mail; kein
 Folge. Dieselbe Prüfung läuft im Browser (Checkliste mit Stärke-Anzeige beim Registrieren) und
 auf dem Server (`shared/src/password.ts`).
 
+## Chat: Reaktionen, Antworten, Ungelesen
+
+Seit 06.11.2026 (Migration `0012_chat_features`, sie markiert alles Vorhandene als gelesen).
+
+| Funktion        | Wie                                                                                                                                                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reaktionen      | `POST /api/messages/:id/reactions` schaltet um, höchstens 20 verschiedene Emoji pro Nachricht, nur echte Emoji (Prüfung in `shared`). Event `message.reactions`                                                                                      |
+| Antworten       | `replyToId` beim Senden, nur im selben Kanal. Wird das Original gelöscht, bleibt die Antwort ohne Zitat (`ON DELETE SET NULL`)                                                                                                                       |
+| Text            | `frontend/src/lib/markdown.tsx` baut React-Elemente, nie HTML; Links nur http(s), `rel="noopener noreferrer nofollow ugc"`. Bewusst ohne Lookbehind-RegExp (ältere Safari würden das ganze Bundle nicht laden)                                       |
+| schreibt gerade | Client-Frame `typing`, alle 3 s beim Tippen. Der Server gibt ihn nur für den abonnierten Kanal weiter, höchstens alle 500 ms, nicht an den Absender. Anzeige 5 s oder bis zur Nachricht                                                              |
+| Ungelesen       | Tabelle `channel_reads`, `GET /api/unread`, `POST /api/channels/:id/read` (rückt nie zurück, nie über die letzte Nachricht hinaus). Event `channel.activity` an den Server, `channel.read` an die eigenen Geräte. Neue Mitglieder zählen ab Beitritt |
+| Erwähnungen     | Vorschläge im Eingabefeld, Zähler `mentions` per Regex auf den Benutzernamen, Antworten zählen mit                                                                                                                                                   |
+| Anpinnen        | `POST /api/messages/:id/pin`, `GET /api/channels/:id/pins`, Server: nur Besitzer, private Chats: alle, höchstens 50                                                                                                                                  |
+| Begrüßung       | Nachricht `kind = 'join'` im ersten Textkanal, ohne Push, zählt nicht als ungelesen, keine Reaktionen                                                                                                                                                |
+| Einladung       | `POST /api/guilds/:id/invite` (`expiresInHours`, `maxUses`, `regenerate`), Zählen und Beitreten in einer Transaktion                                                                                                                                 |
+| Nur im Browser  | Entwürfe (`disslxt:draft:*`, beim Abmelden gelöscht), Befehle (`lib/commands.ts`), Emoji (`lib/emoji.ts`), Kompakt/Schriftgröße/Push-to-Talk/Rauschfilter (`prefs`)                                                                                  |
+
+## Server-Rollen und Moderation
+
+Migration `0013_server_roles`. Die Rollen gelten pro Server und sind getrennt von den
+kontoweiten Rollen `owner`/`admin`/`user` aus dem Admin-Bereich.
+
+- **Rollen** legt nur der Server-Besitzer an und vergibt sie (höchstens 20). Das kann keine Rolle
+  weitergeben, so entsteht keine Rechteausweitung.
+- **Rechte:** `manage_channels`, `manage_messages`, `manage_invites`, `kick_members`,
+  `ban_members`. Der Besitzer hat alle.
+- **Rang:** `position`, niedriger ist höher. Entfernen, Sperren und fremde Nachrichten löschen geht
+  nur bei Mitgliedern unter dem eigenen Rang, nie beim Besitzer. Fremde Nachrichten ändern kann
+  niemand.
+- **Eingeschränkte Kanäle:** `channels.restricted` + `channel_roles`. Ohne passende Rolle gibt es
+  den Kanal nicht (404), auch mit Rechten. `channelVisibleSql` in `permission.service.ts` ist die
+  eine Definition für Listen, Ungelesen und Push; `assertAccess` deckt Lesen, Schreiben, Dateien,
+  Reaktionen und WebSocket ab. `channel.activity` und `voice.state` gehen nur an Berechtigte.
+- **Sofort wirksam:** Jede Änderung ruft `hub.applyChannelAccess`: Sockets verlieren das Abo, wer im
+  Sprachkanal ist, fliegt raus. Danach lädt der Client über `guild.roles-changed` neu.
+- **Sperre:** `guild_bans`; Vorschau und Beitritt melden `BANNED`, auch für Leute, die schon weg sind.
+  Rollen verschwinden mit der Mitgliedschaft (Fremdschlüssel).
+
+## Konto-Sicherheit: Zwei-Faktor, Geräte, Datenexport
+
+Migration `0014_account_security`, neue Variable `TWO_FACTOR_KEY` (32 Byte Base64, siehe
+`.env.example`). Ohne sie lässt sich 2FA nicht einrichten. Geht sie verloren, kommen Betroffene nur
+noch mit Ersatzcodes an ihr Konto, deshalb gehört sie gesichert wie die `.env`.
+
+- **TOTP** nach RFC 6238 (`lib/totp.ts`, ohne Fremdbibliothek): 6 Ziffern, 30 s, ±1 Schritt. Das
+  Geheimnis liegt AES-256-GCM-verschlüsselt in der DB (`lib/secretBox.ts`), ein Dump allein reicht
+  nicht. Ein Code gilt nur einmal (`totp_last_step`).
+- **Anmeldung in zwei Schritten:** `POST /api/auth/login` gibt bei aktivem 2FA nur `{ twoFactor,
+ticket }`, keine Sitzung. `POST /api/auth/login/two-factor` löst das Ticket ein (5 Minuten gültig).
+- **Bremse pro Konto:** Nach 10 falschen Codes 15 Minuten Sperre, unabhängig von IP und Ticket.
+- **Passwort-Reset** meldet Konten mit 2FA nicht mehr an, sonst würde das E-Mail-Postfach allein
+  reichen. Antwort `{ signIn: true }`, offene Tickets verfallen.
+- **Ersatzcodes:** 10 Stück, nur als Hash gespeichert, je einmal nutzbar.
+- **Geräte:** `sessions.device` („Firefox auf Windows"), `last_seen_at` alle 5 Minuten, keine
+  IP-Adresse. `GET /api/account/sessions`, einzeln oder alle anderen abmelden, Sockets gehen sofort zu.
+- **Export:** `GET /api/account/export`, JSON, 3 pro Stunde. Ohne Hashes und Geheimnisse. Dateien
+  erscheinen mit Namen, nicht als Inhalt.
+
+## Sprachnachrichten abschreiben
+
+Optional und lokal: `whisper.cpp` läuft als eigener Container nur am internen Netz `speech`, ohne
+Internet und gehärtet. Einschalten:
+
+```sh
+docker compose --profile whisper up -d --build whisper
+echo 'WHISPER_URL=http://whisper:8080' >> .env
+docker compose up -d backend
+```
+
+Ohne `WHISPER_URL` bleibt alles aus. Der Text landet in `messages.content` und ist damit suchbar.
+
+## Suche und Link-Vorschau
+
+Migration `0016_search_and_link_previews`.
+
+**Suche:** `GET /api/search` über einen GIN-Index auf `to_tsvector('simple', content)`, ohne
+Stemming, weil Deutsch und Englisch gemischt sind. Jedes Wort findet auch längere Wörter. Sichtbar
+ist nur, was man lesen darf (`channelVisibleSql`, Mitgliedschaft).
+
+**Link-Vorschau:** Der Server ruft den ersten Link im Hintergrund ab, nie der Browser. `safeFetch.ts`
+schützt vor SSRF: nur http/https auf Port 80/443, ohne Zugangsdaten. Alle Adressen eines Namens
+werden beim Verbinden geprüft (auch IPv4 in IPv6, Docker, Metadaten-Dienst), Weiterleitungen laufen
+durch dieselbe Prüfung. `LINK_PREVIEWS=false` schaltet es ab.
+
+## Kanäle verwalten
+
+Migration `0015_channel_management`. Alles braucht `manage_channels`, verborgene Kanäle bleiben auch
+dafür 404.
+
+- **Bearbeiten:** `PATCH /api/channels/:id` (Name, Beschreibung, Kategorie).
+- **Löschen:** `DELETE /api/channels/:id` mit dem Namen als Bestätigung. Nachrichten, Dateien und
+  Lesestände gehen mit, Leser und Anrufer fliegen sofort raus. Der letzte offene Textkanal bleibt,
+  weil Neue dort landen und begrüßt werden.
+- **Reihenfolge:** `PUT /api/guilds/:id/channels/order`. Wer nicht alle Kanäle sieht, sortiert nur
+  die sichtbaren, die anderen behalten ihren Platz. Der oberste Textkanal ist der Einstieg und der
+  Ort der Begrüßung.
+- **Kategorien:** `/api/guilds/:id/categories`, höchstens 30. Löschen behält die Kanäle.
+  Zugeklappt wird pro Gerät, offene und ungelesene Kanäle bleiben sichtbar.
+- **Event:** `guild.channels-changed` enthält nur die Server-ID, der Client lädt neu. So verrät es
+  nichts über verborgene Kanäle.
+
 ## Audio-Geräte im Sprachkanal
 
 „Beitreten“ öffnet zuerst ein Menü: Mikrofon wählen (mit Live-Pegel), Ausgabe wählen
@@ -448,7 +551,7 @@ und iOS lassen das nicht zu – dort entscheidet das System (iPhone: Kontrollzen
 
 ## Darstellung (Dark Mode)
 
-Einstellungen → **Darstellung**: _Automatisch_ (folgt dem Gerät), _Hell_ oder _Dunkel_. Gilt pro
+Einstellungen → **Darstellung** oder Schalter unten links: _Dunkel_ (Standard) oder _Hell_. Gilt pro
 Gerät; `/theme-init.js` setzt die Wahl vor dem ersten Zeichnen, damit nichts hell aufblitzt.
 
 **Themes:** acht fertige Farbthemes (Ozean, Wald, Sonnenuntergang, Nord, OLED Schwarz, Sakura, Sand,
@@ -541,4 +644,4 @@ Es werden keine Secrets im Repository gespeichert; `.env` ist in `.gitignore`.
 
 Alle Endpunkte unter `/api`, JSON, Session-Cookie `sid` (httpOnly, SameSite=Lax). Fehlerformat:
 `{ "error": { "code", "message", "details?" } }`. Echtzeit über `GET /ws` (Server→Client-Events,
-Client sendet `subscribe`/`unsubscribe`/`ping`/`visibility` und `voice.*` für Sprachkanäle). Details: `docs/PLAN.md` §3.
+Client sendet `subscribe`/`unsubscribe`/`ping`/`visibility`/`typing` und `voice.*` für Sprachkanäle). Details: `docs/PLAN.md` §3.

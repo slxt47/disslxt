@@ -111,7 +111,6 @@ export function DmView({ dm, onOpenMenu }: { dm: DmChannelDto; onOpenMenu: () =>
 
   // Reading it counts as read; and who is in its call right now (kept current by voice.state).
   useEffect(() => {
-    useChatStore.getState().markDmRead(channelId);
     api.callPeers(channelId).then(
       (r) =>
         useVoiceStore.setState((s) => ({
@@ -181,6 +180,7 @@ export function DmView({ dm, onOpenMenu }: { dm: DmChannelDto; onOpenMenu: () =>
             </>
           ) : null
         }
+        people={dm.members}
         top={
           <>
             {!open && (

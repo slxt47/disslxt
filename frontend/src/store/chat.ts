@@ -1,12 +1,18 @@
 import { create } from 'zustand';
 import type {
+  CategoryDto,
   ChannelDto,
+  EventDto,
   DmChannelDto,
   FriendDto,
   GuildDto,
+  GuildRolesDto,
   MemberDto,
   MessageDto,
+  PollDto,
   PublicUserDto,
+  ReactionDto,
+  UnreadDto,
   WsServerMessage,
 } from '@disslxt/shared';
 import { nameOf } from '../profile';
@@ -64,6 +70,11 @@ function withProfile<T extends { id: string; username: string }>(u: T, p: Public
     : u;
 }
 
+export interface UnreadEntry extends UnreadDto {
+  /** Newest unread message seen here; a read up to it clears the entry. */
+  latestId?: string;
+}
+
 export interface ChatState {
   guilds: GuildDto[];
   guildsLoaded: boolean;
@@ -77,8 +88,15 @@ export interface ChatState {
   /** Private conversations, newest activity first. */
   dms: DmChannelDto[];
   dmsLoaded: boolean;
-  /** Unread messages per private conversation (since this tab was opened). */
-  unreadDms: Record<string, number>;
+  categoriesByGuild: Record<string, CategoryDto[]>;
+  /** Replies of the threads opened in this session, per first message. */
+  threadsByRoot: Record<string, MessageDto[]>;
+  /** Message to scroll to once its channel is open (from the search). */
+  jumpTarget: { channelId: string; messageId: string } | null;
+  /** Roles of the opened servers and what they allow me. */
+  rolesByGuild: Record<string, GuildRolesDto>;
+  /** Unread messages per channel and conversation (from the server, then kept current). */
+  unread: Record<string, UnreadEntry>;
   connection: ConnectionStatus;
   /** Channel whose WS subscription the server has confirmed. */
   subscribedChannelId: string | null;
@@ -86,6 +104,10 @@ export interface ChatState {
   error: string | null;
 
   setGuilds: (guilds: GuildDto[]) => void;
+  setRoles: (guildId: string, roles: GuildRolesDto) => void;
+  setCategories: (guildId: string, categories: CategoryDto[]) => void;
+  setThread: (rootId: string, replies: MessageDto[]) => void;
+  setJumpTarget: (target: { channelId: string; messageId: string } | null) => void;
   upsertGuild: (guild: GuildDto) => void;
   removeGuild: (guildId: string) => void;
   setChannels: (guildId: string, channels: ChannelDto[]) => void;
@@ -103,6 +125,9 @@ export interface ChatState {
   prependOlder: (channelId: string, messages: MessageDto[], hasMore: boolean) => void;
   upsertMessage: (message: MessageDto) => void;
   removeMessage: (channelId: string, messageId: string) => void;
+  setReactions: (channelId: string, messageId: string, reactions: ReactionDto[]) => void;
+  setPoll: (channelId: string, messageId: string, poll: PollDto) => void;
+  setEvent: (channelId: string, messageId: string, event: EventDto) => void;
   setMembers: (guildId: string, members: MemberDto[]) => void;
   setFriends: (friends: FriendDto[]) => void;
   upsertFriend: (friend: FriendDto) => void;
@@ -110,9 +135,18 @@ export interface ChatState {
   setDms: (dms: DmChannelDto[]) => void;
   upsertDm: (dm: DmChannelDto) => void;
   removeDm: (channelId: string) => void;
-  /** New message in a private conversation: moves it up, optionally counting it as unread. */
-  bumpDm: (channelId: string, at: string, unread: boolean) => void;
-  markDmRead: (channelId: string) => void;
+  /** New message in a private conversation: moves it up. */
+  bumpDm: (channelId: string, at: string) => void;
+  setUnread: (unread: UnreadDto[]) => void;
+  /** A message you have not seen yet arrived. */
+  countUnread: (
+    channelId: string,
+    guildId: string | null,
+    messageId: string,
+    mention: boolean,
+  ) => void;
+  /** The channel was read up to this message (null: everything known). */
+  clearUnread: (channelId: string, lastReadId?: string | null) => void;
   setConnection: (status: ConnectionStatus) => void;
   setError: (error: string | null) => void;
   /** Reducer for server → client WS events. `selfId` is the current user's id. */
@@ -131,7 +165,11 @@ const initial = {
   friendsLoaded: false,
   dms: [] as DmChannelDto[],
   dmsLoaded: false,
-  unreadDms: {} as Record<string, number>,
+  rolesByGuild: {} as Record<string, GuildRolesDto>,
+  categoriesByGuild: {} as Record<string, CategoryDto[]>,
+  threadsByRoot: {} as Record<string, MessageDto[]>,
+  jumpTarget: null as { channelId: string; messageId: string } | null,
+  unread: {} as Record<string, UnreadEntry>,
   connection: 'stopped' as ConnectionStatus,
   subscribedChannelId: null as string | null,
   error: null as string | null,
@@ -141,6 +179,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   ...initial,
 
   setGuilds: (guilds) => set({ guilds, guildsLoaded: true }),
+
+  setRoles: (guildId, roles) =>
+    set((s) => ({ rolesByGuild: { ...s.rolesByGuild, [guildId]: roles } })),
+
+  setJumpTarget: (jumpTarget) => set({ jumpTarget }),
+
+  setThread: (rootId, replies) =>
+    set((s) => ({ threadsByRoot: { ...s.threadsByRoot, [rootId]: replies } })),
+
+  setCategories: (guildId, categories) =>
+    set((s) => ({ categoriesByGuild: { ...s.categoriesByGuild, [guildId]: categories } })),
 
   upsertGuild: (guild) =>
     set((s) => {
@@ -216,6 +265,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   upsertMessage: (message) =>
     set((s) => {
+      // Thread replies live in their thread, not in the channel.
+      if (message.threadRootId) {
+        const replies = s.threadsByRoot[message.threadRootId];
+        if (!replies) return {};
+        return {
+          threadsByRoot: {
+            ...s.threadsByRoot,
+            [message.threadRootId]: mergeMessages(replies, [message]),
+          },
+        };
+      }
       const list = s.messagesByChannel[message.channelId];
       // Only track channels that were opened; others are loaded fresh on open.
       if (!list) return {};
@@ -229,12 +289,65 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   removeMessage: (channelId, messageId) =>
     set((s) => {
+      const threadsByRoot = Object.fromEntries(
+        Object.entries(s.threadsByRoot).map(([root, replies]) => [
+          root,
+          replies.filter((m) => m.id !== messageId),
+        ]),
+      );
+      const list = s.messagesByChannel[channelId];
+      if (!list) return { threadsByRoot };
+      return {
+        threadsByRoot,
+        messagesByChannel: {
+          ...s.messagesByChannel,
+          // An answer stays, without the quote of what is gone.
+          [channelId]: list
+            .filter((m) => m.id !== messageId)
+            .map((m) => (m.replyTo?.id === messageId ? { ...m, replyTo: null } : m)),
+        },
+      };
+    }),
+
+  setEvent: (channelId, messageId, event) =>
+    set((s) => {
       const list = s.messagesByChannel[channelId];
       if (!list) return {};
       return {
         messagesByChannel: {
           ...s.messagesByChannel,
-          [channelId]: list.filter((m) => m.id !== messageId),
+          [channelId]: list.map((m) => (m.id === messageId ? { ...m, event } : m)),
+        },
+      };
+    }),
+
+  setPoll: (channelId, messageId, poll) =>
+    set((s) => {
+      const list = s.messagesByChannel[channelId];
+      if (!list) return {};
+      return {
+        messagesByChannel: {
+          ...s.messagesByChannel,
+          [channelId]: list.map((m) => (m.id === messageId ? { ...m, poll } : m)),
+        },
+      };
+    }),
+
+  setReactions: (channelId, messageId, reactions) =>
+    set((s) => {
+      const threadsByRoot = Object.fromEntries(
+        Object.entries(s.threadsByRoot).map(([root, replies]) => [
+          root,
+          replies.map((m) => (m.id === messageId ? { ...m, reactions } : m)),
+        ]),
+      );
+      const list = s.messagesByChannel[channelId];
+      if (!list) return { threadsByRoot };
+      return {
+        threadsByRoot,
+        messagesByChannel: {
+          ...s.messagesByChannel,
+          [channelId]: list.map((m) => (m.id === messageId ? { ...m, reactions } : m)),
         },
       };
     }),
@@ -261,30 +374,50 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   removeDm: (channelId) =>
     set((s) => {
-      const unreadDms = { ...s.unreadDms };
-      delete unreadDms[channelId];
-      return { dms: s.dms.filter((d) => d.channel.id !== channelId), unreadDms };
+      const unread = { ...s.unread };
+      delete unread[channelId];
+      return { dms: s.dms.filter((d) => d.channel.id !== channelId), unread };
     }),
 
-  bumpDm: (channelId, at, unread) =>
+  bumpDm: (channelId, at) =>
     set((s) => {
       if (!s.dms.some((d) => d.channel.id === channelId)) return {};
       return {
         dms: sortDms(
           s.dms.map((d) => (d.channel.id === channelId ? { ...d, lastMessageAt: at } : d)),
         ),
-        unreadDms: unread
-          ? { ...s.unreadDms, [channelId]: (s.unreadDms[channelId] ?? 0) + 1 }
-          : s.unreadDms,
       };
     }),
 
-  markDmRead: (channelId) =>
+  setUnread: (list) => set({ unread: Object.fromEntries(list.map((u) => [u.channelId, u])) }),
+
+  countUnread: (channelId, guildId, messageId, mention) =>
     set((s) => {
-      if (!s.unreadDms[channelId]) return {};
-      const unreadDms = { ...s.unreadDms };
-      delete unreadDms[channelId];
-      return { unreadDms };
+      const old = s.unread[channelId];
+      return {
+        unread: {
+          ...s.unread,
+          [channelId]: {
+            channelId,
+            guildId,
+            count: (old?.count ?? 0) + 1,
+            mentions: (old?.mentions ?? 0) + (mention ? 1 : 0),
+            lastReadId: old?.lastReadId ?? '0',
+            latestId: messageId,
+          },
+        },
+      };
+    }),
+
+  clearUnread: (channelId, lastReadId = null) =>
+    set((s) => {
+      const entry = s.unread[channelId];
+      if (!entry) return {};
+      // Read on another device, but something newer arrived here since: it stays unread.
+      if (lastReadId && entry.latestId && compareIds(lastReadId, entry.latestId) < 0) return {};
+      const unread = { ...s.unread };
+      delete unread[channelId];
+      return { unread };
     }),
 
   setConnection: (connection) =>
@@ -304,6 +437,21 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         return;
       case 'message.deleted':
         s.removeMessage(event.data.channelId, event.data.id);
+        return;
+      case 'message.reactions':
+        s.setReactions(event.data.channelId, event.data.id, event.data.reactions);
+        return;
+      case 'message.event':
+        s.setEvent(event.data.channelId, event.data.id, event.data.event);
+        return;
+      case 'reminder':
+        set({ error: `⏰ ${event.data.text}` });
+        return;
+      case 'message.poll':
+        s.setPoll(event.data.channelId, event.data.id, event.data.poll);
+        return;
+      case 'channel.read':
+        s.clearUnread(event.data.channelId, event.data.lastReadId);
         return;
       case 'subscribed':
         set({ subscribedChannelId: event.data.channelId });
@@ -393,6 +541,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         const { guildId, userId } = event.data;
         if (userId === selfId) {
           s.removeGuild(guildId);
+          if (event.data.reason) {
+            set({
+              error:
+                event.data.reason === 'banned'
+                  ? 'Du wurdest von diesem Server gesperrt.'
+                  : 'Du wurdest vom Server entfernt.',
+            });
+          }
           return;
         }
         const list = s.membersByGuild[guildId];

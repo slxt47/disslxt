@@ -19,7 +19,7 @@ export function HomeSidebar({
   onOpenSettings: () => void;
 }) {
   const dms = useChatStore((s) => s.dms);
-  const unread = useChatStore((s) => s.unreadDms);
+  const unread = useChatStore((s) => s.unread);
   const requests = useChatStore((s) => s.friends.filter((f) => f.status === 'incoming').length);
   const participants = useVoiceStore((s) => s.participants);
   const [creating, setCreating] = useState(false);
@@ -73,7 +73,7 @@ export function HomeSidebar({
               const id = dm.channel.id;
               const name = conversationName(dm);
               const group = dm.channel.kind === 'group';
-              const count = unread[id] ?? 0;
+              const count = unread[id]?.count ?? 0;
               const calling = (participants[id]?.length ?? 0) > 0;
               return (
                 <li key={id}>

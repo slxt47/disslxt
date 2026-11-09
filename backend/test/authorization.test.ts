@@ -73,18 +73,13 @@ describe('non-members get 403 on every guild, channel and message endpoint', () 
 });
 
 describe('message author checks', () => {
-  it('M3/M4 by a non-author member (even the guild owner) → 403 NOT_AUTHOR', async () => {
-    for (const [method, payload] of [
-      ['PATCH', { content: 'x' }],
-      ['DELETE', undefined],
-    ] as const) {
-      const res = await req(app, method, `/api/messages/${messageId}`, {
-        cookie: owner.cookie,
-        payload,
-      });
-      expect(res.statusCode).toBe(403);
-      expect(res.json().error.code).toBe('NOT_AUTHOR');
-    }
+  it('M3 by a non-author member (even the guild owner) → 403 NOT_AUTHOR', async () => {
+    const res = await req(app, 'PATCH', `/api/messages/${messageId}`, {
+      cookie: owner.cookie,
+      payload: { content: 'x' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('NOT_AUTHOR');
   });
 });
 

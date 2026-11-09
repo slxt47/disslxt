@@ -18,6 +18,8 @@ export const MAX_FRAME_BYTES = 16 * 1024;
  */
 const MAX_SIGNALS_PER_SECOND = 300;
 const MAX_CONTROL_FRAMES_PER_SECOND = 30;
+/** One "is typing" per socket in this time; the rest is dropped. */
+const TYPING_MIN_GAP_MS = 500;
 
 /**
  * GET /ws — authenticated WebSocket. Origin and the `sid` cookie are checked on upgrade; on failure
@@ -157,6 +159,23 @@ export async function wsRoutes(
       case 'visibility':
         client.visible = msg.data.visible;
         return;
+      case 'typing': {
+        // Only for the channel the socket is subscribed to, which the server has checked.
+        const { channelId } = msg.data;
+        const now = Date.now();
+        if (client.channel?.id !== channelId) return;
+        if (now - (client.lastTypingAt ?? 0) < TYPING_MIN_GAP_MS) return;
+        client.lastTypingAt = now;
+        hub.publishToChannelExcept(channelId, client, {
+          type: 'typing',
+          data: {
+            channelId,
+            userId: client.userId,
+            name: client.displayName ?? client.username,
+          },
+        });
+        return;
+      }
       case 'voice.leave':
         hub.leaveVoice(client, 'left');
         return;
@@ -164,7 +183,7 @@ export async function wsRoutes(
         hub.setVoiceMuted(client, msg.data.muted);
         return;
       case 'voice.video':
-        hub.setVoiceVideo(client, msg.data.video);
+        hub.setVoiceVideo(client, msg.data.video, !!msg.data.screen);
         return;
       case 'call.decline': {
         const { channelId } = msg.data;
@@ -204,7 +223,16 @@ export async function wsRoutes(
           if (client.socket.readyState !== client.socket.OPEN) return;
           const video = !!msg.data.video;
           const group = channel.kind === 'group';
-          const result = hub.joinVoice(client, channel, { video, audience, group });
+          const visibleTo = (await services.channels.audience(channel)) ?? undefined;
+          if (client.socket.readyState !== client.socket.OPEN) return;
+          const screen = !!msg.data.screen;
+          const result = hub.joinVoice(client, channel, {
+            video,
+            screen,
+            audience,
+            group,
+            visibleTo,
+          });
           if (!result.ok) {
             sendTo(client, {
               type: 'error',

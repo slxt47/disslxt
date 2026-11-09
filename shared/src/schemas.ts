@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   BADGES_SHOWN_MAX,
+  CATEGORY_NAME_MAX_LEN,
+  CHANNEL_DESCRIPTION_MAX_LEN,
   CHANNEL_NAME_MAX_LEN,
   DISPLAY_NAME_MAX_LEN,
   STATUS_TEXT_MAX_LEN,
@@ -8,12 +10,20 @@ import {
   GROUP_NAME_MAX_LEN,
   EMAIL_MAX_LEN,
   GUILD_NAME_MAX_LEN,
+  GUILD_PERMISSIONS,
+  INVITE_MAX_HOURS,
+  INVITE_MAX_USES_LIMIT,
   MESSAGE_MAX_LEN,
   NEXT_PATH_MAX_LEN,
   PAGE_DEFAULT,
   PAGE_MAX,
   PASSWORD_MAX_LEN,
   PASSWORD_MIN_LEN,
+  POLL_OPTION_MAX_LEN,
+  POLL_OPTIONS_MAX,
+  POLL_QUESTION_MAX_LEN,
+  ROLE_NAME_MAX_LEN,
+  ROLES_PER_GUILD_MAX,
   USERNAME_MAX_LEN,
   USERNAME_MIN_LEN,
 } from './constants.js';
@@ -85,6 +95,43 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
+
+/** Six digits from the app, or a recovery code. */
+export const twoFactorCodeSchema = z
+  .string()
+  .trim()
+  .min(6, 'Code fehlt')
+  .max(32)
+  .regex(/^[A-Za-z0-9 -]+$/, 'Ungültiger Code');
+
+export const loginTwoFactorSchema = z.object({
+  ticket: z.string().min(1).max(128),
+  code: twoFactorCodeSchema,
+});
+
+/** The answer of a device; its signature is checked in full on the server. */
+const passkeyResponse = z.object({ id: z.string().min(1).max(1024) }).passthrough();
+
+export const passkeyLoginSchema = z.object({
+  challengeId: z.string().uuid(),
+  response: passkeyResponse,
+});
+
+export const passkeyAddSchema = passkeyLoginSchema.extend({
+  name: z.string().trim().min(1, 'Name fehlt').max(64),
+});
+
+export const passwordConfirmSchema = z.object({
+  password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
+});
+
+export const enableTwoFactorSchema = z.object({ code: twoFactorCodeSchema });
+
+/** Switching off or new recovery codes: password and second factor. */
+export const confirmTwoFactorSchema = z.object({
+  password: z.string().min(1, 'Passwort fehlt').max(PASSWORD_MAX_LEN),
+  code: twoFactorCodeSchema,
+});
 
 /** Deleting your own account: the current password confirms it is really you. */
 export const deleteAccountSchema = z.object({
@@ -242,6 +289,49 @@ export const createChannelSchema = z.object({
 });
 export type CreateChannelInput = z.infer<typeof createChannelSchema>;
 
+/** Empty description: none. */
+export const updateChannelSchema = z.object({
+  name: channelNameSchema.optional(),
+  description: z
+    .string()
+    .trim()
+    .refine(
+      (s) => textLength(s) <= CHANNEL_DESCRIPTION_MAX_LEN,
+      `Beschreibung: höchstens ${CHANNEL_DESCRIPTION_MAX_LEN} Zeichen`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Beschreibung enthält unzulässige Steuerzeichen')
+    .optional(),
+  categoryId: z.guid().nullable().optional(),
+});
+export type UpdateChannelInput = z.infer<typeof updateChannelSchema>;
+
+/** The channel's name again: deleting it takes all its messages. */
+export const deleteChannelSchema = z.object({ name: z.string().min(1).max(64) });
+
+export const categorySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name fehlt')
+    .refine(
+      (s) => textLength(s) <= CATEGORY_NAME_MAX_LEN,
+      `Name: höchstens ${CATEGORY_NAME_MAX_LEN} Zeichen`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Name enthält unzulässige Steuerzeichen'),
+});
+
+/** New order: top to bottom, each with its category. */
+export const channelOrderSchema = z.object({
+  channels: z
+    .array(z.object({ id: z.guid(), categoryId: z.guid().nullable() }))
+    .max(500)
+    .refine(
+      (list) => new Set(list.map((c) => c.id)).size === list.length,
+      'Jeder Kanal nur einmal',
+    ),
+});
+export const categoryOrderSchema = z.object({ categoryIds: z.array(z.guid()).max(100) });
+
 export const messageContentSchema = z
   .string()
   .trim()
@@ -252,12 +342,6 @@ export const messageContentSchema = z
   )
   .refine((s) => !MESSAGE_DISALLOWED_CHARS.test(s), 'Nachricht enthält unzulässige Steuerzeichen');
 
-export const sendMessageSchema = z.object({ content: messageContentSchema });
-export type SendMessageInput = z.infer<typeof sendMessageSchema>;
-
-export const editMessageSchema = z.object({ content: messageContentSchema });
-export type EditMessageInput = z.infer<typeof editMessageSchema>;
-
 /** Message ids are bigint, transported as decimal strings. */
 const BIGINT_MAX = 9223372036854775807n;
 export const messageIdSchema = z
@@ -265,11 +349,144 @@ export const messageIdSchema = z
   .regex(/^[1-9][0-9]{0,18}$/, 'Ungültige Nachrichten-ID')
   .refine((s) => !/^\d+$/.test(s) || BigInt(s) <= BIGINT_MAX, 'Ungültige Nachrichten-ID');
 
+export const sendMessageSchema = z.object({
+  content: messageContentSchema,
+  /** The message this one answers (it must be in the same channel). */
+  replyToId: messageIdSchema.optional(),
+  /** Writes into the thread of this message. */
+  threadRootId: messageIdSchema.optional(),
+});
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+
+export const editMessageSchema = z.object({ content: messageContentSchema });
+export type EditMessageInput = z.infer<typeof editMessageSchema>;
+
 export const listMessagesQuery = z.object({
   before: messageIdSchema.optional(),
   limit: z.coerce.number().int().min(1).max(PAGE_MAX).default(PAGE_DEFAULT),
 });
 export type ListMessagesQuery = z.infer<typeof listMessagesQuery>;
+
+/** Words (each also found as the start of a longer word) and optional limits. */
+export const searchQuery = z.object({
+  q: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(100),
+  /** A server, a single channel or conversation, or just private conversations. */
+  guildId: z.guid().optional(),
+  channelId: z.guid().optional(),
+  privateOnly: z.coerce.boolean().optional(),
+  authorId: z.guid().optional(),
+  after: z.iso.date().optional(),
+  until: z.iso.date().optional(),
+  /** Next page: results older than this message. */
+  beforeId: messageIdSchema.optional(),
+});
+export type SearchQuery = z.infer<typeof searchQuery>;
+
+/** Emoji (with skin tones, flags, keycaps and sequences), nothing else. */
+const EMOJI_RE =
+  // Sequences are what this class is for, the rule does not fit here.
+  // eslint-disable-next-line no-misleading-character-class
+  /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3)[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\uFE0F\u200D\u20E3]*$/u;
+export const reactionSchema = z.object({
+  emoji: z
+    .string()
+    .refine((s) => textLength(s) <= 16 && EMOJI_RE.test(s), 'Nur Emoji sind als Reaktion möglich'),
+});
+
+const pollText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} fehlt`)
+    .refine((s) => textLength(s) <= max, `${label}: höchstens ${max} Zeichen`)
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), `${label} enthält unzulässige Steuerzeichen`);
+
+export const createPollSchema = z.object({
+  question: pollText(POLL_QUESTION_MAX_LEN, 'Frage'),
+  options: z
+    .array(pollText(POLL_OPTION_MAX_LEN, 'Antwort'))
+    .min(2, 'Mindestens zwei Antworten')
+    .max(POLL_OPTIONS_MAX, `Höchstens ${POLL_OPTIONS_MAX} Antworten`),
+  multiple: z.boolean().default(false),
+});
+export type CreatePollInput = z.infer<typeof createPollSchema>;
+
+export const voteSchema = z.object({
+  option: z
+    .number()
+    .int()
+    .min(0)
+    .max(POLL_OPTIONS_MAX - 1),
+});
+
+const inFuture = z.iso
+  .datetime({ offset: true })
+  .refine(
+    (s) => new Date(s).getTime() > Date.now() - 60_000,
+    'Der Zeitpunkt liegt in der Vergangenheit',
+  )
+  .refine(
+    (s) => new Date(s).getTime() < Date.now() + 366 * 86_400_000,
+    'Höchstens ein Jahr im Voraus',
+  );
+
+export const scheduleSchema = z.object({
+  kind: z.enum(['send', 'remind']),
+  content: messageContentSchema,
+  sendAt: inFuture,
+});
+export type ScheduleInput = z.infer<typeof scheduleSchema>;
+
+export const createEventSchema = z.object({
+  title: pollText(POLL_QUESTION_MAX_LEN, 'Titel'),
+  startsAt: inFuture,
+});
+
+export const rsvpSchema = z.object({ answer: z.enum(['yes', 'maybe', 'no']).nullable() });
+
+export const createWebhookSchema = z.object({ name: pollText(32, 'Name') });
+
+export const pinSchema = z.object({ pinned: z.boolean() });
+
+export const markReadSchema = z.object({ messageId: messageIdSchema });
+
+const roleFields = {
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name fehlt')
+    .refine(
+      (s) => textLength(s) <= ROLE_NAME_MAX_LEN,
+      `Name: höchstens ${ROLE_NAME_MAX_LEN} Zeichen`,
+    )
+    .refine((s) => !NAME_DISALLOWED_CHARS.test(s), 'Name enthält unzulässige Steuerzeichen'),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Farbe als #rrggbb')
+    .nullable(),
+  permissions: z.array(z.enum(GUILD_PERMISSIONS)).max(GUILD_PERMISSIONS.length),
+};
+export const createRoleSchema = z.object(roleFields);
+export type RoleInput = z.infer<typeof createRoleSchema>;
+export const updateRoleSchema = z.object(roleFields).partial();
+
+const roleIds = z
+  .array(z.guid())
+  .max(ROLES_PER_GUILD_MAX)
+  .refine((ids) => new Set(ids).size === ids.length, 'Jede Rolle nur einmal');
+export const roleOrderSchema = z.object({ roleIds });
+export const memberRolesSchema = z.object({ roleIds });
+/** Who sees a channel: `restricted` false means the whole server. */
+export const channelAccessSchema = z.object({ restricted: z.boolean(), roleIds });
+export const banSchema = z.object({ userId: z.guid() });
+
+/** Owner: limits of the invite link; `regenerate` makes the old link stop working. */
+export const inviteSettingsSchema = z.object({
+  expiresInHours: z.number().int().min(1).max(INVITE_MAX_HOURS).nullable(),
+  maxUses: z.number().int().min(1).max(INVITE_MAX_USES_LIMIT).nullable(),
+  regenerate: z.boolean().default(false),
+});
+export type InviteSettingsInput = z.infer<typeof inviteSettingsSchema>;
 
 export const inviteCodeSchema = z
   .string()

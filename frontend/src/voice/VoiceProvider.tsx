@@ -31,6 +31,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       send: (msg) => realtime.send(msg),
       iceServers: () => api.iceServers().then((r) => r.iceServers),
       getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+      getDisplayMedia: screenShareSupported()
+        ? (options) => navigator.mediaDevices.getDisplayMedia(options)
+        : undefined,
       createPeerConnection: (config) => new RTCPeerConnection(config),
       createAudio: () => {
         const audio = document.createElement('audio');
@@ -62,4 +65,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
 export function voiceSupported(): boolean {
   return typeof RTCPeerConnection !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+}
+
+/** Desktop browsers; phones and tablets cannot capture the screen from a web page. */
+export function screenShareSupported(): boolean {
+  return typeof navigator.mediaDevices?.getDisplayMedia === 'function';
 }

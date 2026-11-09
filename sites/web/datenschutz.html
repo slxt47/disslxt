@@ -5,23 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Datenschutz - disslxt</title>
     <link rel="icon" href="/_/web-icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/_/site.css" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b0e2a" />
+    <script src="/_/modus.js?v=4"></script>
+    <link rel="stylesheet" href="/_/slxt.css?v=5" />
+    <script src="/_/himmel.js?v=1" defer></script>
   </head>
   <body>
     <a class="skip" href="#inhalt">Zum Inhalt springen</a>
-    <header class="top solid">
+    <header class="top">
       <div class="wrap">
         <a class="brand" href="/"><img src="/_/web-icon.svg" alt="" />disslxt</a>
         <nav aria-label="Hauptmenü">
           <a href="/">Start</a>
           <a href="https://disslxt-hilfe.slxt.org/">Hilfe</a>
         </nav>
+        <button type="button" class="modus-knopf" data-modus-schalter></button>
       </div>
     </header>
 
     <main id="inhalt" class="legal">
       <h1>Datenschutzerklärung</h1>
-      <p class="stand">Stand: 29. Oktober 2026</p>
+      <p class="stand">Stand: 6. November 2026</p>
       <p>
         Diese Erklärung gilt für den Chat-Dienst disslxt (die App) sowie für diese Produktseite und
         die Hilfe-Seiten. Kurz gesagt: Wir verarbeiten nur, was für den Betrieb nötig ist, setzen
@@ -61,28 +66,39 @@
       </p>
       <h3>3.2 Inhalte</h3>
       <p>
-        Nachrichten, Bilder, Dateien, GIF-Auswahlen und Sprachnachrichten, die du schickst, werden
-        gespeichert, damit die Empfänger sie lesen können – bis du sie löschst, den Server bzw. die
-        Gruppe löschst oder dein Konto gelöscht wird. Gespeichert werden außerdem Server, Kanäle,
-        Mitgliedschaften, Freundschaften und Benachrichtigungs-Einstellungen. Alles wird
+        Nachrichten, Reaktionen, Bilder, Dateien, GIF-Auswahlen und Sprachnachrichten, die du
+        schickst, werden gespeichert, damit die Empfänger sie lesen können – bis du sie löschst, den
+        Server bzw. die Gruppe löschst oder dein Konto gelöscht wird. Damit du auf jedem Gerät
+        siehst, was neu ist, wird pro Kanal gespeichert, bis zu welcher Nachricht du gelesen hast;
+        das sieht niemand außer dir. Gespeichert werden außerdem Server, Kanäle, Mitgliedschaften,
+        Rollen, Sperren auf Servern, Freundschaften und Benachrichtigungs-Einstellungen. Alles wird
         verschlüsselt übertragen; auf dem Server liegen die Inhalte aber lesbar, disslxt ist also
-        nicht Ende-zu-Ende-verschlüsselt.
+        nicht Ende-zu-Ende-verschlüsselt. Sprachnachrichten schreibt ein Programm auf unserem
+        eigenen Server ab, die Aufnahme geht dabei an niemanden sonst. Der Text wird mit der
+        Nachricht gespeichert und gelöscht. Enthält eine Nachricht einen Link, ruft unser Server
+        diese Seite einmal ab, um eine Vorschau zu zeigen. Die Seite sieht dabei nur die Adresse
+        unseres Servers, nicht deine. Titel, Text und Bild der Vorschau speichern wir, solange eine
+        Nachricht sie nutzt.
       </p>
       <h3>3.3 Anmeldung und Sicherheit</h3>
       <p>
         Nach der Anmeldung setzt disslxt ein einziges, technisch notwendiges Cookie
-        (Sitzungs-Cookie, <code>HttpOnly</code>, gültig bis zu 30 Tage). Es gibt keine Tracking-
-        oder Werbe-Cookies, daher ist kein Cookie-Banner nötig. Zum Schutz vor Missbrauch (z. B.
-        erratenen Passwörtern) wird deine IP-Adresse kurzzeitig im Arbeitsspeicher für die
-        Begrenzung von Anfragen genutzt. Technische Server-Protokolle können IP-Adressen enthalten;
-        sie haben eine feste Höchstgröße und werden laufend überschrieben. Rechtsgrundlage: Art. 6
-        Abs. 1 lit. b und f DSGVO.
+        (Sitzungs-Cookie, <code>HttpOnly</code>, gültig bis zu 30 Tage). Pro Sitzung speichern wir
+        Browser, System und Zeitpunkt der letzten Aktivität, damit du deine Geräte erkennst, keine
+        IP-Adresse. Bei aktiver Zwei-Faktor-Anmeldung kommen das verschlüsselte Geheimnis und die
+        Hashes der Ersatzcodes dazu, bei Passkeys der öffentliche Schlüssel, der von dir vergebene
+        Name und der Zeitpunkt der letzten Nutzung. Es gibt keine Tracking- oder Werbe-Cookies,
+        daher ist kein Cookie-Banner nötig. Zum Schutz vor Missbrauch (z. B. erratenen Passwörtern)
+        wird deine IP-Adresse kurzzeitig im Arbeitsspeicher für die Begrenzung von Anfragen genutzt.
+        Technische Server-Protokolle können IP-Adressen enthalten; sie haben eine feste Höchstgröße
+        und werden laufend überschrieben. Rechtsgrundlage: Art. 6 Abs. 1 lit. b und f DSGVO.
       </p>
       <p>
-        Im Browser speichert disslxt deine Einstellungen (z. B. Theme, Sprache, Audio-Geräte) im
-        lokalen Speicher deines Geräts. Diese Daten verlassen dein Gerät nicht. Nach § 165 Abs. 3
-        TKG 2021 bzw. Art. 5 Abs. 3 der ePrivacy-Richtlinie ist dafür keine Einwilligung nötig, weil
-        sie für den von dir gewünschten Dienst unbedingt erforderlich sind.
+        Im Browser speichert disslxt deine Einstellungen (z. B. Theme, Sprache, Audio-Geräte) und
+        noch nicht gesendete Entwürfe im lokalen Speicher deines Geräts. Diese Daten verlassen dein
+        Gerät nicht, Entwürfe werden beim Abmelden gelöscht. Nach § 165 Abs. 3 TKG 2021 bzw. Art. 5
+        Abs. 3 der ePrivacy-Richtlinie ist dafür keine Einwilligung nötig, weil sie für den von dir
+        gewünschten Dienst unbedingt erforderlich sind.
       </p>
       <h3>3.4 E-Mails</h3>
       <p>
@@ -181,12 +197,14 @@
         Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17),
         Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch
         gegen Verarbeitungen auf Grundlage berechtigter Interessen (Art. 21). Profil, Status und
-        Nachrichten kannst du direkt in der App ändern oder löschen. Dein ganzes Konto löschst du
-        selbst unter <em>Einstellungen › Konto › Konto löschen</em>: Profil, alle deine Nachrichten
-        und Dateien (auch in fremden Servern), private Chats, Freundschaften und die Server, die dir
-        gehören, werden sofort gelöscht; aus den Backups verschwinden sie nach spätestens 8 Wochen.
-        Für eine Auskunft oder andere Anliegen genügt eine E-Mail an die oben genannte Adresse von
-        der Adresse aus, mit der du registriert bist.
+        Nachrichten kannst du direkt in der App ändern oder löschen. Eine Kopie deiner Daten lädst
+        du unter <em>Einstellungen › Sicherheit › Daten herunterladen</em> herunter (Art. 15 und 20
+        DSGVO). Dein ganzes Konto löschst du selbst unter
+        <em>Einstellungen › Konto › Konto löschen</em>: Profil, alle deine Nachrichten und Dateien
+        (auch in fremden Servern), private Chats, Freundschaften und die Server, die dir gehören,
+        werden sofort gelöscht; aus den Backups verschwinden sie nach spätestens 8 Wochen. Für eine
+        Auskunft oder andere Anliegen genügt eine E-Mail an die oben genannte Adresse von der
+        Adresse aus, mit der du registriert bist.
       </p>
       <p>
         Wenn du meinst, dass die Verarbeitung deiner Daten gegen Datenschutzrecht verstößt, kannst
@@ -214,6 +232,7 @@
           <a href="https://disslxt-hilfe.slxt.org/">Hilfe</a>
           <a href="/impressum.html">Impressum</a>
           <a href="/datenschutz.html" aria-current="page">Datenschutz</a>
+          <a href="/nutzungsbedingungen.html">Nutzungsbedingungen</a>
         </nav>
       </div>
     </footer>

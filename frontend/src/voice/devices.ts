@@ -1,3 +1,5 @@
+import { usePrefs } from '../store/prefs';
+
 /** Microphone / speaker selection helpers. */
 
 /** Choosing the output device needs HTMLMediaElement.setSinkId (not in Safari / iOS). */
@@ -8,7 +10,7 @@ export function outputSelectable(): boolean {
 export function audioConstraints(inputId: string): MediaTrackConstraints {
   return {
     echoCancellation: true,
-    noiseSuppression: true,
+    noiseSuppression: usePrefs.getState().noiseSuppression,
     autoGainControl: true,
     // "ideal": a remembered device that is gone (headset unplugged) falls back to the default.
     ...(inputId ? { deviceId: { ideal: inputId } } : {}),

@@ -20,7 +20,9 @@ export function ServerList({
   home?: boolean;
 }) {
   const guilds = useChatStore((s) => s.guilds);
-  const unread = useChatStore((s) => Object.values(s.unreadDms).reduce((a, b) => a + b, 0));
+  const unreadByChannel = useChatStore((s) => s.unread);
+  const entries = Object.values(unreadByChannel);
+  const unread = entries.filter((u) => !u.guildId).reduce((n, u) => n + u.count, 0);
   const requests = useChatStore((s) => s.friends.filter((f) => f.status === 'incoming').length);
   const badge = unread + requests;
   const channelsByGuild = useChatStore((s) => s.channelsByGuild);
@@ -47,18 +49,33 @@ export function ServerList({
         {guilds.map((g) => {
           const first = channelsByGuild[g.id]?.[0];
           const to = first ? `/guilds/${g.id}/channels/${first.id}` : `/guilds/${g.id}`;
+          const news = entries.filter((u) => u.guildId === g.id);
+          const count = news.reduce((n, u) => n + u.count, 0);
+          const mentions = news.reduce((n, u) => n + u.mentions, 0);
           return (
-            <li key={g.id}>
+            <li key={g.id} className={count > 0 ? 'has-unread' : undefined}>
               <Link
                 to={to}
                 className={`guild-icon${g.id === activeGuildId ? ' active' : ''}${g.iconUrl ? ' has-image' : ''}`}
                 data-testid={`guild-item-${g.id}`}
                 title={g.name}
-                aria-label={g.name}
                 style={{ '--hue': nameHue(g.name) } as CSSProperties}
                 aria-current={g.id === activeGuildId ? 'page' : undefined}
               >
-                {g.iconUrl ? <img src={g.iconUrl} alt="" /> : guildInitials(g.name)}
+                {g.iconUrl ? (
+                  <img src={g.iconUrl} alt="" />
+                ) : (
+                  <span aria-hidden="true">{guildInitials(g.name)}</span>
+                )}
+                <span className="sr-only">
+                  {g.name}
+                  {count ? ` – ${count} ungelesen` : ''}
+                </span>
+                {mentions > 0 && (
+                  <span className="badge" data-testid={`guild-mentions-${g.id}`} aria-hidden="true">
+                    {mentions > 99 ? '99+' : mentions}
+                  </span>
+                )}
               </Link>
             </li>
           );
